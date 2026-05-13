@@ -95,8 +95,13 @@ export default {
     async loadDesktopPolicy () {
       try {
         const res = await getDesktopBrokersPolicy()
-        const allowed = (res && (res.data || res)) || {}
-        this.desktopBrokersAllowed = !!(allowed.allowed || allowed.allow || allowed.enabled)
+        const payload = (res && (res.data || res)) || {}
+        const flag = payload.allow_local_desktop_brokers
+        if (flag === undefined || flag === null) {
+          this.desktopBrokersAllowed = !!(payload.allowed || payload.allow || payload.enabled)
+        } else {
+          this.desktopBrokersAllowed = !!flag
+        }
       } catch (_) {
         this.desktopBrokersAllowed = true
       } finally {

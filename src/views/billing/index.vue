@@ -17,11 +17,14 @@
         <div class="snap-item">
           <div class="snap-label">{{ $t('billing.snapshot.vip') }}</div>
           <div class="snap-value">
-            <a-tag v-if="billing.is_vip" color="gold">
+            <a-tag v-if="billing.is_lifetime" color="purple">
+              <a-icon type="crown" /> {{ $t('billing.snapshot.lifetime') || 'Lifetime' }}
+            </a-tag>
+            <a-tag v-else-if="billing.is_vip" color="gold">
               <a-icon type="crown" /> VIP
             </a-tag>
             <a-tag v-else>{{ $t('billing.snapshot.notVip') }}</a-tag>
-            <span v-if="billing.vip_expires_at" class="vip-exp">
+            <span v-if="billing.vip_expires_at && !billing.is_lifetime" class="vip-exp">
               {{ $t('billing.snapshot.expires') }}: {{ formatDate(billing.vip_expires_at) }}
             </span>
           </div>
@@ -35,6 +38,14 @@
         :description="$t('billing.vipRule.desc')"
       />
     </a-card>
+
+    <a-alert
+      v-if="billing.is_lifetime"
+      style="margin-top: 16px;"
+      type="success"
+      show-icon
+      :message="$t('billing.lifetimeTopupHint') || '你已是永久会员，购买月度/年度套餐相当于补充积分包，不影响永久会员状态。'"
+    />
 
     <a-row :gutter="16" style="margin-top: 16px;">
       <a-col :xs="24" :md="8">
@@ -420,6 +431,7 @@ export default {
       billing: {
         credits: 0,
         is_vip: false,
+        is_lifetime: false,
         vip_expires_at: null
       },
       plans: {

@@ -317,6 +317,28 @@
                 </a-col>
               </a-row>
             </a-form>
+
+            <!-- Brand group footer: commercial license notice. Shown only
+                 under "Brand & Identity" so it's visible right where an
+                 operator sets up their fork. Single official email channel
+                 to avoid impersonation risk via informal IM handles. -->
+            <div v-if="activeGroupKey === 'brand'" class="commercial-license-notice">
+              <a-alert
+                type="warning"
+                show-icon
+                :message="$t('settings.commercialLicense.title') || '商业化运营需取得商业授权'"
+              >
+                <div slot="description" class="license-body">
+                  <p>{{ $t('settings.commercialLicense.body') || 'QuantDinger 仅供个人学习与研究使用。若您计划将本系统用于任何形式的商业化运营（包括但不限于对外提供 SaaS 服务、二次销售、代客交易、付费咨询等），必须事先获得官方书面商业授权，否则我们将依法追究相应法律责任。' }}</p>
+                  <p class="license-contact">
+                    <span class="contact-label">{{ $t('settings.commercialLicense.contactLabel') || '商务合作联系方式' }}：</span>
+                    <a href="mailto:support@quantdinger.com" class="contact-link">
+                      <a-icon type="mail" /> support@quantdinger.com
+                    </a>
+                  </p>
+                </div>
+              </a-alert>
+            </div>
           </div>
         </section>
       </div>
@@ -827,6 +849,50 @@ export default {
     }
   }
 
+  // 商业授权提示（Brand 分组底部）
+  .commercial-license-notice {
+    margin-top: 24px;
+
+    .license-body {
+      margin-top: 4px;
+      line-height: 1.7;
+      color: #5c4a16;
+
+      p {
+        margin: 0 0 8px 0;
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .license-contact {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .contact-label {
+      font-weight: 600;
+    }
+
+    .contact-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #1890ff;
+      text-decoration: none;
+
+      &:hover {
+        color: #096dd9;
+        text-decoration: underline;
+      }
+    }
+  }
+
   // OpenRouter 余额查询卡片
   .openrouter-balance-card {
     margin-bottom: 20px;
@@ -988,6 +1054,16 @@ export default {
     .restart-alert {
       background: #1c1c1c;
       border-color: #b08800;
+    }
+
+    .commercial-license-notice {
+      .license-body {
+        color: #f0d97a;
+      }
+      .contact-link {
+        color: #69c0ff;
+        &:hover { color: #91d5ff; }
+      }
     }
 
     .settings-header {
