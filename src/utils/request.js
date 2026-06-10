@@ -79,7 +79,43 @@ function getBackendErrorMessage (error) {
   return data.msg || data.message || data.error || ''
 }
 
-function normalizeBusinessErrorMessage (message) {
+function normalizeBacktestRangeLimitError (error) {
+  const envelope = error && error.response && error.response.data
+  const details = envelope && envelope.data
+  if (!details || details.error_type !== 'BACKTEST_RANGE_LIMIT') return ''
+  const values = {
+    market: details.market || '',
+    symbol: details.symbol || '',
+    timeframe: details.timeframe || '',
+    maxRange: details.max_range || details.max_days || '',
+    maxDays: details.max_days || '',
+    fetchDays: details.fetch_days || '',
+    warmupBars: details.warmup_bars || 0,
+    requestedStart: details.requested_start || '',
+    requestedEnd: details.requested_end || '',
+    recommendedStart: details.recommended_start || '',
+    recommendedEnd: details.recommended_end || ''
+  }
+  values.warmupNote = Number(values.warmupBars) > 0
+    ? tf('request.backtestRangeLimitWarmup', ' including {warmupBars} warmup bars', values)
+    : ''
+  if (details.recommendation_available === false || !values.recommendedStart || !values.recommendedEnd) {
+    return tf(
+      'request.backtestRangeLimitNoSuggestion',
+      'Backtest range is too long for {market}:{symbol} {timeframe}. This provider supports up to {maxRange} ({maxDays} days), but this run needs {fetchDays} days{warmupNote}. The indicator warmup alone exceeds the provider limit. Reduce lookback parameters or use a higher timeframe.',
+      values
+    )
+  }
+  return tf(
+    'request.backtestRangeLimit',
+    'Backtest range is too long for {market}:{symbol} {timeframe}. This provider supports up to {maxRange} ({maxDays} days), but this run needs {fetchDays} days{warmupNote}. Use {recommendedStart} to {requestedEnd}, or keep {requestedStart} and set the end date to {recommendedEnd}.',
+    values
+  )
+}
+
+function normalizeBusinessErrorMessage (message, error) {
+  const backtestRangeLimit = normalizeBacktestRangeLimitError(error)
+  if (backtestRangeLimit) return backtestRangeLimit
   if (!message) return ''
   const liveConflict = message.match(/Live strategy conflict: another running strategy already uses the same API key\/exchange\/market\/symbol \(([^)]+)\)\. Please stop strategy (\d+)(?: \((.+)\))? first\./i)
   if (liveConflict) {
@@ -104,7 +140,7 @@ function normalizeBusinessErrorMessage (message) {
 }
 
 function attachBackendErrorMessage (error) {
-  const message = normalizeBusinessErrorMessage(getBackendErrorMessage(error))
+  const message = normalizeBusinessErrorMessage(getBackendErrorMessage(error), error)
   if (!message) return error
   error.backendMessage = message
   try {

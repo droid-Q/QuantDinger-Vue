@@ -4348,7 +4348,7 @@ export default {
         }
       } catch (e) {
         const backendMsg = e && e.response && e.response.data && (e.response.data.msg || e.response.data.message)
-        this.$message.error(backendMsg || e.message || this.$t('indicatorIde.backtestFailed'))
+        this.$message.error(e.backendMessage || e.message || backendMsg || this.$t('indicatorIde.backtestFailed'))
       } finally {
         this.running = false
         clearInterval(this.elapsedTimer)
