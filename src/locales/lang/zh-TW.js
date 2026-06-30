@@ -1165,6 +1165,8 @@ const locale = {
   "common.copyFailed": "複製失敗，請手動選擇並複製",
   "common.copySuccess": "複製成功",
   "common.delete": "刪除",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "完成",
   "common.edit": "編輯",
   "common.loading": "載入中...",
@@ -4225,6 +4227,8 @@ const locale = {
   "systemOverview.colUser": "使用者",
   "systemOverview.colUserId": "使用者 ID",
   "systemOverview.confirmStopLiveDesc": "將停止該使用者的實盤執行器，可能撤銷未完成的掛單邏輯。請確認後再操作。",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "停止實盤策略？",
   "systemOverview.filterAll": "全部狀態",
   "systemOverview.filteredByUser": "已篩選使用者 {id} 的策略",
@@ -4318,9 +4322,7 @@ const locale = {
   "trading-assistant.editor.generating": "正在產生策略代碼...",
   "trading-assistant.editor.indicatorRedirectDesc": "RSI / MACD / 均線交叉等請以指標 IDE 編寫，再建立指標訊號策略",
   "trading-assistant.editor.indicatorRedirectTitle": "信號類策略？",
-  "trading-assistant.editor.paramCountLabel": "個可調參數",
   "trading-assistant.editor.paramsEmpty": "請先在「模板」頁面選擇腳本模板",
-  "trading-assistant.editor.paramsHint": "百分比類參數請以 0–100 填寫（例如 80 表示 80%）。修改後點選「套用到程式碼」會同步寫入腳本預設值。",
   "trading-assistant.editor.paramsTab": "模板參數",
   "trading-assistant.editor.paramType.boolean": "開關",
   "trading-assistant.editor.paramType.integer": "整數",
@@ -4336,7 +4338,8 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "腳本起步",
   "trading-assistant.editor.templates": "範本庫",
   "trading-assistant.editor.templateTab": "範本",
-  "trading-assistant.editor.title": "策略程式碼",
+  "strategyIde.selectScriptLabel": "目前腳本",
+  "trading-assistant.editor.title": "腳本程式碼",
   "trading-assistant.editor.verify": "驗證程式碼",
   "trading-assistant.editor.verifyFailed": "程式碼驗證失敗",
   "trading-assistant.editor.verifySuccess": "程式碼驗證通過",
@@ -4421,6 +4424,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "指標策略",
   "trading-assistant.form.indicatorStrategyDesc": "基於技術指標的自動化交易策略",
   "trading-assistant.form.initialCapital": "投入金額",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "插入截面指標模板",
   "trading-assistant.form.klinePeriod": "K線週期",
   "trading-assistant.form.leverage": "槓桿倍數",
@@ -4517,6 +4522,7 @@ const locale = {
   "trading-assistant.form.simpleStep2": "啟動方式",
   "trading-assistant.form.spotLeverageFixed": "現貨交易槓桿固定為1倍",
   "trading-assistant.form.spotOnlyLongHint": "現貨交易僅支援做多",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "選擇指標",
   "trading-assistant.form.step2": "交易所配置",
   "trading-assistant.form.step2HeroDesc": "這裡決定策略是只發出訊號，還是直接接入實盤；同時配置通知管道，確保策略觸發後你能第一時間收到提醒。",
@@ -4825,6 +4831,14 @@ const locale = {
   "trading-assistant.template.scaleInOnDipDesc": "價格逐級下跌時分層加倉，以平均成本計算止盈。",
   "trading-assistant.template.takeProfitLadder": "階梯止盈",
   "trading-assistant.template.takeProfitLadderDesc": "EMA 交叉入場，在三個遞增的止盈點位分批平倉。",
+  "trading-assistant.template.runtimeLayeredLongBasket": "執行期多頭分層籃子",
+  "trading-assistant.template.runtimeLayeredLongBasketDesc": "EMA 過濾入場，回撤分層加倉，使用持久狀態與籃子訂單避免重複下單。",
+  "trading-assistant.template.runtimeLayeredShortBasket": "執行期空頭分層籃子",
+  "trading-assistant.template.runtimeLayeredShortBasketDesc": "EMA 轉弱入場，反彈分層加空，適合合約空頭或雙向交易場景。",
+  "trading-assistant.template.runtimeBreakoutPyramidBasket": "突破金字塔籃子",
+  "trading-assistant.template.runtimeBreakoutPyramidBasketDesc": "突破前高後開倉，順勢盈利才金字塔加倉，並使用持久追蹤停損退出。",
+  "trading-assistant.template.runtimeSequentialMartingaleBasket": "順序分倉馬丁籃子",
+  "trading-assistant.template.runtimeSequentialMartingaleBasketDesc": "預設 5 個分倉、每倉 3 單，單內按馬丁倍數開倉，上一分倉未均價止盈才進入下一分倉。",
   "trading-assistant.template.title": "策略模板",
   "trading-assistant.template.trailingStop": "追蹤停損",
   "trading-assistant.template.trailingStopDesc": "EMA 交叉入場，硬停損 + 浮盈達到閾值後啟動的追蹤停損。",
@@ -4904,6 +4918,32 @@ const locale = {
   "trading-assistant.templateParam.tp1_pct.label": "止盈 1 觸發",
   "trading-assistant.templateParam.tp2_close.desc": "第二檔止盈平掉初始部位的比例。",
   "trading-assistant.templateParam.tp2_close.label": "止盈 2 平倉比例",
+  "trading-assistant.templateParam.base_notional.desc": "每一層計畫使用的計價金額，模板會按價格換算為下單數量。",
+  "trading-assistant.templateParam.base_notional.label": "基礎下單金額",
+  "trading-assistant.templateParam.layer_multiplier.desc": "分層加倉時下一層金額相對基礎金額的放大倍率。",
+  "trading-assistant.templateParam.layer_multiplier.label": "層級金額倍數",
+  "trading-assistant.templateParam.layer_step_pct.desc": "價格向不利方向移動多少百分比後觸發下一層，填 1.8 表示 1.8%。",
+  "trading-assistant.templateParam.layer_step_pct.label": "層級觸發間距",
+  "trading-assistant.templateParam.pyramid_step_pct.desc": "突破後價格繼續順勢移動多少百分比再加一層，填 1.5 表示 1.5%。",
+  "trading-assistant.templateParam.pyramid_step_pct.label": "金字塔加倉間距",
+  "trading-assistant.templateParam.direction.desc": "選擇該分倉馬丁按做多還是做空方向運行。",
+  "trading-assistant.templateParam.direction.label": "交易方向",
+  "trading-assistant.templateParam.direction.optionLong": "做多",
+  "trading-assistant.templateParam.direction.optionShort": "做空",
+  "trading-assistant.templateParam.orders_per_layer.desc": "每個分倉裡包含多少個子單；此預設預設 3 單。",
+  "trading-assistant.templateParam.orders_per_layer.label": "每倉開單數",
+  "trading-assistant.templateParam.martingale_multiplier.desc": "同一分倉內的子單金額按該倍數遞增，例如 1、1.8、3.24。",
+  "trading-assistant.templateParam.martingale_multiplier.label": "馬丁倍數",
+  "trading-assistant.templateParam.intra_spacing_1_pct.desc": "第一個子單到第二個子單的反向價格間距，填 0.5 表示 0.5%。",
+  "trading-assistant.templateParam.intra_spacing_1_pct.label": "單 1 到單 2 間距",
+  "trading-assistant.templateParam.intra_spacing_2_pct.desc": "第二個子單到第三個子單的反向價格間距，填 0.8 表示 0.8%。",
+  "trading-assistant.templateParam.intra_spacing_2_pct.label": "單 2 到單 3 間距",
+  "trading-assistant.templateParam.inter_spacing_pct.desc": "目前分倉打滿仍未均價止盈時，進入下一分倉的基礎反向間距。",
+  "trading-assistant.templateParam.inter_spacing_pct.label": "分倉基礎間距",
+  "trading-assistant.templateParam.inter_spacing_growth_pct.desc": "每進入更深一層分倉時，層間距額外增加的百分比。",
+  "trading-assistant.templateParam.inter_spacing_growth_pct.label": "分倉間距遞增",
+  "trading-assistant.form.scriptTemplateBaseNotionalHint": "模板基礎單金額為 {amount}；合約實盤的名義風險會受 {leverage}x 槓桿影響。修改金額請回到腳本模板參數裡改。",
+  "trading-assistant.form.scriptTemplateDirectionHint": "模板方向為 {direction}，已同步到運行方向；實盤方向仍作為外層安全閘門。",
   "trading-assistant.templateParam.tp2_pct.desc": "第二檔止盈觸發的浮盈百分比，填 5 表示 5%。",
   "trading-assistant.templateParam.tp2_pct.label": "止盈 2 觸發",
   "trading-assistant.templateParam.tp3_pct.desc": "第三檔止盈觸發的浮盈百分比，填 10 表示 10%；觸發後清空剩餘部位。",
@@ -4944,6 +4984,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "請選擇交易所",
   "trading-assistant.validation.indicatorRequired": "請選擇指標",
   "trading-assistant.validation.initialCapitalRequired": "請輸入投入金額",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "請輸入槓桿倍數",
   "trading-assistant.validation.longRatioRequired": "請輸入做多比例",
   "trading-assistant.validation.notifyChannelRequired": "請至少選擇一個通知管道",
@@ -5291,7 +5332,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "趨勢",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "此機器人類型暫不支援{market}市場，請切換市場或選擇其他機器人。",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "請輸入投入金額（最少10 USDT）",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "基本資訊確認",
   "trading-bot.wizard.connected": "連線成功",
   "trading-bot.wizard.connectFail": "連線失敗",
@@ -5832,5 +5873,49 @@ export default {
   "profile.mfa.featureApp": "支援主流驗證器",
   "profile.mfa.featureRisk": "異地/新裝置校驗",
   "profile.mfa.featureRecovery": "提供恢復碼",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

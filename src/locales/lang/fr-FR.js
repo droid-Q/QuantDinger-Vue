@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentFR
 const locale = {
+  "strategyIde.selectScriptLabel": "Script",
   "account.basicInfo": "Informations de base",
   "account.confirmRecharge": "Confirmer le rechargement",
   "account.createtime": "Heure d'inscription",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "La copie a échoué. Veuillez sélectionner et copier manuellement.",
   "common.copySuccess": "Copié",
   "common.delete": "Supprimer",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "Terminé",
   "common.edit": "Modifier",
   "common.loading": "Chargement...",
@@ -4402,6 +4405,8 @@ const locale = {
   "systemOverview.colUser": "Utilisateur",
   "systemOverview.colUserId": "ID de l'utilisateur",
   "systemOverview.confirmStopLiveDesc": "Cette action interrompt l'exécution en direct de cette stratégie utilisateur. Veuillez confirmer avant de continuer.",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "Mettre fin à la stratégie en direct ?",
   "systemOverview.filterAll": "Tous les statuts",
   "systemOverview.filteredByUser": "Affichage des stratégies pour l'utilisateur {id}",
@@ -4495,9 +4500,7 @@ const locale = {
   "trading-assistant.editor.generating": "Génération du code de stratégie...",
   "trading-assistant.editor.indicatorRedirectDesc": "Utilisez l'IDE d'indicateur pour les croisements RSI/MACD/MA, puis créez une stratégie de signal d'indicateur.",
   "trading-assistant.editor.indicatorRedirectTitle": "Stratégie basée sur les signaux ?",
-  "trading-assistant.editor.paramCountLabel": "paramètres",
   "trading-assistant.editor.paramsEmpty": "Sélectionnez d'abord un modèle de script dans l'onglet Modèles",
-  "trading-assistant.editor.paramsHint": "Les paramètres de pourcentage utilisent une échelle de 0 à 100 (par exemple, 80 signifie 80 %). Cliquez sur « Appliquer au code » après avoir effectué les modifications pour synchroniser les valeurs par défaut avec le script.",
   "trading-assistant.editor.paramsTab": "Paramètres du modèle",
   "trading-assistant.editor.paramType.boolean": "Basculer",
   "trading-assistant.editor.paramType.integer": "Entier",
@@ -4513,7 +4516,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "Commencez par un script",
   "trading-assistant.editor.templates": "Modèles",
   "trading-assistant.editor.templateTab": "Modèles",
-  "trading-assistant.editor.title": "Code de stratégie",
+  "trading-assistant.editor.title": "Code de script",
   "trading-assistant.editor.verify": "Vérifier le code",
   "trading-assistant.editor.verifyFailed": "Échec de la vérification du code",
   "trading-assistant.editor.verifySuccess": "Vérification du code réussie",
@@ -4600,6 +4603,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "Stratégie d'indicateurs",
   "trading-assistant.form.indicatorStrategyDesc": "Stratégie de trading automatisée basée sur des indicateurs techniques",
   "trading-assistant.form.initialCapital": "Capital initial",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "Insérer le modèle d'indicateur transversal",
   "trading-assistant.form.klinePeriod": "Période de la ligne K",
   "trading-assistant.form.leverage": "Effet de levier",
@@ -4700,6 +4705,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "Pourcentage de glissement estimé (facultatif)",
   "trading-assistant.form.spotLeverageFixed": "L'effet de levier du trading au comptant est fixé à 1x.",
   "trading-assistant.form.spotOnlyLongHint": "Le trading au comptant ne prend en charge que les positions longues.",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "Sélectionner l'indicateur",
   "trading-assistant.form.step2": "Configuration Exchange",
   "trading-assistant.form.step2HeroDesc": "Choisissez si cette stratégie doit uniquement envoyer des signaux ou se connecter au trading en direct, puis configurez les canaux de notification pour ne jamais manquer une alerte.",
@@ -5132,6 +5138,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "Veuillez sélectionner un échange",
   "trading-assistant.validation.indicatorRequired": "Veuillez sélectionner un indicateur",
   "trading-assistant.validation.initialCapitalRequired": "Veuillez saisir le capital initial",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "Veuillez saisir l'effet de levier",
   "trading-assistant.validation.longRatioRequired": "Veuillez saisir le ratio long",
   "trading-assistant.validation.marketCategoryRequired": "Veuillez sélectionner une catégorie de marché",
@@ -5480,7 +5487,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "S'orienter",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "Ce type de bot n'est pas pris en charge sur {market}. Veuillez changer de marché ou choisir un autre bot.",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "Veuillez saisir le capital d'investissement (min 10 USDT)",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "Informations de base",
   "trading-bot.wizard.connected": "Connecté",
   "trading-bot.wizard.connectFail": "Échec de la connexion",
@@ -6021,5 +6028,49 @@ export default {
   "profile.mfa.featureApp": "Apps courantes prises en charge",
   "profile.mfa.featureRisk": "Vérifie les nouveaux appareils/lieux",
   "profile.mfa.featureRecovery": "Codes de récupération inclus",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

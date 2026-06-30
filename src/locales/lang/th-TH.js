@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentTH
 const locale = {
+  "strategyIde.selectScriptLabel": "สคริปต์",
   "account.basicInfo": "ข้อมูลพื้นฐาน",
   "account.confirmRecharge": "ยืนยันการเติมเงิน",
   "account.createtime": "เวลาลงทะเบียน",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "การคัดลอกล้มเหลว โปรดเลือกและคัดลอกด้วยตนเอง",
   "common.copySuccess": "คัดลอกแล้ว",
   "common.delete": "ลบ",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "เสร็จสิ้น",
   "common.edit": "แก้ไข",
   "common.loading": "กำลังโหลด...",
@@ -4402,6 +4405,8 @@ const locale = {
   "systemOverview.colUser": "ผู้ใช้",
   "systemOverview.colUserId": "รหัสผู้ใช้",
   "systemOverview.confirmStopLiveDesc": "การดำเนินการนี้จะหยุดการทำงานของตัวดำเนินการแบบเรียลไทม์สำหรับกลยุทธ์ของผู้ใช้รายนี้ โปรดยืนยันก่อนดำเนินการต่อ",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "หยุดกลยุทธ์แบบเรียลไทม์?",
   "systemOverview.filterAll": "สถานะทั้งหมด",
   "systemOverview.filteredByUser": "แสดงกลยุทธ์สำหรับผู้ใช้ {id}",
@@ -4495,9 +4500,7 @@ const locale = {
   "trading-assistant.editor.generating": "กำลังสร้างโค้ดกลยุทธ์...",
   "trading-assistant.editor.indicatorRedirectDesc": "ใช้ Indicator IDE สำหรับการตัดกันของ RSI / MACD / MA จากนั้นสร้างกลยุทธ์สัญญาณตัวชี้วัด",
   "trading-assistant.editor.indicatorRedirectTitle": "กลยุทธ์ที่อิงตามสัญญาณ?",
-  "trading-assistant.editor.paramCountLabel": "พารามิเตอร์",
   "trading-assistant.editor.paramsEmpty": "เลือกเทมเพลตสคริปต์จากแท็บเทมเพลตก่อน",
-  "trading-assistant.editor.paramsHint": "ค่าเปอร์เซ็นต์ใช้ค่า 0–100 (เช่น 80 หมายถึง 80%) คลิก \"ใช้กับโค้ด\" หลังจากทำการเปลี่ยนแปลงเพื่อซิงค์ค่าเริ่มต้นลงในสคริปต์",
   "trading-assistant.editor.paramsTab": "พารามิเตอร์เทมเพลต",
   "trading-assistant.editor.paramType.boolean": "สลับ",
   "trading-assistant.editor.paramType.integer": "จำนวนเต็ม",
@@ -4513,7 +4516,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "เริ่มต้นด้วยสคริปต์",
   "trading-assistant.editor.templates": "แม่แบบ",
   "trading-assistant.editor.templateTab": "แม่แบบ",
-  "trading-assistant.editor.title": "รหัสกลยุทธ์",
+  "trading-assistant.editor.title": "โค้ดสคริปต์",
   "trading-assistant.editor.verify": "ยืนยันรหัส",
   "trading-assistant.editor.verifyFailed": "การตรวจสอบรหัสล้มเหลว",
   "trading-assistant.editor.verifySuccess": "การตรวจสอบรหัสผ่านแล้ว",
@@ -4600,6 +4603,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "กลยุทธ์ตัวชี้วัด",
   "trading-assistant.form.indicatorStrategyDesc": "กลยุทธ์การซื้อขายอัตโนมัติโดยอิงจากตัวชี้วัดทางเทคนิค",
   "trading-assistant.form.initialCapital": "เงินทุนเริ่มต้น",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "แทรกแม่แบบตัวบ่งชี้ภาคตัดขวาง",
   "trading-assistant.form.klinePeriod": "ช่วงเวลา K-Line",
   "trading-assistant.form.leverage": "เลเวอเรจ",
@@ -4700,6 +4705,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "เปอร์เซ็นต์การคลาดเคลื่อนโดยประมาณ (ไม่บังคับ)",
   "trading-assistant.form.spotLeverageFixed": "เลเวอเรจสำหรับการซื้อขายแบบสปอตถูกกำหนดไว้ที่ 1 เท่า",
   "trading-assistant.form.spotOnlyLongHint": "การซื้อขายแบบสปอตรองรับเฉพาะสถานะซื้อ (long positions) เท่านั้น",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "เลือกตัวบ่งชี้",
   "trading-assistant.form.step2": "การกำหนดค่าการแลกเปลี่ยน",
   "trading-assistant.form.step2HeroDesc": "เลือกได้ว่ากลยุทธ์นี้ควรส่งสัญญาณอย่างเดียวหรือเชื่อมต่อกับการซื้อขายจริง จากนั้นกำหนดค่าช่องทางการแจ้งเตือนเพื่อให้คุณไม่พลาดการแจ้งเตือนใดๆ",
@@ -5132,6 +5138,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "โปรดเลือกการแลกเปลี่ยน",
   "trading-assistant.validation.indicatorRequired": "โปรดเลือกตัวบ่งชี้",
   "trading-assistant.validation.initialCapitalRequired": "โปรดระบุทุนเริ่มต้น",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "โปรดป้อนค่าเลเวอเรจ",
   "trading-assistant.validation.longRatioRequired": "โปรดป้อนอัตราส่วนยาว",
   "trading-assistant.validation.marketCategoryRequired": "โปรดเลือกหมวดหมู่ตลาด",
@@ -5480,7 +5487,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "แนวโน้ม",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "บอทประเภทนี้ไม่รองรับบน {market} โปรดเปลี่ยนตลาดหรือเลือกบอทอื่น",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "กรุณาระบุเงินลงทุน (ขั้นต่ำ 10 USDT)",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "ข้อมูลพื้นฐาน",
   "trading-bot.wizard.connected": "เชื่อมต่อแล้ว",
   "trading-bot.wizard.connectFail": "การเชื่อมต่อล้มเหลว",
@@ -6021,5 +6028,49 @@ export default {
   "profile.mfa.featureApp": "รองรับแอปยอดนิยม",
   "profile.mfa.featureRisk": "ตรวจอุปกรณ์/ตำแหน่งใหม่",
   "profile.mfa.featureRecovery": "มีรหัสกู้คืน",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

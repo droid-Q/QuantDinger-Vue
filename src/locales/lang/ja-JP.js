@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentJA
 const locale = {
+  "strategyIde.selectScriptLabel": "スクリプト",
   "account.basicInfo": "基本情報",
   "account.confirmRecharge": "チャージを確認する",
   "account.createtime": "登録時間",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "コピーに失敗しました。選択して手動でコピーしてください",
   "common.copySuccess": "コピーしました",
   "common.delete": "削除",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "完了",
   "common.edit": "編集",
   "common.loading": "読み込み中...",
@@ -4402,6 +4405,8 @@ const locale = {
   "systemOverview.colUser": "ユーザー",
   "systemOverview.colUserId": "ユーザーID",
   "systemOverview.confirmStopLiveDesc": "これにより、このユーザー戦略のライブ実行プロセスが停止します。続行する前に確認してください。",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "ライブ戦略を停止しますか？",
   "systemOverview.filterAll": "すべてのステータス",
   "systemOverview.filteredByUser": "ユーザー{id}の戦略を表示しています",
@@ -4495,9 +4500,7 @@ const locale = {
   "trading-assistant.editor.generating": "戦略コードを生成しています...",
   "trading-assistant.editor.indicatorRedirectDesc": "RSI / MACD / MA のクロスオーバーには Indicator IDE を使用し、その後、インジケーター シグナル戦略を作成します。",
   "trading-assistant.editor.indicatorRedirectTitle": "シグナルベースの戦略？",
-  "trading-assistant.editor.paramCountLabel": "パラメータ",
   "trading-assistant.editor.paramsEmpty": "まず、[テンプレート]タブからスクリプトテンプレートを選択してください。",
-  "trading-assistant.editor.paramsHint": "パーセントパラメータは0～100の範囲で指定します（例：80は80%を意味します）。変更後、「コードに適用」をクリックすると、デフォルト設定がスクリプトに反映されます。",
   "trading-assistant.editor.paramsTab": "テンプレートパラメータ",
   "trading-assistant.editor.paramType.boolean": "トグル",
   "trading-assistant.editor.paramType.integer": "整数",
@@ -4513,7 +4516,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "スクリプトから始めましょう",
   "trading-assistant.editor.templates": "テンプレート",
   "trading-assistant.editor.templateTab": "テンプレート",
-  "trading-assistant.editor.title": "戦略コード",
+  "trading-assistant.editor.title": "スクリプトコード",
   "trading-assistant.editor.verify": "確認コード",
   "trading-assistant.editor.verifyFailed": "コード検証に失敗しました",
   "trading-assistant.editor.verifySuccess": "コード検証に合格しました",
@@ -4600,6 +4603,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "インジケータ戦略",
   "trading-assistant.form.indicatorStrategyDesc": "テクニカル指標に基づいた自動取引戦略",
   "trading-assistant.form.initialCapital": "元入資本：",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "断面指標テンプレートを挿入する",
   "trading-assistant.form.klinePeriod": "K線期間",
   "trading-assistant.form.leverage": "レバレッジ",
@@ -4700,6 +4705,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "推定スリップ率（任意）",
   "trading-assistant.form.spotLeverageFixed": "現物取引のレバレッジは1倍に固定されています",
   "trading-assistant.form.spotOnlyLongHint": "現物取引はロングポジションのみをサポートしています。",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "インジケーターを選択",
   "trading-assistant.form.step2": "Exchange構成",
   "trading-assistant.form.step2HeroDesc": "この戦略がシグナルのみを送信するのか、ライブ取引に接続するのかを選択し、通知チャネルを設定してアラートを見逃さないようにしましょう。",
@@ -5132,6 +5138,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "取引所を選択してください",
   "trading-assistant.validation.indicatorRequired": "指標を選択してください",
   "trading-assistant.validation.initialCapitalRequired": "頭文字を入力してください",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "レバレッジを入力してください",
   "trading-assistant.validation.longRatioRequired": "長比率を入力してください",
   "trading-assistant.validation.marketCategoryRequired": "市場カテゴリーを選択してください",
@@ -5480,7 +5487,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "トレンド",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "このボットタイプは、__ QD_TOKEN_0 __ではサポートされていません。マーケットを切り替えるか、別のボットを選択してください。",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "投資資本を入力してください（最低10 USDT ）",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "基本情報",
   "trading-bot.wizard.connected": "接続済み",
   "trading-bot.wizard.connectFail": "接続に失敗しました",
@@ -6021,5 +6028,49 @@ export default {
   "profile.mfa.featureApp": "主要な認証アプリ対応",
   "profile.mfa.featureRisk": "新しい端末/場所を確認",
   "profile.mfa.featureRecovery": "リカバリーコード付き",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

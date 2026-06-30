@@ -2142,7 +2142,12 @@ export default {
       }
     },
     startWatchlistPriceRefresh () {
+      if (this.watchlistPriceTimer) {
+        clearInterval(this.watchlistPriceTimer)
+        this.watchlistPriceTimer = null
+      }
       this.watchlistPriceTimer = setInterval(() => {
+        if (typeof document !== 'undefined' && document.hidden) return
         if (this.watchlist && this.watchlist.length > 0) {
           this.loadWatchlistPrices()
         }

@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentAR
 const locale = {
+  "strategyIde.selectScriptLabel": "السكربت",
   "account.basicInfo": "معلومات أساسية",
   "account.confirmRecharge": "تأكيد إعادة الشحن",
   "account.createtime": "وقت التسجيل",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "فشلت عملية النسخ، يرجى التحديد والنسخ يدويًا",
   "common.copySuccess": "تم النسخ",
   "common.delete": "حذف",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "تم",
   "common.edit": "تعديل",
   "common.loading": "جار التحميل...",
@@ -4402,6 +4405,8 @@ const locale = {
   "systemOverview.colUser": "مستخدم",
   "systemOverview.colUserId": "معرف المستخدم",
   "systemOverview.confirmStopLiveDesc": "يؤدي هذا إلى إيقاف المُنفِّذ المباشر لاستراتيجية المستخدم هذه. يُرجى التأكيد قبل المتابعة.",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "هل يجب إيقاف استراتيجية البث المباشر؟",
   "systemOverview.filterAll": "جميع الحالات",
   "systemOverview.filteredByUser": "عرض استراتيجيات المستخدم {id}",
@@ -4495,9 +4500,7 @@ const locale = {
   "trading-assistant.editor.generating": "جارٍ إنشاء رمز الاستراتيجية...",
   "trading-assistant.editor.indicatorRedirectDesc": "استخدم أداة Indicator IDE لتقاطعات RSI / MACD / MA، ثم أنشئ استراتيجية إشارة المؤشر",
   "trading-assistant.editor.indicatorRedirectTitle": "استراتيجية قائمة على الإشارات؟",
-  "trading-assistant.editor.paramCountLabel": "المعلمات",
   "trading-assistant.editor.paramsEmpty": "اختر قالب نص برمجي أولاً من علامة التبويب \"القوالب\".",
-  "trading-assistant.editor.paramsHint": "تستخدم معلمات النسبة المئوية قيمًا تتراوح بين 0 و100 (على سبيل المثال، 80 تعني 80%). انقر على \"تطبيق على الكود\" بعد إجراء التغييرات لمزامنة الإعدادات الافتراضية مع البرنامج النصي.",
   "trading-assistant.editor.paramsTab": "معلمات القالب",
   "trading-assistant.editor.paramType.boolean": "تبديل",
   "trading-assistant.editor.paramType.integer": "عدد صحيح",
@@ -4513,7 +4516,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "ابدأ بكتابة نص",
   "trading-assistant.editor.templates": "القوالب",
   "trading-assistant.editor.templateTab": "القوالب",
-  "trading-assistant.editor.title": "رمز الاستراتيجية",
+  "trading-assistant.editor.title": "كود السكربت",
   "trading-assistant.editor.verify": "رمز التحقق",
   "trading-assistant.editor.verifyFailed": "فشل التحقق من الرمز",
   "trading-assistant.editor.verifySuccess": "تم اجتياز التحقق من الكود",
@@ -4600,6 +4603,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "استراتيجية المؤشر",
   "trading-assistant.form.indicatorStrategyDesc": "استراتيجية تداول آلية تعتمد على المؤشرات الفنية",
   "trading-assistant.form.initialCapital": "رأس المال الأولي",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "إدراج نموذج مؤشر المقطع العرضي",
   "trading-assistant.form.klinePeriod": "فترة خط K",
   "trading-assistant.form.leverage": "تَأثِير",
@@ -4700,6 +4705,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "نسبة الانزلاق المقدرة (اختياري)",
   "trading-assistant.form.spotLeverageFixed": "يتم تثبيت الرافعة المالية للتداول الفوري عند 1x",
   "trading-assistant.form.spotOnlyLongHint": "لا يدعم التداول الفوري إلا المراكز الطويلة",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "تحديد المؤشر",
   "trading-assistant.form.step2": "تكوين التبادل",
   "trading-assistant.form.step2HeroDesc": "اختر ما إذا كان ينبغي لهذه الاستراتيجية إرسال الإشارات فقط أو الاتصال بالتداول المباشر، ثم قم بتكوين قنوات الإشعارات حتى لا تفوتك أي تنبيهات.",
@@ -5132,6 +5138,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "الرجاء اختيار منصة تداول",
   "trading-assistant.validation.indicatorRequired": "يرجى اختيار مؤشر",
   "trading-assistant.validation.initialCapitalRequired": "يرجى إدخال رأس المال الأولي",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "يرجى إدخال الرافعة المالية",
   "trading-assistant.validation.longRatioRequired": "الرجاء إدخال النسبة الطويلة",
   "trading-assistant.validation.marketCategoryRequired": "يرجى اختيار فئة السوق",
@@ -5480,7 +5487,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "اتجاه",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "هذا النوع من البوتات غير مدعوم على {market}. غيّر السوق أو اختر بوتًا مختلفًا.",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "يرجى إدخال رأس المال الاستثماري (بحد أدنى 10 دولارات أمريكية)",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "معلومات أساسية",
   "trading-bot.wizard.connected": "متصل",
   "trading-bot.wizard.connectFail": "فشل الاتصال",
@@ -6021,5 +6028,49 @@ export default {
   "profile.mfa.featureApp": "يدعم التطبيقات الشائعة",
   "profile.mfa.featureRisk": "يتحقق من الأجهزة/المواقع الجديدة",
   "profile.mfa.featureRecovery": "يتضمن رموز استرداد",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

@@ -184,6 +184,7 @@
             <a-input-number
               v-model="baseForm.initialCapital"
               :min="10"
+              :max="1000000"
               :step="100"
               style="width: 100%"
               placeholder="USDT"
@@ -533,7 +534,7 @@ export default {
         marketCategory: [{ required: true, message: this.$t('trading-bot.wizard.marketCategory'), trigger: 'change' }],
         credentialId: [{ required: true, message: this.$t('trading-bot.wizard.credentialReq'), trigger: 'change' }],
         symbol: [{ required: true, message: this.$t('trading-bot.wizard.symbolReq'), trigger: 'change' }],
-        initialCapital: [{ required: true, type: 'number', min: 10, message: this.$t('trading-bot.wizard.capitalReq'), trigger: 'change' }]
+        initialCapital: [{ required: true, type: 'number', min: 10, max: 1000000, message: this.$t('trading-bot.wizard.capitalReq'), trigger: 'change' }]
       },
       strategyParams: {},
       riskForm: {
@@ -1388,10 +1389,14 @@ export default {
       }
     },
     async buildPayload () {
+      const initialCapital = Number(this.baseForm.initialCapital)
+      if (!Number.isFinite(initialCapital) || initialCapital < 10 || initialCapital > 1000000) {
+        throw new Error(this.$t('trading-bot.wizard.capitalReq'))
+      }
       const strategyParams = this.normalizeStrategyParams(this.strategyParams)
       const scriptParams = { ...strategyParams }
-      if (this.baseForm.initialCapital > 0) {
-        scriptParams._initialCapital = this.baseForm.initialCapital
+      if (initialCapital > 0) {
+        scriptParams._initialCapital = initialCapital
       }
       const effectiveTimeframe = this.needsTimeframe
         ? this.baseForm.timeframe
@@ -1438,7 +1443,7 @@ export default {
           market_type: marketType,
           leverage: leverage,
           trade_direction: tradeDirection,
-          initial_capital: this.baseForm.initialCapital,
+          initial_capital: initialCapital,
           stop_loss_pct: this.botType === 'martingale' ? 0 : this.riskForm.stopLossPct,
           take_profit_pct: this.botType === 'martingale' ? 0 : this.riskForm.takeProfitPct,
           max_position: this.botType === 'martingale' ? 0 : this.riskForm.maxPosition,

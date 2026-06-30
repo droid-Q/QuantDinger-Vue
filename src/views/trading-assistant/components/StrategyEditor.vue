@@ -1,5 +1,8 @@
 <template>
   <div class="strategy-editor" :class="{ 'theme-dark': isDark }">
+    <div v-if="$slots.toolbar" class="editor-top-toolbar">
+      <slot name="toolbar"></slot>
+    </div>
     <div class="editor-layout">
       <div class="code-col">
         <div class="code-section">
@@ -56,9 +59,6 @@
               :class="{ active: isBlankScript }"
               @click="loadBlankTemplate"
             >
-              <div class="blank-card__icon">
-                <a-icon type="file-text" />
-              </div>
               <div class="blank-card__body">
                 <div class="blank-card__title">{{ $t('trading-assistant.editor.blankTemplate') }}</div>
                 <div class="blank-card__desc">{{ $t('trading-assistant.editor.blankTemplateDesc') }}</div>
@@ -79,15 +79,10 @@
                 @click="loadTemplate(tpl.key, { focusParams: true, resetParams: true })"
               >
                 <div class="template-card__head">
-                  <span class="template-card__icon">{{ tpl.icon }}</span>
-                  <span class="template-card__badge">{{ $t('trading-assistant.editor.statefulTemplateBadge') }}</span>
+                  <span class="template-card__name">{{ $t(`trading-assistant.template.${tpl.key}`) }}</span>
                 </div>
-                <div class="template-card__name">{{ $t(`trading-assistant.template.${tpl.key}`) }}</div>
                 <div class="template-card__desc">{{ $t(`trading-assistant.template.${tpl.key}Desc`) }}</div>
                 <div class="template-card__foot">
-                  <span class="template-card__meta">
-                    {{ tpl.params.length }} {{ $t('trading-assistant.editor.paramCountLabel') }}
-                  </span>
                   <span class="template-card__action">
                     {{ $t('trading-assistant.template.useTemplate') }}
                     <a-icon type="arrow-right" />
@@ -122,12 +117,6 @@
                 />
               </div>
               <template v-if="activeParamTemplate">
-              <a-alert
-                type="info"
-                show-icon
-                class="params-tip"
-                :message="$t('trading-assistant.editor.paramsHint')"
-              />
               <div class="param-list">
                 <div v-for="param in activeParamTemplate.params" :key="param.name" class="param-item">
                   <div class="param-item__label-row">
@@ -838,7 +827,9 @@ def on_bar(ctx, bar):
       if (t === 'number' || t === 'percent') {
         const n = Number(raw)
         if (!Number.isFinite(n)) return undefined
-        let v = t === 'percent' ? (normalizePercentParamValue(n) ?? n) : n
+        let v = t === 'percent'
+          ? (param.rawPercent ? n : (normalizePercentParamValue(n) ?? n))
+          : n
         if (param.min != null) v = Math.max(param.min, v)
         if (param.max != null) v = Math.min(param.max, v)
         return v
@@ -966,6 +957,15 @@ def on_bar(ctx, bar):
   min-width: 0;
 }
 
+.editor-top-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
 .code-col {
   display: flex;
   flex-direction: column;
@@ -1008,9 +1008,18 @@ def on_bar(ctx, bar):
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 8px 12px;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
 }
 
 .section-title-wrap {
@@ -1213,10 +1222,9 @@ def on_bar(ctx, bar):
 .blank-card {
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 12px;
   margin-bottom: 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px dashed #d9d9d9;
   background: #fff;
   cursor: pointer;
@@ -1231,19 +1239,6 @@ def on_bar(ctx, bar):
   &.active {
     border-style: solid;
     box-shadow: 0 0 0 1px rgba(24, 144, 255, 0.12);
-  }
-
-  &__icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: #f5f5f5;
-    color: #595959;
-    font-size: 16px;
   }
 
   &__body {
@@ -1289,9 +1284,9 @@ def on_bar(ctx, bar):
 
 .template-card {
   position: relative;
-  padding: 12px 12px 10px 14px;
-  border-radius: 10px;
-  border: 1px solid #f0f0f0;
+  padding: 11px 12px 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #262626;
   background: #fff;
   cursor: pointer;
   overflow: hidden;
@@ -1303,25 +1298,24 @@ def on_bar(ctx, bar):
     left: 0;
     top: 0;
     bottom: 0;
-    width: 3px;
-    background: var(--primary-color, #1890ff);
-    opacity: 0.75;
+    width: 2px;
+    background: #d9d9d9;
+    opacity: 1;
   }
-
-  &--violet::before { background: linear-gradient(180deg, #722ed1, #9254de); }
-  &--teal::before { background: linear-gradient(180deg, #13c2c2, #36cfc9); }
-  &--amber::before { background: linear-gradient(180deg, #fa8c16, #ffc53d); }
 
   &:hover,
   &.active {
-    border-color: rgba(24, 144, 255, 0.35);
+    border-color: rgba(82, 196, 26, 0.5);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    transform: translateY(-1px);
   }
 
   &.active {
-    background: rgba(24, 144, 255, 0.03);
-    box-shadow: 0 0 0 1px rgba(24, 144, 255, 0.12);
+    background: rgba(82, 196, 26, 0.035);
+    box-shadow: 0 0 0 1px rgba(82, 196, 26, 0.12);
+
+    &::before {
+      background: #52c41a;
+    }
   }
 
   &__head {
@@ -1329,12 +1323,7 @@ def on_bar(ctx, bar):
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 6px;
-  }
-
-  &__icon {
-    font-size: 18px;
-    line-height: 1;
+    margin-bottom: 4px;
   }
 
   &__badge {
@@ -1351,6 +1340,10 @@ def on_bar(ctx, bar):
     font-weight: 600;
     color: #262626;
     line-height: 1.4;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__desc {
@@ -1367,14 +1360,9 @@ def on_bar(ctx, bar):
   &__foot {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 8px;
-    margin-top: 8px;
-  }
-
-  &__meta {
-    font-size: 10px;
-    color: #bfbfbf;
+    margin-top: 6px;
   }
 
   &__action {
@@ -1386,14 +1374,6 @@ def on_bar(ctx, bar):
       font-size: 10px;
       margin-left: 2px;
     }
-  }
-}
-
-.params-tip {
-  margin-bottom: 12px;
-
-  ::v-deep .ant-alert-message {
-    line-height: 1.6;
   }
 }
 
@@ -1596,19 +1576,6 @@ def on_bar(ctx, bar):
     border-color: rgba(255, 255, 255, 0.08);
   }
 
-  .params-tip {
-    border-color: rgba(24, 144, 255, 0.18);
-    background: rgba(24, 144, 255, 0.07);
-
-    ::v-deep .ant-alert-icon {
-      color: #69c0ff;
-    }
-
-    ::v-deep .ant-alert-message {
-      color: rgba(255, 255, 255, 0.78);
-    }
-  }
-
   .panel-intro__title,
   .param-item__label {
     color: #e0e6ed;
@@ -1668,11 +1635,6 @@ def on_bar(ctx, bar):
       background: rgba(23, 125, 220, 0.06);
     }
 
-    &__icon {
-      background: rgba(255, 255, 255, 0.06);
-      color: rgba(255, 255, 255, 0.65);
-    }
-
     &__title {
       color: #e0e6ed;
     }
@@ -1702,16 +1664,17 @@ def on_bar(ctx, bar):
       color: rgba(255, 255, 255, 0.55);
     }
 
+    &__icon {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.72);
+    }
+
     &__name {
       color: #e0e6ed;
     }
 
     &__desc {
       color: rgba(255, 255, 255, 0.4);
-    }
-
-    &__meta {
-      color: rgba(255, 255, 255, 0.28);
     }
 
     &__action {

@@ -155,6 +155,7 @@ import {
   noticeMessageHtml,
   noticeTypeLabel
 } from '@/utils/noticeFormat'
+import { createVisibilityPolling } from '@/utils/visibilityPolling'
 
 export default {
   name: 'HeaderNotice',
@@ -167,7 +168,8 @@ export default {
       notifications: [],
       unreadTotal: 0,
       lastFetchId: 0,
-      pollingTimer: null
+      pollingTimer: null,
+      noticePoller: null
     }
   },
   computed: {
@@ -190,15 +192,19 @@ export default {
   methods: {
     startPolling () {
       this.stopPolling()
-      this.pollingTimer = setInterval(() => {
+      this.noticePoller = createVisibilityPolling(() => {
         this.fetchUnreadCount(true)
-        // If popover is open, keep the list fresh too.
         if (this.visible) {
           this.fetchNotifications(true)
         }
-      }, 30000)
+      }, 30000, { immediate: false })
+      this.noticePoller.start()
     },
     stopPolling () {
+      if (this.noticePoller) {
+        this.noticePoller.stop()
+        this.noticePoller = null
+      }
       if (this.pollingTimer) {
         clearInterval(this.pollingTimer)
         this.pollingTimer = null
@@ -811,4 +817,3 @@ body.realdark,
   }
 }
 </style>
-

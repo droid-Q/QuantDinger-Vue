@@ -360,11 +360,15 @@ export default {
           this.actionLoading = true
           this.actionLoadingId = item.id
           try {
-            await stopStrategy(item.id)
-            this.$message.success(this.$t('trading-bot.msg.stopped'))
-            this.loadBots()
+            const res = await stopStrategy(item.id)
+            if (res && res.code === 1) {
+              this.$message.success(this.$t('trading-bot.msg.stopped'))
+              this.loadBots()
+            } else {
+              this.$message.error((res && res.msg) || this.$t('trading-bot.msg.stopFail'))
+            }
           } catch (e) {
-            this.$message.error(e.message || this.$t('trading-bot.msg.stopFail'))
+            this.$message.error(e.backendMessage || e.message || this.$t('trading-bot.msg.stopFail'))
           } finally {
             this.actionLoading = false
             this.actionLoadingId = null

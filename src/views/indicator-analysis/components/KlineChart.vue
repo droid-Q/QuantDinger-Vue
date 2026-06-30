@@ -2250,20 +2250,22 @@ registerOverlay({
         clearInterval(realtimeTimer.value)
       }
       const intervalMap = {
-        '1m': 5000,
-        '5m': 10000,
-        '15m': 15000,
-        '30m': 30000,
+        '1m': 30000,
+        '3m': 30000,
+        '5m': 30000,
+        '15m': 45000,
+        '30m': 60000,
         '1H': 60000,
-        '4H': 300000,
-        '1D': 600000,
-        '1W': 1800000
+        '4H': 60000,
+        '1D': 60000,
+        '1W': 60000
       }
-      const base = intervalMap[props.timeframe] || 10000
-      realtimeInterval.value = Math.min(Math.max(base, 2000), 15000)
+      const base = intervalMap[props.timeframe] || 30000
+      realtimeInterval.value = Math.min(Math.max(base, 30000), 60000)
 
       if (props.realtimeEnabled && props.symbol && klineData.value.length > 0) {
         realtimeTimer.value = setInterval(() => {
+          if (typeof document !== 'undefined' && document.hidden) return
           if (!loading.value && props.symbol && klineData.value && klineData.value.length > 0) {
             updateKlineRealtime()
           }

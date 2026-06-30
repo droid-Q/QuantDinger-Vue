@@ -72,7 +72,6 @@
           class="template-tag"
           @click="$emit('use-template', tpl.key)"
         >
-          <span class="tpl-icon">{{ tpl.icon }}</span>
           {{ $t(`trading-assistant.template.${tpl.key}`) }}
         </a-tag>
       </div>
@@ -96,7 +95,7 @@ export default {
   },
   data () {
     return {
-      templates: SCRIPT_TEMPLATE_CATALOG.map(item => ({ key: item.key, icon: item.icon }))
+      templates: SCRIPT_TEMPLATE_CATALOG.map(item => ({ key: item.key }))
     }
   }
 }
@@ -273,10 +272,6 @@ export default {
   font-size: 13px;
   border-radius: 16px;
   transition: all 0.2s;
-
-  .tpl-icon {
-    margin-right: 4px;
-  }
 
   &:hover {
     color: var(--primary-color, #1890ff);

@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentKO
 const locale = {
+  "strategyIde.selectScriptLabel": "스크립트",
   "account.basicInfo": "기본 정보",
   "account.confirmRecharge": "충전 확인",
   "account.createtime": "등록 시간",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "복사에 실패했습니다. 직접 선택하여 복사해 주세요.",
   "common.copySuccess": "복사됨",
   "common.delete": "삭제",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "완료",
   "common.edit": "편집",
   "common.loading": "불러오는 중...",
@@ -4402,6 +4405,8 @@ const locale = {
   "systemOverview.colUser": "사용자",
   "systemOverview.colUserId": "사용자 ID",
   "systemOverview.confirmStopLiveDesc": "이렇게 하면 해당 사용자 전략에 대한 실행기가 중지됩니다. 계속 진행하기 전에 확인하십시오.",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "실시간 전략을 중단하시겠습니까?",
   "systemOverview.filterAll": "모든 상태",
   "systemOverview.filteredByUser": "사용자 {id}에 대한 전략을 표시합니다.",
@@ -4495,9 +4500,7 @@ const locale = {
   "trading-assistant.editor.generating": "전략 코드 생성 중...",
   "trading-assistant.editor.indicatorRedirectDesc": "RSI/MACD/MA 교차를 위해 Indicator IDE를 사용한 다음, 지표 신호 전략을 생성하세요.",
   "trading-assistant.editor.indicatorRedirectTitle": "신호 기반 전략?",
-  "trading-assistant.editor.paramCountLabel": "매개변수",
   "trading-assistant.editor.paramsEmpty": "먼저 템플릿 탭에서 스크립트 템플릿을 선택하세요.",
-  "trading-assistant.editor.paramsHint": "백분율 매개변수는 0~100 사이의 값을 사용합니다(예: 80은 80%를 의미). 변경 후 \"코드에 적용\"을 클릭하여 기본값을 스크립트에 동기화하십시오.",
   "trading-assistant.editor.paramsTab": "템플릿 매개변수",
   "trading-assistant.editor.paramType.boolean": "비녀장",
   "trading-assistant.editor.paramType.integer": "정수",
@@ -4513,7 +4516,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "스크립트 작성을 시작하세요",
   "trading-assistant.editor.templates": "템플릿",
   "trading-assistant.editor.templateTab": "템플릿",
-  "trading-assistant.editor.title": "전략 코드",
+  "trading-assistant.editor.title": "스크립트 코드",
   "trading-assistant.editor.verify": "확인 코드",
   "trading-assistant.editor.verifyFailed": "코드 검증에 실패했습니다.",
   "trading-assistant.editor.verifySuccess": "코드 검증 통과",
@@ -4600,6 +4603,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "지표 전략",
   "trading-assistant.form.indicatorStrategyDesc": "기술적 지표 기반 자동 거래 전략",
   "trading-assistant.form.initialCapital": "초기 자본",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "단면적 표시기 템플릿 삽입",
   "trading-assistant.form.klinePeriod": "K-라인 주기",
   "trading-assistant.form.leverage": "영향력",
@@ -4700,6 +4705,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "예상 슬립률(선택 사항)",
   "trading-assistant.form.spotLeverageFixed": "현물 거래 레버리지는 1배로 고정되어 있습니다.",
   "trading-assistant.form.spotOnlyLongHint": "현물 거래는 장기 포지션만 지원합니다.",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "표시기 선택",
   "trading-assistant.form.step2": "교환 구성",
   "trading-assistant.form.step2HeroDesc": "이 전략이 신호만 전송할지 아니면 실시간 거래에 연결할지 선택한 다음, 알림 채널을 설정하여 알림을 놓치지 않도록 하세요.",
@@ -5132,6 +5138,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "거래소를 선택해 주세요.",
   "trading-assistant.validation.indicatorRequired": "지표를 선택해 주세요.",
   "trading-assistant.validation.initialCapitalRequired": "첫 글자를 대문자로 입력해 주세요.",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "레버리지를 입력해 주세요.",
   "trading-assistant.validation.longRatioRequired": "롱 비율을 입력해 주세요",
   "trading-assistant.validation.marketCategoryRequired": "시장 카테고리를 선택해 주세요.",
@@ -5480,7 +5487,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "경향",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "이 봇 유형은 {market}에서 지원되지 않습니다. 다른 마켓을 선택하거나 다른 봇을 사용하세요.",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "투자금을 입력해 주세요 (최소 10 USDT).",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "기본 정보",
   "trading-bot.wizard.connected": "연결됨",
   "trading-bot.wizard.connectFail": "연결 실패",
@@ -6021,5 +6028,49 @@ export default {
   "profile.mfa.featureApp": "주요 인증 앱 지원",
   "profile.mfa.featureRisk": "새 기기/위치 확인",
   "profile.mfa.featureRecovery": "복구 코드 제공",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

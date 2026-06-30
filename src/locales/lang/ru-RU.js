@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentRU
 const locale = {
+  "strategyIde.selectScriptLabel": "Скрипт",
   "account.basicInfo": "Основная информация",
   "account.confirmRecharge": "Подтвердите пополнение счета",
   "account.createtime": "Время регистрации",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "Копирование не удалось, пожалуйста, выберите и скопируйте вручную.",
   "common.copySuccess": "Скопировано",
   "common.delete": "Удалить",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "Готово",
   "common.edit": "Изменить",
   "common.loading": "Загрузка...",
@@ -4400,6 +4403,8 @@ const locale = {
   "systemOverview.colUser": "Пользователь",
   "systemOverview.colUserId": "ID пользователя",
   "systemOverview.confirmStopLiveDesc": "Это остановит выполнение текущей стратегии для данного пользователя. Перед продолжением подтвердите действие.",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "Остановить реализацию стратегии в реальном времени?",
   "systemOverview.filterAll": "Все статусы",
   "systemOverview.filteredByUser": "Отображение стратегий для пользователя {id}",
@@ -4493,9 +4498,7 @@ const locale = {
   "trading-assistant.editor.generating": "Генерация кода стратегии...",
   "trading-assistant.editor.indicatorRedirectDesc": "Используйте Indicator IDE для определения пересечений RSI / MACD / MA, а затем создайте стратегию на основе индикаторных сигналов.",
   "trading-assistant.editor.indicatorRedirectTitle": "Стратегия, основанная на сигналах?",
-  "trading-assistant.editor.paramCountLabel": "параметры",
   "trading-assistant.editor.paramsEmpty": "Сначала выберите шаблон сценария на вкладке «Шаблоны».",
-  "trading-assistant.editor.paramsHint": "Для параметров в процентах используются значения от 0 до 100 (например, 80 означает 80%). После внесения изменений нажмите «Применить к коду», чтобы синхронизировать значения по умолчанию со скриптом.",
   "trading-assistant.editor.paramsTab": "Параметры шаблона",
   "trading-assistant.editor.paramType.boolean": "Переключать",
   "trading-assistant.editor.paramType.integer": "Целое число",
@@ -4511,7 +4514,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "Начните работу со скриптом.",
   "trading-assistant.editor.templates": "Шаблоны",
   "trading-assistant.editor.templateTab": "Шаблоны",
-  "trading-assistant.editor.title": "Стратегический код",
+  "trading-assistant.editor.title": "Код скрипта",
   "trading-assistant.editor.verify": "Подтвердите код",
   "trading-assistant.editor.verifyFailed": "Проверка кода не удалась.",
   "trading-assistant.editor.verifySuccess": "Проверка кода пройдена.",
@@ -4598,6 +4601,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "Стратегия индикаторов",
   "trading-assistant.form.indicatorStrategyDesc": "Автоматизированная торговая стратегия, основанная на технических индикаторах.",
   "trading-assistant.form.initialCapital": "Начальный капитал",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "Вставьте шаблон индикатора поперечного сечения",
   "trading-assistant.form.klinePeriod": "Период К-линии",
   "trading-assistant.form.leverage": "Использовать",
@@ -4698,6 +4703,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "Расчетный процент проскальзывания (необязательно)",
   "trading-assistant.form.spotLeverageFixed": "Кредитное плечо для спотовой торговли фиксировано на уровне 1x.",
   "trading-assistant.form.spotOnlyLongHint": "Спотовая торговля поддерживает только длинные позиции.",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "Выберите индикатор",
   "trading-assistant.form.step2": "Конфигурация обмена",
   "trading-assistant.form.step2HeroDesc": "Выберите, должна ли эта стратегия только отправлять сигналы или подключаться к реальной торговле, а затем настройте каналы уведомлений, чтобы никогда не пропустить оповещение.",
@@ -5130,6 +5136,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "Пожалуйста, выберите обменный пункт",
   "trading-assistant.validation.indicatorRequired": "Пожалуйста, выберите индикатор",
   "trading-assistant.validation.initialCapitalRequired": "Пожалуйста, введите начальную заглавную букву.",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "Пожалуйста, введите рычаг.",
   "trading-assistant.validation.longRatioRequired": "Пожалуйста, введите длинное соотношение",
   "trading-assistant.validation.marketCategoryRequired": "Пожалуйста, выберите категорию рынка.",
@@ -5478,7 +5485,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "Тренд",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "Этот тип бота не поддерживается в {market}. Переключитесь на другой рынок или выберите другого бота.",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "Пожалуйста, укажите инвестиционный капитал (минимум 10 USDT).",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "Основная информация",
   "trading-bot.wizard.connected": "Подключено",
   "trading-bot.wizard.connectFail": "Соединение не удалось.",
@@ -6019,5 +6026,49 @@ export default {
   "profile.mfa.featureApp": "Поддерживает популярные приложения",
   "profile.mfa.featureRisk": "Проверяет новые устройства/места",
   "profile.mfa.featureRecovery": "Есть коды восстановления",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }

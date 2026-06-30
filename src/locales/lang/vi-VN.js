@@ -4,6 +4,7 @@ import enUSFallback from './en-US'
 
 const momentLocale = momentVI
 const locale = {
+  "strategyIde.selectScriptLabel": "Tập lệnh",
   "account.basicInfo": "Thông tin cơ bản",
   "account.confirmRecharge": "Xác nhận nạp tiền",
   "account.createtime": "Thời gian đăng ký",
@@ -1153,6 +1154,8 @@ const locale = {
   "common.copyFailed": "Sao chép không thành công, vui lòng chọn và sao chép thủ công.",
   "common.copySuccess": "Đã sao chép",
   "common.delete": "Xóa",
+  'common.deleteSuccess': 'Deleted',
+  'common.deleteFailed': 'Delete failed',
   "common.done": "Xong",
   "common.edit": "Sửa",
   "common.loading": "Đang tải...",
@@ -4402,6 +4405,8 @@ const locale = {
   "systemOverview.colUser": "Người dùng",
   "systemOverview.colUserId": "ID người dùng",
   "systemOverview.confirmStopLiveDesc": "Thao tác này dừng trình thực thi trực tiếp cho chiến lược người dùng này. Vui lòng xác nhận trước khi tiếp tục.",
+  'systemOverview.confirmDeleteTitle': 'Delete this strategy?',
+  'systemOverview.confirmDeleteDesc': 'This cannot be undone. If the strategy is running, it will be stopped before deletion.',
   "systemOverview.confirmStopLiveTitle": "Dừng chiến lược trực tiếp?",
   "systemOverview.filterAll": "Tất cả trạng thái",
   "systemOverview.filteredByUser": "Hiển thị các chiến lược cho người dùng {id}",
@@ -4495,9 +4500,7 @@ const locale = {
   "trading-assistant.editor.generating": "Đang tạo mã chiến lược...",
   "trading-assistant.editor.indicatorRedirectDesc": "Sử dụng Indicator IDE để phân tích các điểm giao cắt của RSI / MACD / MA, sau đó tạo Chiến lược Tín hiệu Chỉ báo.",
   "trading-assistant.editor.indicatorRedirectTitle": "Chiến lược dựa trên tín hiệu?",
-  "trading-assistant.editor.paramCountLabel": "tham số",
   "trading-assistant.editor.paramsEmpty": "Trước tiên, hãy chọn một mẫu kịch bản từ tab Mẫu.",
-  "trading-assistant.editor.paramsHint": "Các tham số phần trăm sử dụng giá trị từ 0 đến 100 (ví dụ: 80 nghĩa là 80%). Nhấp vào \"Áp dụng vào mã\" sau khi thay đổi để đồng bộ các giá trị mặc định vào tập lệnh.",
   "trading-assistant.editor.paramsTab": "Tham số mẫu",
   "trading-assistant.editor.paramType.boolean": "Chuyển đổi",
   "trading-assistant.editor.paramType.integer": "Số nguyên",
@@ -4513,7 +4516,7 @@ const locale = {
   "trading-assistant.editor.templateIntroTitle": "Hãy bắt đầu với một kịch bản",
   "trading-assistant.editor.templates": "Mẫu",
   "trading-assistant.editor.templateTab": "Mẫu",
-  "trading-assistant.editor.title": "Mã chiến lược",
+  "trading-assistant.editor.title": "Mã tập lệnh",
   "trading-assistant.editor.verify": "Xác minh mã",
   "trading-assistant.editor.verifyFailed": "Xác minh mã không thành công",
   "trading-assistant.editor.verifySuccess": "Mã đã được xác minh thành công.",
@@ -4600,6 +4603,8 @@ const locale = {
   "trading-assistant.form.indicatorStrategy": "Chiến lược chỉ báo",
   "trading-assistant.form.indicatorStrategyDesc": "Chiến lược giao dịch tự động dựa trên các chỉ báo kỹ thuật",
   "trading-assistant.form.initialCapital": "Vốn ban đầu",
+  'trading-assistant.form.initialCapitalRuntimeHint': 'Used as the budget for this script run. Layers, spacing, martingale sizing, take profit, and stop logic belong in script code.',
+  'trading-assistant.form.scriptRuntimeBoundaryInfo': 'Only symbol, spot/swap, direction, investment amount, and leverage are selected here. Script code owns layers, spacing, martingale sizing, take profit, and stop logic. Runtime uses fixed 1m on_bar and 10s price checks.',
   "trading-assistant.form.insertCrossSectionalTemplate": "Chèn mẫu chỉ số mặt cắt ngang",
   "trading-assistant.form.klinePeriod": "Chu kỳ đường K",
   "trading-assistant.form.leverage": "Tận dụng",
@@ -4700,6 +4705,7 @@ const locale = {
   "trading-assistant.form.slippageHint": "Tỷ lệ trượt ước tính (tùy chọn)",
   "trading-assistant.form.spotLeverageFixed": "Đòn bẩy giao dịch giao ngay được cố định ở mức 1x",
   "trading-assistant.form.spotOnlyLongHint": "Giao dịch giao ngay chỉ hỗ trợ các vị thế mua.",
+  'trading-assistant.form.scriptSpotOnlyHint': 'The selected symbol or account can only run spot long; leverage is fixed to 1x.',
   "trading-assistant.form.step1": "Chọn chỉ báo",
   "trading-assistant.form.step2": "Cấu hình trao đổi",
   "trading-assistant.form.step2HeroDesc": "Hãy chọn xem chiến lược này chỉ nên gửi tín hiệu hay kết nối với giao dịch trực tiếp, sau đó cấu hình các kênh thông báo để bạn không bao giờ bỏ lỡ bất kỳ cảnh báo nào.",
@@ -5132,6 +5138,7 @@ const locale = {
   "trading-assistant.validation.exchangeRequired": "Vui lòng chọn một phương thức trao đổi",
   "trading-assistant.validation.indicatorRequired": "Vui lòng chọn một chỉ báo",
   "trading-assistant.validation.initialCapitalRequired": "Vui lòng nhập vốn ban đầu",
+  'trading-assistant.validation.initialCapitalRange': 'Investment amount must be between 10 and 1,000,000',
   "trading-assistant.validation.leverageRequired": "Vui lòng nhập đòn bẩy",
   "trading-assistant.validation.longRatioRequired": "Vui lòng nhập tỷ lệ dài",
   "trading-assistant.validation.marketCategoryRequired": "Vui lòng chọn một danh mục thị trường",
@@ -5480,7 +5487,7 @@ const locale = {
   "trading-bot.wizard.botType.trend": "Xu hướng",
   "trading-bot.wizard.botTypeNotSupportedOnMarket": "Loại bot này không được hỗ trợ trên {market}. Hãy chuyển sang thị trường khác hoặc chọn một loại bot khác.",
   "trading-bot.wizard.brokerCredentialRequired": "No matching broker credential found for {market}. Add one in Broker Accounts.",
-  "trading-bot.wizard.capitalReq": "Vui lòng nhập vốn đầu tư (tối thiểu 10 USDT)",
+  "trading-bot.wizard.capitalReq": 'Enter an investment amount between 10 and 1,000,000',
   "trading-bot.wizard.confirmTitle": "Thông tin cơ bản",
   "trading-bot.wizard.connected": "Đã kết nối",
   "trading-bot.wizard.connectFail": "Kết nối thất bại",
@@ -6021,5 +6028,49 @@ export default {
   "profile.mfa.featureApp": "Hỗ trợ ứng dụng phổ biến",
   "profile.mfa.featureRisk": "Kiểm tra thiết bị/vị trí mới",
   "profile.mfa.featureRecovery": "Có mã khôi phục",
+
+  'trading-assistant.template.emaAtrTrendRisk': "EMA ATR trend risk",
+
+  'trading-assistant.template.emaAtrTrendRiskDesc': "EMA cross entry with ATR hard stop and ATR trailing stop for trend following.",
+
+  'trading-assistant.template.donchianBreakoutPyramid': "Donchian breakout pyramid",
+
+  'trading-assistant.template.donchianBreakoutPyramidDesc': "Channel breakout entry, add only into favorable movement, and exit with a shorter channel.",
+
+  'trading-assistant.template.bollingerReversionBasket': "Bollinger reversion basket",
+
+  'trading-assistant.template.bollingerReversionBasketDesc': "Enter near the outer Bollinger band, build controlled layers, and exit on average-cost reversion.",
+
+  'trading-assistant.templateParam.atr_period.label': "ATR period",
+
+  'trading-assistant.templateParam.atr_period.desc': "ATR window used to calculate volatility stop distance.",
+
+  'trading-assistant.templateParam.risk_budget_pct.label': "Entry budget share",
+
+  'trading-assistant.templateParam.risk_budget_pct.desc': "Share of run-panel investment amount used for the entry.",
+
+  'trading-assistant.templateParam.atr_stop_mult.label': "ATR stop multiple",
+
+  'trading-assistant.templateParam.atr_stop_mult.desc': "Initial stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.atr_trail_mult.label': "ATR trailing multiple",
+
+  'trading-assistant.templateParam.atr_trail_mult.desc': "Trailing stop distance equals ATR multiplied by this value.",
+
+  'trading-assistant.templateParam.entry_lookback.label': "Entry channel",
+
+  'trading-assistant.templateParam.entry_lookback.desc': "Number of bars used to calculate breakout channel highs/lows.",
+
+  'trading-assistant.templateParam.exit_lookback.label': "Exit channel",
+
+  'trading-assistant.templateParam.exit_lookback.desc': "Number of bars used for the channel exit stop.",
+
+  'trading-assistant.templateParam.rsi_long_max.label': "Long RSI max",
+
+  'trading-assistant.templateParam.rsi_long_max.desc': "RSI must be at or below this value for long mean-reversion entries.",
+
+  'trading-assistant.templateParam.rsi_short_min.label': "Short RSI min",
+
+  'trading-assistant.templateParam.rsi_short_min.desc': "RSI must be at or above this value for short mean-reversion entries.",
 
 }
