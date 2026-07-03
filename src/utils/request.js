@@ -40,6 +40,10 @@ export const ANALYSIS_TIMEOUT = 180000 // 3 minutes for AI analysis
 // Extended timeout for AI code/bot generation (LLM + auto-fix loop)
 export const AI_GENERATE_TIMEOUT = 180000 // 3 minutes for AI generation
 
+// Extended timeout for AI Copilot chat. Local Ollama models can need several
+// minutes before returning a full non-streaming response.
+export const AI_CHAT_TIMEOUT = 600000 // 10 minutes for AI chat fallback
+
 // Extended timeout for backtest APIs (can take several minutes)
 export const BACKTEST_TIMEOUT = 600000 // 10 minutes for backtest
 
@@ -193,6 +197,8 @@ request.interceptors.request.use(config => {
       config.timeout = ANALYSIS_TIMEOUT
     } else if (config.url.includes('/strategies/ai-generate') || config.url.includes('/indicator/aiGenerate')) {
       config.timeout = AI_GENERATE_TIMEOUT
+    } else if (config.url.includes('/api/ai/chat/message')) {
+      config.timeout = AI_CHAT_TIMEOUT
     } else if (config.url.includes('/global-market/heatmap')) {
       config.timeout = 90000
     } else if (config.url.includes('/backtest')) {
