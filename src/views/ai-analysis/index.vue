@@ -356,8 +356,10 @@ class="analyze-button">
                       <span class="wl-symbol">{{ stock.symbol }}</span>
                       <span class="wl-market">{{ getMarketName(stock.market) }}</span>
                     </div>
-                    <div class="wl-name" v-if="stock.name && stock.name !== stock.symbol">{{ stock.name }}</div>
-                    <div class="wl-source">{{ dataSourceLabel(stock) }}</div>
+                    <div class="wl-meta-line">
+                      <span class="wl-name" v-if="stock.name && stock.name !== stock.symbol">{{ stock.name }}</span>
+                      <span class="wl-source">{{ dataSourceLabel(stock) }}</span>
+                    </div>
                   </div>
                   <div class="wl-sparkline-wrap" v-if="watchlistPrices[`${stock.market}:${stock.symbol}`]">
                     <svg class="wl-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
@@ -3881,6 +3883,14 @@ export default {
   gap: 5px;
   overflow: hidden;
 }
+.wl-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 2px;
+  overflow: hidden;
+}
 .wl-name {
   font-size: 11px;
   color: #94a3b8;
@@ -3888,12 +3898,12 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
+  min-width: 0;
 }
 .wl-source {
+  flex: 0 0 auto;
   width: fit-content;
   max-width: 100%;
-  margin-top: 4px;
   padding: 1px 5px;
   border-radius: 4px;
   background: rgba(20, 184, 166, 0.08);
