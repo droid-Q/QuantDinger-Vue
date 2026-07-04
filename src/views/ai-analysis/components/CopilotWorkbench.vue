@@ -1398,7 +1398,7 @@ export default {
       }
     },
     manualAddWatchFallback (market, keyword) {
-      const manualMarkets = ['Crypto', 'Forex', 'Futures', 'MOEX']
+      const manualMarkets = ['Crypto', 'Forex', 'MT5', 'Futures', 'MOEX']
       if (!manualMarkets.includes(market)) return []
       return [{ market, symbol: String(keyword || '').trim().toUpperCase(), name: '' }]
     },
@@ -4211,6 +4211,12 @@ export default {
   border-color: rgba(34, 197, 94, 0.34);
   background: rgba(34, 197, 94, 0.12);
   color: #22c55e;
+}
+
+.market-mt5 {
+  border-color: rgba(14, 165, 233, 0.34);
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
 }
 
 .market-futures {

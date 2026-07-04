@@ -966,7 +966,7 @@
                           <a-form-item :label="$t('trading-assistant.form.marketType')">
                             <a-tag color="cyan">{{ $t('trading-assistant.form.marketTypeSpot') }}</a-tag>
                             <div class="form-item-hint">
-                              {{ $t('trading-assistant.form.stockSpotOnlyHint') || 'Stocks are traded as spot/cash products. Futures/contract market type is hidden.' }}
+                              {{ isMt5MarketCategory ? $t('trading-assistant.form.mt5MarketTypeHint') : ($t('trading-assistant.form.stockSpotOnlyHint') || 'Stocks are traded as spot/cash products. Futures/contract market type is hidden.') }}
                             </div>
                           </a-form-item>
                         </a-col>
@@ -1160,7 +1160,7 @@
                         <a-form-item :label="$t('trading-assistant.form.marketType')">
                           <a-tag color="cyan">{{ $t('trading-assistant.form.marketTypeSpot') }}</a-tag>
                           <div class="form-item-hint">
-                            {{ $t('trading-assistant.form.stockSpotOnlyHint') || 'Stocks are traded as spot/cash products. Futures/contract market type is hidden.' }}
+                            {{ isMt5MarketCategory ? $t('trading-assistant.form.mt5MarketTypeHint') : ($t('trading-assistant.form.stockSpotOnlyHint') || 'Stocks are traded as spot/cash products. Futures/contract market type is hidden.') }}
                           </div>
                         </a-form-item>
                       </a-col>
@@ -1178,7 +1178,8 @@
                             v-if="isScriptRuntimeSpotOnly"
                             class="form-item-hint"
                             style="color: #ff9800;">
-                            闂備浇宕甸崰鎰垝鎼淬垺娅犳俊銈呮噹缁犱即鏌涘☉姗堟敾婵炲懐濞€閺岋絽螣濞嗘儳娈梺鍛婂姀閸嬫捇姊绘担瑙勫仩闁稿寒鍣ｅ鎻掝煥閸喎浠奸梻渚囧墮缁夌敻鎮″▎鎾村€垫繛鎴炵懐閻掕棄顭胯娴滎亪寮诲☉銏犵厸闁稿本绮庨悡澶愭倵鐟欏嫭澶勯柛銊ㄦ硾閻ｇ兘宕￠悙宥嗘閸┾偓妞ゆ巻鍋撻柍钘夘槼椤﹀綊鏌＄仦璇测偓妤呭焵椤掆偓濠€杈ㄦ叏閻㈡潌澶嬪緞婵炴帒缍婇幃鈺佺暦閸ワ絽顫岄柣搴＄仛濠㈡鈧凹鍓熼敐鐐测攽鐎ｎ亞顦悷婊冪箻钘濇い鏇楀亾婵﹥妞藉畷顐﹀礋椤愮喎浜惧┑鐘宠壘缁犵娀鏌熼幑鎰靛殭缂佺姵鐗楃换婵囩節閸屾粌顣洪梺缁樺姇閿曨亪寮诲☉妯锋斀闁糕剝顨忔导鈧梻浣告惈濡瑥顭垮鈧崺銉﹀緞閹邦剛顔掗梺鎯ф禋閸嬪懘宕曢幘瀵哥閻庣數顭堟牎缂備礁顑嗙敮鎺楊敋閵夆晛绀嬫い鎰靛亝閸嶇敻姊洪棃娑辨Ф闁搞劏顫夌粋?                          </div>
+                            {{ $t('trading-assistant.form.scriptSpotOnlyHint') }}
+                          </div>
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -1758,12 +1759,18 @@ export default {
       const cat = String(this.selectedMarketCategory || '').toLowerCase()
       return ['usstock', 'cnstock', 'hkstock'].includes(cat)
     },
+    isMt5MarketCategory () {
+      return String(this.selectedMarketCategory || '').toLowerCase() === 'mt5'
+    },
     shouldShowMarketTypeSelector () {
-      return !this.isStockMarketCategory
+      return !this.isStockMarketCategory && !this.isMt5MarketCategory
     },
     isSpotLikeMarket () {
       if (this.isStockMarketCategory || this.isAlpacaCryptoSpotOnly) {
         return true
+      }
+      if (this.isMt5MarketCategory) {
+        return false
       }
       try {
         return this.form && this.form.getFieldValue && this.form.getFieldValue('market_type') === 'spot'
@@ -1775,15 +1782,17 @@ export default {
       if (this.isStockMarketCategory || this.isAlpacaCryptoSpotOnly || this.isLongOnlyBroker) {
         return true
       }
+      if (this.isMt5MarketCategory) {
+        return false
+      }
       return this.scriptRuntimeMarketTypeUi === 'spot'
     },
     // Check if selected market supports live trading.
     canUseLiveTrading () {
       const cat = this.selectedMarketCategory || 'Crypto'
-      if (String(cat).toLowerCase() === 'crypto') {
-        return true
-      }
-      if (cat === 'USStock') {
+      const liveMarkets = (this.brokerMarketPolicy.live_market_categories || ['Crypto', 'USStock', 'MT5'])
+        .map(v => String(v).toLowerCase())
+      if (liveMarkets.includes(String(cat).toLowerCase())) {
         return true
       }
       return false
@@ -1827,6 +1836,9 @@ export default {
       // USStock uses IBKR (local TWS/Gateway) or Alpaca (REST).
       if (cat === 'USStock') {
         return this.currentBrokerId === 'ibkr' || exchangeId === 'ibkr' || exchangeId === 'alpaca'
+      }
+      if (cat === 'MT5') {
+        return ['mt5', 'cptmarkets', 'cpt_markets'].includes(exchangeId)
       }
       return false
     },
@@ -2533,7 +2545,8 @@ export default {
         USStock: 'green',
         Crypto: 'purple',
         Forex: 'gold',
-        Futures: 'cyan'
+        Futures: 'cyan',
+        MT5: 'blue'
       }
       return colors[market] || 'default'
     },
@@ -2556,6 +2569,11 @@ export default {
     applyMarketDefaultsForCategory (marketCategory) {
       const cat = String(marketCategory || this.selectedMarketCategory || '').toLowerCase()
       const isStock = ['usstock', 'cnstock', 'hkstock'].includes(cat)
+      if (cat === 'mt5') {
+        this.scriptRuntimeMarketTypeUi = 'spot'
+        this.safeSetFormFields({ market_type: 'spot', leverage: 1 })
+        return
+      }
       if (!isStock) {
         this.scriptRuntimeMarketTypeUi = 'swap'
         return
@@ -2573,12 +2591,20 @@ export default {
     normalizeMarketExecutionFields (marketCategory, values) {
       const cat = String(marketCategory || '').toLowerCase()
       const isStock = ['usstock', 'cnstock', 'hkstock'].includes(cat)
+      const isMt5 = cat === 'mt5'
       let marketType = ((values && values.market_type) === 'futures'
         ? 'swap'
         : ((values && values.market_type) || 'swap'))
       let leverage = values && values.leverage != null ? values.leverage : 5
       let tradeDirection = (values && values.trade_direction) || (isStock ? 'long' : 'both')
 
+      if (isMt5) {
+        return {
+          marketType: 'spot',
+          leverage: 1,
+          tradeDirection
+        }
+      }
       if (isStock) {
         return {
           marketType: 'spot',
@@ -2629,7 +2655,7 @@ export default {
       }
 
       // Markets without live trading support: force back to signal mode
-      const supportsLiveTrading = ['Crypto', 'USStock'].includes(this.selectedMarketCategory)
+      const supportsLiveTrading = ['Crypto', 'USStock', 'MT5'].includes(this.selectedMarketCategory)
       if (!supportsLiveTrading) {
         this.executionModeUi = 'signal'
         try {
@@ -2676,7 +2702,7 @@ export default {
       }
 
       // Markets without live trading support: force back to signal mode
-      const supportsLiveTrading = ['Crypto', 'USStock'].includes(this.selectedMarketCategory)
+      const supportsLiveTrading = ['Crypto', 'USStock', 'MT5'].includes(this.selectedMarketCategory)
       if (!supportsLiveTrading) {
         this.executionModeUi = 'signal'
         try {
@@ -2800,6 +2826,16 @@ export default {
             this.$t('trading-assistant.validation.alpacaOnlyForUSStockOrCrypto') ||
             'Alpaca supports US stocks and Crypto only.'
           )
+          try {
+            this.form && this.form.setFieldsValue && this.form.setFieldsValue({ credential_id: undefined })
+          } catch (e) { }
+          this.currentExchangeId = ''
+          this.connectionTestResult = null
+          return
+        }
+
+        if (['mt5', 'cptmarkets', 'cpt_markets'].includes(exchangeId) && this.selectedMarketCategory !== 'MT5') {
+          this.$message.error(this.$t('trading-assistant.validation.mt5OnlyForMT5') || 'MT5 / CPT Markets credentials can only be used with the MT5 market.')
           try {
             this.form && this.form.setFieldsValue && this.form.setFieldsValue({ credential_id: undefined })
           } catch (e) { }
@@ -3241,7 +3277,7 @@ export default {
       if (strategy.exchange_config) {
         const exchangeId = strategy.exchange_config.exchange_id || ''
         const isLive = this.executionModeUi === 'live'
-        const supportsLiveTrading = ['Crypto', 'USStock'].includes(this.selectedMarketCategory)
+        const supportsLiveTrading = ['Crypto', 'USStock', 'MT5'].includes(this.selectedMarketCategory)
         const isBrokerMarket = this.selectedMarketCategory === 'USStock'
 
         if (isLive && supportsLiveTrading) {

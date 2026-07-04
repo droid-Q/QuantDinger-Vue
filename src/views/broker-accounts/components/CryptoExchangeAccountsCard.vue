@@ -55,7 +55,7 @@
             </div>
           </div>
           <div class="crypto-item-footer">
-            <a-button size="small" class="crypto-view-account-btn" @click="openSnapshotModal(item)">
+            <a-button v-if="!isMt5Credential(item)" size="small" class="crypto-view-account-btn" @click="openSnapshotModal(item)">
               <a-icon type="fund" /> {{ $t('trading-assistant.positions.viewAccountPositions') }}
             </a-button>
             <a-button size="small" @click="openRenameModal(item)">
@@ -202,7 +202,10 @@ const DISPLAY_NAMES = {
   kucoin: 'KuCoin',
   gate: 'Gate.io',
   bitfinex: 'Bitfinex',
-  htx: 'HTX'
+  htx: 'HTX',
+  mt5: 'MetaTrader 5',
+  cptmarkets: 'CPT Markets',
+  cpt_markets: 'CPT Markets'
 }
 
 const ICON_COLORS = {
@@ -215,7 +218,10 @@ const ICON_COLORS = {
   kucoin: '#24AE8F',
   gate: '#17E1A4',
   bitfinex: '#16B157',
-  htx: '#1B2C3B'
+  htx: '#1B2C3B',
+  mt5: '#13C2C2',
+  cptmarkets: '#08979C',
+  cpt_markets: '#08979C'
 }
 
 export default {
@@ -303,6 +309,9 @@ export default {
   methods: {
     exchangeDisplayName (id) {
       return getExchangeDisplayName(id) || DISPLAY_NAMES[id] || (id ? id.toUpperCase() : '--')
+    },
+    isMt5Credential (item) {
+      return ['mt5', 'cptmarkets', 'cpt_markets'].includes(String((item && item.exchange_id) || '').toLowerCase())
     },
     credentialAlias (item) {
       const alias = (item && item.name && String(item.name).trim()) || ''

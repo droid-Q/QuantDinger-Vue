@@ -74,6 +74,16 @@ export default {
           { key: 'account', label: this.$t('brokerAccounts.kpi.account'), value: String(i.account || i.AccountCode || '--') }
         ]
       }
+      if (this.brokerId === 'mt5') {
+        return [
+          { key: 'balance', label: this.$t('brokerAccounts.kpi.balance'), value: money(i.balance, ccy) },
+          { key: 'equity', label: this.$t('brokerAccounts.kpi.equity'), value: money(i.equity, ccy), tone: 'accent' },
+          { key: 'margin', label: this.$t('brokerAccounts.kpi.margin'), value: money(i.margin, ccy) },
+          { key: 'free', label: this.$t('brokerAccounts.kpi.freeMargin'), value: money(i.freeMargin || i.marginFree, ccy), tone: 'positive' },
+          { key: 'server', label: this.$t('brokerAccounts.mt5.server'), value: String(i.server || '--') },
+          { key: 'account', label: this.$t('brokerAccounts.kpi.account'), value: String(i.login || '--') }
+        ]
+      }
       return []
     }
   },

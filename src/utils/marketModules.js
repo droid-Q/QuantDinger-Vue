@@ -3,7 +3,8 @@ import { getMarketModules } from '@/api/marketModules'
 export const FALLBACK_MARKET_MODULES = [
   { key: 'Crypto', label: 'Crypto', enabled: true, features: ['research', 'backtest', 'paper', 'live'] },
   { key: 'USStock', label: 'US Stocks', enabled: true, features: ['research', 'backtest', 'paper', 'live'] },
-  { key: 'Forex', label: 'Forex', enabled: true, features: ['research', 'backtest', 'paper', 'live'] }
+  { key: 'Forex', label: 'Forex', enabled: true, features: ['research', 'backtest', 'paper', 'live'] },
+  { key: 'MT5', label: 'MT5 / CPT Markets', enabled: true, features: ['research', 'live'] }
 ]
 
 export function toMarketOption (module) {
@@ -40,4 +41,3 @@ export async function loadEnabledMarketOptions (opts = {}) {
 export function firstMarketValue (options, fallback = 'Crypto') {
   return options && options.length > 0 ? options[0].value : fallback
 }
-

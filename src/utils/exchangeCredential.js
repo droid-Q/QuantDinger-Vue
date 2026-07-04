@@ -11,7 +11,10 @@ export const CRYPTO_EXCHANGE_DISPLAY_NAMES = {
   bitfinex: 'Bitfinex',
   htx: 'HTX',
   alpaca: 'Alpaca',
-  ibkr: 'IBKR'
+  ibkr: 'IBKR',
+  mt5: 'MetaTrader 5',
+  cptmarkets: 'CPT Markets',
+  cpt_markets: 'CPT Markets'
 }
 
 export const CRYPTO_EXCHANGE_IDS = new Set([
@@ -25,7 +28,10 @@ export const CRYPTO_EXCHANGE_IDS = new Set([
   'kucoin',
   'gate',
   'bitfinex',
-  'htx'
+  'htx',
+  'mt5',
+  'cptmarkets',
+  'cpt_markets'
 ])
 
 export const QUICK_TRADE_EXCHANGE_IDS = new Set([
@@ -37,7 +43,10 @@ export const QUICK_TRADE_EXCHANGE_IDS = new Set([
   'coinbase_exchange',
   'kraken',
   'gate',
-  'htx'
+  'htx',
+  'mt5',
+  'cptmarkets',
+  'cpt_markets'
 ])
 
 export function isCryptoExchangeCredential (cred) {

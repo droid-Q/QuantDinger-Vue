@@ -56,7 +56,7 @@
 
           <!-- Credential Selector -->
           <div class="qt-section">
-            <div class="qt-label">{{ $t('quickTrade.exchange') }} <span class="qt-crypto-hint">{{ $t('quickTrade.cryptoOnly') }}</span></div>
+            <div class="qt-label">{{ $t('quickTrade.exchange') }} <span class="qt-crypto-hint">{{ $t('quickTrade.liveAccountsHint') }}</span></div>
             <a-select
               v-model="selectedCredentialId"
               :placeholder="$t('quickTrade.selectExchange')"
@@ -118,10 +118,10 @@
                 @click="setTradeSide('buy')"
               >
                 <a-icon type="arrow-up" />
-                {{ isSwapMode ? $t('quickTrade.long') : $t('quickTrade.buySpot') }}
+                {{ canOpenShort ? $t('quickTrade.long') : $t('quickTrade.buySpot') }}
               </div>
               <div
-                v-if="isSwapMode"
+                v-if="canOpenShort"
                 class="qt-dir-btn qt-dir-short"
                 :class="{ active: side === 'sell' }"
                 @click="setTradeSide('sell')"
@@ -129,7 +129,7 @@
                 <a-icon type="arrow-down" /> {{ $t('quickTrade.short') }}
               </div>
             </div>
-            <div v-if="!isSwapMode" class="qt-hint-text qt-hint-inline">{{ $t('quickTrade.spotBuyOnlyHint') }}</div>
+            <div v-if="!canOpenShort" class="qt-hint-text qt-hint-inline">{{ $t('quickTrade.spotBuyOnlyHint') }}</div>
           </div>
 
           <!-- Order Type -->
@@ -159,12 +159,12 @@
 
           <!-- Amount (USDT) -->
           <div class="qt-section qt-amount-block">
-            <div class="qt-label">{{ $t('quickTrade.amount') }} (USDT)</div>
+            <div class="qt-label">{{ $t('quickTrade.amount') }} ({{ amountUnitLabel }})</div>
             <a-input-number
               v-model="amount"
-              :min="1"
-              :step="10"
-              :precision="2"
+              :min="amountMin"
+              :step="amountStep"
+              :precision="amountPrecision"
               style="width: 100%"
               :placeholder="$t('quickTrade.enterAmount')"
             />
@@ -174,7 +174,7 @@
                 :key="pct"
                 size="small"
                 @click="setAmountByPercent(pct)"
-                :disabled="activeBalanceAvailable <= 0"
+                :disabled="isMt5Credential || activeBalanceAvailable <= 0"
               >
                 {{ pct }}%
               </a-button>
@@ -185,7 +185,7 @@
           <div class="qt-section qt-card qt-mode-card">
             <div class="qt-section-title-row">
               <span class="qt-section-title">{{ isSwapMode ? $t('quickTrade.leverage') : $t('quickTrade.spotModeTitle') }}</span>
-              <div class="qt-mode-toggle">
+              <div v-if="!isMt5Credential" class="qt-mode-toggle">
                 <div
                   class="qt-mode-toggle-item"
                   :class="{ active: tradeMode === 'swap' }"
@@ -228,7 +228,7 @@
             <template v-else>
               <div class="qt-spot-info">
                 <a-icon type="wallet" class="qt-spot-info-icon" />
-                <span class="qt-hint-text">{{ $t('quickTrade.spotModeHint') }}</span>
+                <span class="qt-hint-text">{{ isMt5Credential ? $t('quickTrade.mt5ModeHint') : $t('quickTrade.spotModeHint') }}</span>
               </div>
             </template>
           </div>
@@ -277,7 +277,7 @@
               :class="[side === 'buy' ? 'qt-btn-long' : 'qt-btn-short']"
             >
               <a-icon :type="side === 'buy' ? 'arrow-up' : 'arrow-down'" />
-              {{ isSwapMode
+              {{ canOpenShort
                 ? (side === 'buy' ? $t('quickTrade.buyLong') : $t('quickTrade.sellShort'))
                 : $t('quickTrade.buySpot') }}
               {{ symbol }}
@@ -294,7 +294,7 @@
               <span v-if="currentPositions.length > 1" class="qt-position-count">({{ currentPositions.length }})</span>
             </div>
             <template v-if="currentPositions.length > 0">
-              <div v-if="isSwapMode" class="qt-close-scope qt-close-scope-global">
+              <div v-if="canOpenShort" class="qt-close-scope qt-close-scope-global">
                 <a-radio-group v-model="closeScope" size="small" class="qt-close-scope-radio">
                   <a-radio-button value="full">{{ $t('quickTrade.closeScopeFull') }}</a-radio-button>
                   <a-radio-button value="system_tracked">{{ $t('quickTrade.closeScopeSystem') }}</a-radio-button>
@@ -311,7 +311,7 @@
                   <span>{{ $t('quickTrade.side') }}</span>
                   <a-tag :color="pos.side === 'long' ? '#52c41a' : '#f5222d'" size="small">
                     {{ pos.side === 'long'
-                      ? (isSwapMode ? $t('quickTrade.long') : $t('quickTrade.spotHold'))
+                      ? (canOpenShort ? $t('quickTrade.long') : $t('quickTrade.spotHold'))
                       : $t('quickTrade.short') }}
                   </a-tag>
                 </div>
@@ -346,7 +346,7 @@
                   :loading="closingPositionSide === pos.side"
                   style="margin-top: 8px;"
                 >
-                  {{ isSwapMode ? $t('quickTrade.closePosition') : $t('quickTrade.sellSpot') }}
+                  {{ canOpenShort ? $t('quickTrade.closePosition') : $t('quickTrade.sellSpot') }}
                 </a-button>
               </div>
             </template>
@@ -483,6 +483,30 @@ export default {
     isSwapMode () {
       return this.tradeMode === 'swap'
     },
+    selectedCredentialExchangeId () {
+      return String((this.selectedCredential && this.selectedCredential.exchange_id) || '').trim().toLowerCase()
+    },
+    isMt5Credential () {
+      return ['mt5', 'cptmarkets', 'cpt_markets'].includes(this.selectedCredentialExchangeId)
+    },
+    quickTradeMarket () {
+      return this.isMt5Credential ? 'MT5' : 'Crypto'
+    },
+    canOpenShort () {
+      return this.isSwapMode || this.isMt5Credential
+    },
+    amountUnitLabel () {
+      return this.isMt5Credential ? this.$t('quickTrade.lotsUnit') : 'USDT'
+    },
+    amountMin () {
+      return this.isMt5Credential ? 0.01 : 1
+    },
+    amountStep () {
+      return this.isMt5Credential ? 0.01 : 10
+    },
+    amountPrecision () {
+      return this.isMt5Credential ? 2 : 2
+    },
     leverageMarks () {
       const keys = this.embeddedIde ? [1, 50, 125] : [1, 25, 50, 100, 125]
       return keys.reduce((acc, v) => {
@@ -491,7 +515,7 @@ export default {
       }, {})
     },
     effectiveMarketType () {
-      return this.tradeMode
+      return this.isMt5Credential ? 'spot' : this.tradeMode
     },
     swapBalanceAvailable () {
       const leg = this.balance && this.balance.swap
@@ -592,6 +616,9 @@ export default {
     },
     selectedCredentialId (val) {
       // Reload position when credential changes
+      if (this.isMt5Credential) {
+        this.tradeMode = 'spot'
+      }
       if (val && this.currentSymbol) {
         this.loadPosition()
       }
@@ -614,7 +641,7 @@ export default {
       })
     },
     tradeMode (val) {
-      if (val === 'spot' && this.side === 'sell') {
+      if (val === 'spot' && this.side === 'sell' && !this.canOpenShort) {
         this.side = 'buy'
       }
       this.$nextTick(() => {
@@ -658,7 +685,7 @@ export default {
       return document.body
     },
     setTradeSide (s) {
-      if (s === 'sell' && !this.isSwapMode) {
+      if (s === 'sell' && !this.canOpenShort) {
         this.$message.warning(this.$t('quickTrade.shortDisabledSpot'))
         return
       }
@@ -723,19 +750,18 @@ export default {
         }
       }
       try {
-        // Load watchlist and filter crypto symbols
+        const market = this.quickTradeMarket.toLowerCase()
         const res = await getWatchlist({ userid: this.userId })
         if (res && res.code === 1 && res.data) {
-          // Filter only Crypto market symbols
-          const cryptoSymbols = (res.data || []).filter(item =>
-            (item.market || '').toLowerCase() === 'crypto'
+          const symbols = (res.data || []).filter(item =>
+            (item.market || '').toLowerCase() === market
           ).map(item => ({
             value: item.symbol || '',
             symbol: item.symbol || '',
             name: item.name || ''
           })).filter(item => item.value)
 
-          this.symbolSuggestions = cryptoSymbols
+          this.symbolSuggestions = symbols
         }
       } catch (e) {
         console.warn('loadWatchlistSymbols error:', e)
@@ -757,7 +783,7 @@ export default {
       this.symbolSearchTimer = setTimeout(async () => {
         this.symbolSearching = true
         try {
-          const res = await searchSymbols({ market: 'Crypto', keyword: value.trim(), limit: 20 })
+          const res = await searchSymbols({ market: this.quickTradeMarket, keyword: value.trim(), limit: 20 })
           if (res && res.code === 1 && res.data) {
             this.symbolSuggestions = (res.data.items || res.data || []).map(item => ({
               value: item.symbol || '',
@@ -799,7 +825,7 @@ export default {
           url: '/api/market/price',
           method: 'get',
           params: {
-            market: 'Crypto',
+            market: this.quickTradeMarket,
             symbol: this.currentSymbol
           }
         })
@@ -874,6 +900,10 @@ export default {
         return
       }
       this.selectedCredentialId = credId
+      if (this.isMt5Credential) {
+        this.tradeMode = 'spot'
+      }
+      await this.loadWatchlistSymbols()
       await this.loadBalance()
       await this.loadPosition()
     },

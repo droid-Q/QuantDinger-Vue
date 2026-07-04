@@ -36,6 +36,14 @@
               Interactive Brokers (IBKR)
             </a-select-option>
           </a-select-opt-group>
+          <a-select-opt-group :label="$t('profile.exchange.typeMT5')">
+            <a-select-option value="cptmarkets">
+              CPT Markets (MT5)
+            </a-select-option>
+            <a-select-option value="mt5">
+              MetaTrader 5
+            </a-select-option>
+          </a-select-opt-group>
         </a-select>
       </a-form-item>
 
@@ -182,6 +190,61 @@
         </a-form-item>
       </template>
 
+      <template v-if="addExchangeType === 'mt5'">
+        <a-alert
+          type="warning"
+          showIcon
+          style="margin-bottom: 16px"
+          :message="$t('profile.exchange.mt5LocalTitle')"
+          :description="$t('profile.exchange.mt5LocalHint')"
+        />
+        <a-form-item :label="$t('profile.exchange.mt5Login')">
+          <a-input
+            v-decorator="['mt5_login', { rules: [{ required: true, message: 'MT5 login is required' }] }]"
+            placeholder="12345678"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('profile.exchange.mt5Password')">
+          <a-input-password
+            v-decorator="['mt5_password', { rules: [{ required: true, message: 'MT5 password is required' }] }]"
+            :placeholder="$t('profile.exchange.mt5PasswordPh')"
+            autocomplete="new-password"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('profile.exchange.mt5Server')">
+          <a-input
+            v-decorator="['mt5_server', { rules: [{ required: true, message: 'MT5 server is required' }] }]"
+            placeholder="CPTMarkets-Demo"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('profile.exchange.mt5PathOptional')">
+          <a-input
+            v-decorator="['mt5_path']"
+            placeholder="C:\\Program Files\\MetaTrader 5\\terminal64.exe"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('profile.exchange.mt5Timeout')">
+          <a-input-number
+            v-decorator="['mt5_timeout', { initialValue: 60000 }]"
+            :min="1000"
+            :max="180000"
+            style="width: 100%"
+          />
+        </a-form-item>
+        <a-row :gutter="12">
+          <a-col :xs="12">
+            <a-form-item :label="$t('profile.exchange.mt5SymbolPrefix')">
+              <a-input v-decorator="['symbol_prefix']" placeholder="" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="12">
+            <a-form-item :label="$t('profile.exchange.mt5SymbolSuffix')">
+              <a-input v-decorator="['symbol_suffix']" placeholder=".m" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+      </template>
+
       <a-form-item v-if="addExchangeType">
         <a-button
           block
@@ -262,6 +325,9 @@ export default {
     },
     selectedExchangeApiDocUrl () {
       return this.selectedCryptoExchangeMeta ? this.selectedCryptoExchangeMeta.docsUrl : ''
+    },
+    testingDesktopBlocked () {
+      return false
     }
   },
   watch: {
@@ -301,7 +367,10 @@ export default {
         bitfinex: 'Bitfinex',
         htx: 'HTX',
         ibkr: 'IBKR',
-        alpaca: 'Alpaca'
+        alpaca: 'Alpaca',
+        mt5: 'MetaTrader 5',
+        cptmarkets: 'CPT Markets',
+        cpt_markets: 'CPT Markets'
       }
       return names[id] || id
     },
@@ -316,6 +385,8 @@ export default {
         f.push('api_key', 'secret_key', 'base_url')
       } else if (this.addExchangeType === 'ibkr') {
         f.push('ibkr_host', 'ibkr_port', 'ibkr_client_id')
+      } else if (this.addExchangeType === 'mt5') {
+        f.push('mt5_login', 'mt5_password', 'mt5_server', 'mt5_path', 'mt5_timeout', 'symbol_prefix', 'symbol_suffix')
       }
       return f
     },
@@ -331,6 +402,9 @@ export default {
       if (this.addExchangeType === 'ibkr') {
         return ['exchange_id', 'ibkr_host', 'ibkr_port', 'ibkr_client_id']
       }
+      if (this.addExchangeType === 'mt5') {
+        return ['exchange_id', 'mt5_login', 'mt5_password', 'mt5_server', 'mt5_path', 'mt5_timeout', 'symbol_prefix', 'symbol_suffix']
+      }
       return ['exchange_id']
     },
     _normalizeCredentialPayload (values) {
@@ -340,6 +414,13 @@ export default {
       }
       if (p.exchange_id === 'alpaca') {
         if (typeof p.base_url === 'string') p.base_url = p.base_url.trim()
+      }
+      if (['mt5', 'cptmarkets', 'cpt_markets'].includes(String(p.exchange_id || '').toLowerCase())) {
+        const keys = ['mt5_login', 'mt5_password', 'mt5_server', 'mt5_path', 'symbol_prefix', 'symbol_suffix']
+        keys.forEach(key => {
+          if (typeof p[key] === 'string') p[key] = p[key].trim()
+        })
+        p.mt5_timeout = Number(p.mt5_timeout || 60000)
       }
       return p
     },
@@ -405,6 +486,8 @@ export default {
         this.addExchangeType = 'alpaca'
       } else if (val === 'ibkr') {
         this.addExchangeType = 'ibkr'
+      } else if (val === 'mt5' || val === 'cptmarkets' || val === 'cpt_markets') {
+        this.addExchangeType = 'mt5'
       } else {
         this.addExchangeType = ''
       }

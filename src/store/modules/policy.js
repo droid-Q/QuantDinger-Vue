@@ -19,16 +19,19 @@ const DEFAULT_POLICY = {
     huobi: { Crypto: ['spot'] },
     bingx: { Crypto: ['spot'] },
     ibkr: { USStock: ['spot'] },
-    alpaca: { USStock: ['spot'], Crypto: ['spot'] }
+    alpaca: { USStock: ['spot'], Crypto: ['spot'] },
+    mt5: { MT5: ['spot'] },
+    cptmarkets: { MT5: ['spot'] },
+    cpt_markets: { MT5: ['spot'] }
   },
   long_only_brokers: ['alpaca', 'ibkr'],
   bot_type_markets: {
     grid: ['Crypto', 'Forex'],
     martingale: ['Crypto'],
-    dca: ['Crypto', 'Forex', 'USStock'],
-    trend: ['Crypto', 'Forex', 'USStock']
+    dca: ['Crypto', 'Forex', 'USStock', 'MT5'],
+    trend: ['Crypto', 'Forex', 'USStock', 'MT5']
   },
-  live_market_categories: ['Crypto', 'Forex', 'USStock']
+  live_market_categories: ['Crypto', 'Forex', 'USStock', 'MT5']
 }
 
 const STORAGE_KEY = 'quantdinger.broker-market-policy.v1'

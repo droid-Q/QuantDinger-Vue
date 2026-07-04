@@ -998,6 +998,7 @@ export default {
         HKStock: this.i18nText('dashboard.analysis.modal.addStock.example.HKStock', 'e.g. 00700, 09988, 03690'),
         Crypto: this.i18nText('dashboard.analysis.modal.addStock.example.Crypto', 'e.g. BTC/USDT, ETH/USDT, SOL/USDT'),
         Forex: this.i18nText('dashboard.analysis.modal.addStock.example.Forex', 'e.g. EURUSD, GBPUSD'),
+        MT5: this.i18nText('dashboard.analysis.modal.addStock.example.MT5', 'e.g. XAUUSD, XAGUSD, EURUSD'),
         Futures: this.i18nText('dashboard.analysis.modal.addStock.example.Futures', 'e.g. GC, CL, ES'),
         MOEX: this.i18nText('dashboard.analysis.modal.addStock.example.MOEX', 'e.g. SBER, GAZP, LKOH')
       }
