@@ -356,10 +356,7 @@ class="analyze-button">
                       <span class="wl-symbol">{{ stock.symbol }}</span>
                       <span class="wl-market">{{ getMarketName(stock.market) }}</span>
                     </div>
-                    <div class="wl-meta-line">
-                      <span class="wl-name" v-if="stock.name && stock.name !== stock.symbol">{{ stock.name }}</span>
-                      <span class="wl-source">{{ dataSourceLabel(stock) }}</span>
-                    </div>
+                    <div class="wl-name" v-if="stock.name && stock.name !== stock.symbol">{{ stock.name }}</div>
                   </div>
                   <div class="wl-sparkline-wrap" v-if="watchlistPrices[`${stock.market}:${stock.symbol}`]">
                     <svg class="wl-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
@@ -396,6 +393,7 @@ class="analyze-button">
                   <span class="wl-task-next" v-if="getMonitorMeta(stock).nextRunAtText">{{ getMonitorMeta(stock).nextRunAtText }}</span>
                 </div>
               </div>
+              <span class="wl-source">{{ dataSourceLabel(stock) }}</span>
               <div class="wl-card-hover-actions">
                 <a-tooltip :title="$t('aiAssetAnalysis.position.quickAdd')"><span class="wl-hover-btn" @click.stop="openPositionModal(stock)"><a-icon type="wallet" /></span></a-tooltip>
                 <a-tooltip :title="$t('aiAssetAnalysis.monitor.quickTask')"><span class="wl-hover-btn" @click.stop="openMonitorModal(stock)"><a-icon type="clock-circle" /></span></a-tooltip>
@@ -3837,7 +3835,7 @@ export default {
 /* ===== Watchlist Card (wl-card) ===== */
 .wl-card {
   position: relative;
-  padding: 10px 12px;
+  padding: 10px 12px 26px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3883,14 +3881,6 @@ export default {
   gap: 5px;
   overflow: hidden;
 }
-.wl-meta-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  margin-top: 2px;
-  overflow: hidden;
-}
 .wl-name {
   font-size: 11px;
   color: #94a3b8;
@@ -3898,12 +3888,14 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
+  margin-top: 1px;
 }
 .wl-source {
-  flex: 0 0 auto;
-  width: fit-content;
-  max-width: 100%;
+  position: absolute;
+  left: 12px;
+  bottom: 6px;
+  z-index: 1;
+  max-width: calc(100% - 104px);
   padding: 1px 5px;
   border-radius: 4px;
   background: rgba(20, 184, 166, 0.08);
