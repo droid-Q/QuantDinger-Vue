@@ -47,6 +47,8 @@ server {
 
     # SPA routing support (all routes fall back to index.html)
     location / {
+        expires -1;
+        add_header Cache-Control "no-store" always;
         try_files $uri $uri/ /index.html;
     }
 
