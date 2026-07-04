@@ -357,6 +357,7 @@ class="analyze-button">
                       <span class="wl-market">{{ getMarketName(stock.market) }}</span>
                     </div>
                     <div class="wl-name" v-if="stock.name && stock.name !== stock.symbol">{{ stock.name }}</div>
+                    <div class="wl-source">{{ dataSourceLabel(stock) }}</div>
                   </div>
                   <div class="wl-sparkline-wrap" v-if="watchlistPrices[`${stock.market}:${stock.symbol}`]">
                     <svg class="wl-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
@@ -2471,6 +2472,21 @@ export default {
     getMarketName (market) {
       return this.i18nText(`dashboard.analysis.market.${market}`, market || '')
     },
+    dataSourceLabel (stock) {
+      const market = stock && stock.market
+      const sourceMap = {
+        MT5: 'MT5 / CPT Markets',
+        Forex: this.i18nText('dashboard.analysis.source.forex', 'Public FX data'),
+        Crypto: this.i18nText('dashboard.analysis.source.crypto', 'Exchange market data'),
+        USStock: this.i18nText('dashboard.analysis.source.usStock', 'US stock data'),
+        CNStock: this.i18nText('dashboard.analysis.source.cnStock', 'A-share data'),
+        HKStock: this.i18nText('dashboard.analysis.source.hkStock', 'HK stock data'),
+        Futures: this.i18nText('dashboard.analysis.source.futures', 'Futures data'),
+        MOEX: this.i18nText('dashboard.analysis.source.moex', 'MOEX data')
+      }
+      const source = sourceMap[market] || this.getMarketName(market)
+      return this.i18nText('dashboard.analysis.source.prefix', 'Source · {source}', { source })
+    },
     formatNumber (num) {
       if (typeof num === 'string') return num
       return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -3873,6 +3889,21 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 1px;
+}
+.wl-source {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(20, 184, 166, 0.08);
+  color: #0f766e;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .wl-info-right {
   display: flex;
