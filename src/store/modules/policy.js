@@ -20,21 +20,58 @@ const DEFAULT_POLICY = {
     bingx: { Crypto: ['spot'] },
     ibkr: { USStock: ['spot'] },
     alpaca: { USStock: ['spot'], Crypto: ['spot'] },
-    mt5: { MT5: ['spot'] },
-    cptmarkets: { MT5: ['spot'] },
-    cpt_markets: { MT5: ['spot'] }
+    mt5: { Forex: ['spot'] },
+    cptmarkets: { Forex: ['spot'] },
+    cpt_markets: { Forex: ['spot'] }
   },
   long_only_brokers: ['alpaca', 'ibkr'],
   bot_type_markets: {
-    grid: ['Crypto', 'Forex'],
+    grid: ['Crypto'],
     martingale: ['Crypto'],
-    dca: ['Crypto', 'Forex', 'USStock', 'MT5'],
-    trend: ['Crypto', 'Forex', 'USStock', 'MT5']
+    dca: ['Crypto', 'Forex', 'USStock'],
+    trend: ['Crypto', 'Forex', 'USStock']
   },
-  live_market_categories: ['Crypto', 'Forex', 'USStock', 'MT5']
+  live_market_categories: ['Crypto', 'Forex', 'USStock']
 }
 
 const STORAGE_KEY = 'quantdinger.broker-market-policy.v1'
+const MT5_BROKERS = ['mt5', 'cptmarkets', 'cpt_markets']
+
+function normalizePolicy (payload) {
+  const next = {
+    ...DEFAULT_POLICY,
+    ...(payload || {}),
+    broker_markets: {
+      ...DEFAULT_POLICY.broker_markets,
+      ...((payload || {}).broker_markets || {})
+    },
+    bot_type_markets: {
+      ...DEFAULT_POLICY.bot_type_markets,
+      ...((payload || {}).bot_type_markets || {})
+    }
+  }
+  MT5_BROKERS.forEach(id => {
+    const markets = { ...(next.broker_markets[id] || {}) }
+    if (markets.MT5 && !markets.Forex) markets.Forex = markets.MT5
+    delete markets.MT5
+    next.broker_markets[id] = markets
+  })
+  Object.keys(next.bot_type_markets || {}).forEach(bot => {
+    const markets = new Set(next.bot_type_markets[bot] || [])
+    if (markets.has('MT5')) {
+      markets.delete('MT5')
+      markets.add('Forex')
+    }
+    next.bot_type_markets[bot] = Array.from(markets)
+  })
+  const live = new Set(next.live_market_categories || DEFAULT_POLICY.live_market_categories)
+  if (live.has('MT5')) {
+    live.delete('MT5')
+    live.add('Forex')
+  }
+  next.live_market_categories = Array.from(live)
+  return next
+}
 
 function readCachedPolicy () {
   try {
@@ -54,7 +91,7 @@ function persistPolicy (data) {
 
 const policy = {
   state: {
-    config: readCachedPolicy() || DEFAULT_POLICY,
+    config: normalizePolicy(readCachedPolicy() || DEFAULT_POLICY),
     loaded: false,
     loading: false
   },
@@ -64,7 +101,7 @@ const policy = {
       state.loading = !!loading
     },
     SET_POLICY_CONFIG (state, payload) {
-      state.config = payload || DEFAULT_POLICY
+      state.config = normalizePolicy(payload)
       state.loaded = true
       persistPolicy(state.config)
     }

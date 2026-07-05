@@ -69,8 +69,8 @@
           <a-form-model-item :label="$t('trading-bot.wizard.marketType')">
             <template v-if="shouldShowMarketTypeSelector">
               <a-radio-group v-model="baseForm.marketType" :disabled="!swapAvailableForCurrentSelection && !spotAvailableForCurrentSelection">
-              <a-radio value="swap" :disabled="!swapAvailableForCurrentSelection">{{ $t('trading-bot.wizard.futures') }}</a-radio>
-              <a-radio value="spot" :disabled="!spotAvailableForCurrentSelection">{{ $t('trading-bot.wizard.spot') }}</a-radio>
+                <a-radio value="swap" :disabled="!swapAvailableForCurrentSelection">{{ $t('trading-bot.wizard.futures') }}</a-radio>
+                <a-radio value="spot" :disabled="!spotAvailableForCurrentSelection">{{ $t('trading-bot.wizard.spot') }}</a-radio>
               </a-radio-group>
             </template>
             <template v-else>
@@ -693,9 +693,11 @@ export default {
     // selected market category. The watchlist API stores 'Crypto', 'USStock',
     // 'Forex' (and other analysis-only markets) all in one bucket.
     marketWatchlist () {
-      const target = String(this.baseForm.marketCategory || '').toLowerCase()
+      const target = this.normalizeMarketCategory(this.baseForm.marketCategory)
+      const targets = new Set([String(target || '').toLowerCase()])
+      if (target === 'Forex') targets.add('mt5')
       return (this.watchlist || []).filter(
-        w => w && w.symbol && String(w.market || '').toLowerCase() === target
+        w => w && w.symbol && targets.has(String(w.market || '').toLowerCase())
       )
     },
     // When baseForm.symbol isn't in the user's watchlist (e.g. editing an
@@ -914,6 +916,9 @@ export default {
     }
   },
   methods: {
+    normalizeMarketCategory (value) {
+      return String(value || '').trim() === 'MT5' ? 'Forex' : (value || 'Crypto')
+    },
     formatCredentialOptionLabel (cred) {
       return formatExchangeCredentialLabel(cred, {
         unnamed: this.$t('brokerAccounts.cryptoSection.unnamed')
@@ -1104,7 +1109,7 @@ export default {
       const bot = this.editBot
       if (!bot) return
       this.baseForm.botName = bot.strategy_name || ''
-      this.baseForm.marketCategory = bot.market_category || 'Crypto'
+      this.baseForm.marketCategory = this.normalizeMarketCategory(bot.market_category || 'Crypto')
       const tc = bot.trading_config || {}
       this.baseForm.symbol = tc.symbol || ''
       this.baseForm.timeframe = tc.timeframe || '1h'
@@ -1134,7 +1139,7 @@ export default {
       const p = this.aiPreset
       if (p.botName) this.baseForm.botName = p.botName
       const base = p.baseConfig || {}
-      if (base.marketCategory) this.baseForm.marketCategory = base.marketCategory
+      if (base.marketCategory) this.baseForm.marketCategory = this.normalizeMarketCategory(base.marketCategory)
       if (base.symbol) this.baseForm.symbol = base.symbol
       if (base.timeframe) this.baseForm.timeframe = base.timeframe
       if (base.marketType) this.baseForm.marketType = base.marketType

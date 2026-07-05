@@ -130,7 +130,7 @@ export const BROKER_META = {
     icon: 'desktop',
     color: '#13c2c2',
     accent: '#08979c',
-    markets: ['MT5', 'Forex', 'Metals', 'CFD'],
+    markets: ['Forex', 'Metals', 'CFD'],
     badges: ['terminal_required', 'windows_only'],
     cloudFriendly: false
   }
