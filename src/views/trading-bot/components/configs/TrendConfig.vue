@@ -200,6 +200,9 @@ export default {
       }
     }
   },
+  mounted () {
+    this.emit()
+  },
   methods: {
     emit () {
       this.$emit('input', { ...this.form })

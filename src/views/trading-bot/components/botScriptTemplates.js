@@ -198,10 +198,10 @@ def on_bar(ctx, bar):
 `,
 
   trend: (params) => `# ---- Trend Following Bot ----
-MA_PERIOD    = ${params.maPeriod}
+MA_PERIOD    = ${params.maPeriod || 20}
 MA_TYPE      = "${params.maType || 'EMA'}"
-CONFIRM_BARS = ${params.confirmBars}
-POS_PCT      = ${params.positionPct} / 100.0
+CONFIRM_BARS = ${params.confirmBars || 2}
+POS_PCT      = ${params.positionPct || 50} / 100.0
 DIRECTION    = "${params.direction || 'long'}"
 
 # Trailing take-profit (optional). When USE_TRAILING_TP is True, once
