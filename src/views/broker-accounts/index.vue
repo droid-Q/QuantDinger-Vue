@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <crypto-exchange-accounts-card :is-dark-theme="isDarkTheme" />
+    <crypto-exchange-accounts-card ref="credentialCard" :is-dark-theme="isDarkTheme" />
 
     <div class="ba-section-divider">
       <span class="ba-section-divider-label">
@@ -188,6 +188,7 @@ export default {
         if (res && (res.success || (res.data && res.data.success))) {
           this.$message.success(this.$t('brokerAccounts.connectSuccess'))
           await this.loadOne(id)
+          this.refreshCredentialCard()
         } else {
           const msg = (res && (res.error || (res.data && res.data.error))) || this.$t('brokerAccounts.connectFailed')
           this.$message.error(msg)
@@ -197,6 +198,10 @@ export default {
       } finally {
         this.$set(this.loadingMap, id, false)
       }
+    },
+    refreshCredentialCard () {
+      const card = this.$refs.credentialCard
+      if (card && card.loadCredentials) card.loadCredentials()
     },
     async handleDisconnect (id) {
       this.$set(this.loadingMap, id, true)

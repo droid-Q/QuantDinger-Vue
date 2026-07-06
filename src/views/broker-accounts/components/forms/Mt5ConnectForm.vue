@@ -95,9 +95,8 @@ export default {
     }
   },
   methods: {
-    submit () {
-      if (!this.canSubmit) return
-      this.$emit('submit', {
+    payload () {
+      return {
         broker: 'CPT Markets',
         login: String(this.form.login || '').trim(),
         password: String(this.form.password || '').trim(),
@@ -106,7 +105,11 @@ export default {
         timeout: Number(this.form.timeout || 60000),
         symbol_prefix: String(this.form.symbolPrefix || '').trim(),
         symbol_suffix: String(this.form.symbolSuffix || '').trim()
-      })
+      }
+    },
+    submit () {
+      if (!this.canSubmit) return
+      this.$emit('submit', this.payload())
     }
   }
 }
