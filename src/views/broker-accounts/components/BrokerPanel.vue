@@ -70,18 +70,19 @@
 
       <!-- Account overview -->
       <a-tab-pane key="account" :tab="$t('brokerAccounts.tabAccount')" :disabled="!isConnected">
-        <broker-account-card :broker-id="broker.id" :is-dark-theme="isDarkTheme" />
+        <broker-account-card :broker-id="broker.id" :refresh-key="refreshKey" :is-dark-theme="isDarkTheme" />
       </a-tab-pane>
 
       <!-- Positions -->
       <a-tab-pane key="positions" :tab="$t('brokerAccounts.tabPositions')" :disabled="!isConnected">
-        <broker-positions-table :broker-id="broker.id" :is-dark-theme="isDarkTheme" />
+        <broker-positions-table :broker-id="broker.id" :refresh-key="refreshKey" :is-dark-theme="isDarkTheme" />
       </a-tab-pane>
 
       <!-- Open orders -->
       <a-tab-pane key="orders" :tab="$t('brokerAccounts.tabOrders')" :disabled="!isConnected">
         <broker-orders-table
           :broker-id="broker.id"
+          :refresh-key="refreshKey"
           :is-dark-theme="isDarkTheme"
           @cancel="orderId => $emit('cancel-order', orderId)"
         />
@@ -117,6 +118,7 @@ export default {
     broker: { type: Object, required: true },
     status: { type: Object, default: () => null },
     loading: { type: Boolean, default: false },
+    refreshKey: { type: Number, default: 0 },
     isDarkTheme: { type: Boolean, default: false },
     cloudBlocked: { type: Boolean, default: false }
   },

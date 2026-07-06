@@ -55,7 +55,10 @@
             </div>
           </div>
           <div class="crypto-item-footer">
-            <a-button v-if="!isMt5Credential(item)" size="small" class="crypto-view-account-btn" @click="openSnapshotModal(item)">
+            <a-button v-if="isMt5Credential(item)" size="small" class="crypto-view-account-btn" @click="$emit('select-mt5-credential', item)">
+              <a-icon type="fund" /> {{ $t('trading-assistant.positions.viewAccountPositions') }}
+            </a-button>
+            <a-button v-else size="small" class="crypto-view-account-btn" @click="openSnapshotModal(item)">
               <a-icon type="fund" /> {{ $t('trading-assistant.positions.viewAccountPositions') }}
             </a-button>
             <a-button size="small" @click="openRenameModal(item)">

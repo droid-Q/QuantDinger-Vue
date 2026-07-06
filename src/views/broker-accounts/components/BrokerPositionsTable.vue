@@ -47,6 +47,7 @@ export default {
   name: 'BrokerPositionsTable',
   props: {
     brokerId: { type: String, required: true },
+    refreshKey: { type: Number, default: 0 },
     isDarkTheme: { type: Boolean, default: false }
   },
   data () {
@@ -69,6 +70,14 @@ export default {
   },
   mounted () {
     this.load()
+  },
+  watch: {
+    brokerId () {
+      this.load()
+    },
+    refreshKey () {
+      this.load()
+    }
   },
   methods: {
     formatMoney: money,

@@ -15,7 +15,11 @@
       </div>
     </div>
 
-    <crypto-exchange-accounts-card ref="credentialCard" :is-dark-theme="isDarkTheme" />
+    <crypto-exchange-accounts-card
+      ref="credentialCard"
+      :is-dark-theme="isDarkTheme"
+      @select-mt5-credential="handleMt5CredentialSelect"
+    />
 
     <div class="ba-section-divider">
       <span class="ba-section-divider-label">
@@ -56,6 +60,7 @@
           :broker="b"
           :status="connectionMap[b.id]"
           :loading="loadingMap[b.id]"
+          :refresh-key="panelRefreshKeyMap[b.id] || 0"
           :is-dark-theme="isDarkTheme"
           :cloud-blocked="isBrokerBlocked(b.id)"
           @connect="payload => handleConnect(b.id, payload)"
@@ -85,6 +90,7 @@ export default {
       activeBroker: 'alpaca',
       connectionMap: {},
       loadingMap: {},
+      panelRefreshKeyMap: {},
       refreshing: false,
       desktopBrokersAllowed: true,
       desktopBrokersAllowedLoading: true
@@ -188,6 +194,7 @@ export default {
         if (res && (res.success || (res.data && res.data.success))) {
           this.$message.success(this.$t('brokerAccounts.connectSuccess'))
           await this.loadOne(id)
+          this.bumpBrokerPanel(id)
           this.refreshCredentialCard()
         } else {
           const msg = (res && (res.error || (res.data && res.data.error))) || this.$t('brokerAccounts.connectFailed')
@@ -202,6 +209,18 @@ export default {
     refreshCredentialCard () {
       const card = this.$refs.credentialCard
       if (card && card.loadCredentials) card.loadCredentials()
+    },
+    bumpBrokerPanel (id) {
+      this.$set(this.panelRefreshKeyMap, id, (this.panelRefreshKeyMap[id] || 0) + 1)
+    },
+    async handleMt5CredentialSelect (item) {
+      if (!item || !item.id) return
+      if (this.isBrokerBlocked('mt5')) {
+        this.$set(this.connectionMap, 'mt5', { connected: false, blocked: true })
+        return
+      }
+      this.activeBroker = 'mt5'
+      await this.handleConnect('mt5', { credential_id: item.id })
     },
     async handleDisconnect (id) {
       this.$set(this.loadingMap, id, true)

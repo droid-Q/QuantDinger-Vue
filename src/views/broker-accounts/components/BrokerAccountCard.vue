@@ -37,6 +37,7 @@ export default {
   name: 'BrokerAccountCard',
   props: {
     brokerId: { type: String, required: true },
+    refreshKey: { type: Number, default: 0 },
     isDarkTheme: { type: Boolean, default: false }
   },
   data () {
@@ -92,6 +93,14 @@ export default {
   },
   beforeDestroy () {
     if (this.timer) clearTimeout(this.timer)
+  },
+  watch: {
+    brokerId () {
+      this.load()
+    },
+    refreshKey () {
+      this.load()
+    }
   },
   methods: {
     async load () {
