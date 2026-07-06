@@ -147,12 +147,15 @@
             >
               <a-select-option
                 v-for="w in marketWatchlist"
-                :key="w.symbol"
+                :key="symbolOptionKey(w)"
                 :value="w.symbol"
                 :label="w.symbol"
               >
                 <strong class="bot-symbol-opt-code">{{ w.symbol }}</strong>
                 <span v-if="w.name && w.name !== w.symbol" class="bot-symbol-opt-name">{{ w.name }}</span>
+                <a-tag v-if="symbolSourceLabel(w)" color="blue" class="bot-symbol-opt-source">
+                  {{ symbolSourceLabel(w) }}
+                </a-tag>
               </a-select-option>
               <a-select-option
                 v-if="legacySymbolOption"
@@ -943,6 +946,29 @@ export default {
     },
     fallbackLabel (zh, en) {
       return this.isZhLocale ? zh : en
+    },
+    symbolOptionKey (item) {
+      return `${item && item.market ? item.market : this.baseForm.marketCategory}:${item && item.symbol}`
+    },
+    isMt5WatchlistItem (item) {
+      const keys = [
+        item && item.market,
+        item && item.exchange_id,
+        item && item.exchangeId,
+        item && item.data_source,
+        item && item.dataSource,
+        item && item.source,
+        item && item.provider
+      ]
+      return keys.some(v => ['mt5', 'cptmarkets', 'cpt_markets'].includes(String(v || '').toLowerCase()))
+    },
+    symbolSourceLabel (item) {
+      if (!item) return ''
+      if (this.isMt5WatchlistItem(item)) return 'MT5 / CPT Markets'
+      if (this.normalizeMarketCategory(item.market) === 'Forex') {
+        return this.$t('dashboard.analysis.source.forex')
+      }
+      return ''
     },
     getStrategyParamLabel (key) {
       const map = {
