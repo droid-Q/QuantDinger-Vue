@@ -19,6 +19,9 @@
         <a-button :loading="refreshing" @click="refreshAll">
           <a-icon type="reload" /> {{ $t('brokerAccounts.refreshAll') }}
         </a-button>
+        <a-button @click="signupModalVisible = true">
+          <a-icon type="rocket" /> {{ $t('profile.exchange.openAccount') }}
+        </a-button>
         <a-dropdown :trigger="['click']">
           <a-button type="primary">
             <a-icon type="plus" /> {{ $t('brokerAccounts.addAccount') }}
@@ -79,8 +82,8 @@
             :class="{ active: activeProvider === 'crypto:' + exchange.id }"
             @click="selectProvider('crypto:' + exchange.id)"
           >
-            <span class="ba-provider-icon" :style="{ color: exchange.color }">
-              <icon :icon="exchange.icon" />
+            <span class="ba-provider-icon" :style="{ '--brand-color': exchange.color }">
+              <a-icon :type="exchange.icon" />
             </span>
             <span class="ba-provider-copy">
               <strong>{{ exchange.name }}</strong>
@@ -88,13 +91,6 @@
                 <i :class="{ connected: hasCryptoCredential(exchange.id) }" />
                 {{ hasCryptoCredential(exchange.id) ? $t('brokerAccounts.connected') : $t('brokerAccounts.notConnected') }}
               </small>
-            </span>
-          </button>
-          <button type="button" class="ba-crypto-add" @click="openCryptoAdd">
-            <a-icon type="plus-circle" />
-            <span>
-              <strong>{{ $t('brokerAccounts.addCryptoConnection') }}</strong>
-              <small>{{ $t('brokerAccounts.cryptoConnectionHint') }}</small>
             </span>
           </button>
         </div>
@@ -130,6 +126,11 @@
         />
       </main>
     </div>
+
+    <exchange-signup-modal
+      :visible.sync="signupModalVisible"
+      :is-dark-theme="isDarkTheme"
+    />
   </div>
 </template>
 
@@ -138,21 +139,21 @@ import { broker, BROKER_IDS, BROKER_META } from '@/api/broker'
 import { getDesktopBrokersPolicy, listExchangeCredentials } from '@/api/credentials'
 import BrokerPanel from './components/BrokerPanel.vue'
 import CryptoExchangeAccountsCard from './components/CryptoExchangeAccountsCard.vue'
+import ExchangeSignupModal from '@/components/ExchangeSignupModal/ExchangeSignupModal.vue'
 import { baseMixin } from '@/store/app-mixin'
-import { Icon } from '@iconify/vue2'
 
 const CRYPTO_PROVIDERS = [
-  { id: 'binance', name: 'Binance', icon: 'simple-icons:binance', color: '#f0b90b' },
-  { id: 'okx', name: 'OKX', icon: 'simple-icons:okx', color: '#111827' },
-  { id: 'bybit', name: 'Bybit', icon: 'simple-icons:bybit', color: '#f7a600' },
-  { id: 'bitget', name: 'Bitget', icon: 'simple-icons:bitget', color: '#00a6c8' },
-  { id: 'gate', name: 'Gate.io', icon: 'simple-icons:gateio', color: '#17b897' },
-  { id: 'htx', name: 'HTX', icon: 'simple-icons:huobi', color: '#2563eb' }
+  { id: 'binance', name: 'Binance', icon: 'stock', color: '#f0b90b' },
+  { id: 'okx', name: 'OKX', icon: 'gateway', color: '#7c8798' },
+  { id: 'bybit', name: 'Bybit', icon: 'swap', color: '#f7a600' },
+  { id: 'bitget', name: 'Bitget', icon: 'global', color: '#00a6c8' },
+  { id: 'gate', name: 'Gate.io', icon: 'deployment-unit', color: '#17b897' },
+  { id: 'htx', name: 'HTX', icon: 'fire', color: '#2563eb' }
 ]
 
 export default {
   name: 'BrokerAccounts',
-  components: { BrokerPanel, CryptoExchangeAccountsCard, Icon },
+  components: { BrokerPanel, CryptoExchangeAccountsCard, ExchangeSignupModal },
   mixins: [baseMixin],
   data () {
     return {
@@ -162,6 +163,7 @@ export default {
       loadingMap: {},
       cryptoCredentialItems: [],
       refreshing: false,
+      signupModalVisible: false,
       desktopBrokersAllowed: true,
       desktopBrokersAllowedLoading: true
     }
@@ -543,13 +545,10 @@ export default {
   justify-content: center;
   border: 1px solid #e6eaf0;
   border-radius: 9px;
-  background: #fff;
-  font-size: 19px;
-
-  svg {
-    width: 19px;
-    height: 19px;
-  }
+  border-color: color-mix(in srgb, var(--brand-color, #7c8798) 26%, #e6eaf0);
+  background: color-mix(in srgb, var(--brand-color, #7c8798) 12%, #fff);
+  color: var(--brand-color, #7c8798);
+  font-size: 17px;
 }
 
 .ba-provider-icon--broker {
@@ -588,50 +587,6 @@ export default {
     &.connected {
       background: var(--primary-color, #52c41a);
     }
-  }
-}
-
-.ba-crypto-add {
-  width: calc(100% - 8px);
-  margin: 12px 4px 4px;
-  padding: 14px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px dashed #cfd7e3;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--primary-color-active, #389e0d);
-  text-align: left;
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--primary-color, #52c41a);
-    background: color-mix(in srgb, var(--primary-color, #52c41a) 6%, #fff);
-  }
-
-  > .anticon {
-    font-size: 18px;
-  }
-
-  span {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  strong {
-    font-size: 12px;
-    font-weight: 650;
-  }
-
-  small {
-    overflow: hidden;
-    color: #8995a7;
-    font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 
@@ -717,17 +672,8 @@ export default {
     border-color: #30353c;
   }
 
-  .ba-provider-copy small,
-  .ba-crypto-add small {
+  .ba-provider-copy small {
     color: rgba(255, 255, 255, 0.4);
-  }
-
-  .ba-crypto-add {
-    border-color: #39404a;
-
-    &:hover {
-      background: color-mix(in srgb, var(--primary-color, #52c41a) 10%, #141619);
-    }
   }
 
   .ba-detail {

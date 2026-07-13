@@ -3346,7 +3346,10 @@ export default {
       const out = {}
       const list = Array.isArray(raw) ? raw : Object.keys(raw).map(key => raw[key])
       list.forEach(item => {
-        if (item && item.market && item.symbol) out[this.watchKey(item)] = item
+        if (item && item.market && item.symbol) {
+          out[this.watchKey(item)] = item
+          out[this.watchAssetKey(item)] = item
+        }
       })
       return out
     },
@@ -3871,8 +3874,11 @@ export default {
         item.symbol || ''
       ].join(':')
     },
+    watchAssetKey (item) {
+      return [item.market || '', item.symbol || ''].join(':')
+    },
     priceFor (item) {
-      return this.watchlistPrices[this.watchKey(item)] || null
+      return this.watchlistPrices[this.watchKey(item)] || this.watchlistPrices[this.watchAssetKey(item)] || null
     },
     priceChangePercent (price) {
       if (!price) return null

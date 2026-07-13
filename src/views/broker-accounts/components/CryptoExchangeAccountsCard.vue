@@ -14,12 +14,6 @@
         <a-button :loading="loading" @click="loadCredentials">
           <a-icon type="reload" /> {{ $t('brokerAccounts.refresh') }}
         </a-button>
-        <a-button class="crypto-open-account-btn" @click="signupModalVisible = true">
-          <a-icon type="rocket" /> {{ $t('profile.exchange.openAccount') }}
-        </a-button>
-        <a-button type="primary" @click="openAddModal">
-          <a-icon type="plus" /> {{ $t('brokerAccounts.cryptoSection.addAccount') }}
-        </a-button>
       </div>
     </div>
 
@@ -27,9 +21,7 @@
       <div v-if="!loading && filteredItems.length === 0" class="crypto-empty">
         <a-icon type="inbox" />
         <div class="crypto-empty-text">{{ $t('brokerAccounts.cryptoSection.empty') }}</div>
-        <a-button type="link" @click="openAddModal">
-          {{ $t('brokerAccounts.cryptoSection.emptyCta') }} →
-        </a-button>
+        <div class="crypto-empty-hint">{{ $t('brokerAccounts.cryptoSection.emptyHint') }}</div>
       </div>
 
       <div v-else class="crypto-grid">
@@ -86,11 +78,6 @@
       :credential="renameTarget"
       @success="onCredentialRenamed"
     />
-    <exchange-signup-modal
-      :visible.sync="signupModalVisible"
-      :is-dark-theme="isDarkTheme"
-    />
-
     <a-modal
       :visible="snapshotModalVisible"
       :title="snapshotModalTitle"
@@ -187,7 +174,6 @@
 import { listExchangeCredentials, deleteExchangeCredential } from '@/api/credentials'
 import { getAccountSnapshot } from '@/api/strategy'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
-import ExchangeSignupModal from '@/components/ExchangeSignupModal/ExchangeSignupModal.vue'
 import RenameCredentialModal from '@/components/RenameCredentialModal/RenameCredentialModal.vue'
 import { CRYPTO_EXCHANGE_IDS, getExchangeDisplayName } from '@/utils/exchangeCredential'
 import moment from 'moment'
@@ -212,7 +198,7 @@ const ICON_COLORS = {
 
 export default {
   name: 'CryptoExchangeAccountsCard',
-  components: { ExchangeAccountModal, ExchangeSignupModal, RenameCredentialModal },
+  components: { ExchangeAccountModal, RenameCredentialModal },
   props: {
     isDarkTheme: { type: Boolean, default: false }
   },
@@ -221,7 +207,6 @@ export default {
       items: [],
       loading: false,
       addModalVisible: false,
-      signupModalVisible: false,
       renameModalVisible: false,
       renameTarget: null,
       snapshotModalVisible: false,
@@ -516,17 +501,6 @@ export default {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.crypto-open-account-btn {
-  border-color: #d9d9d9;
-  color: #3f4a5a;
-  background: #fff;
-}
-.crypto-open-account-btn:hover,
-.crypto-open-account-btn:focus {
-  border-color: var(--primary-color, #1890ff);
-  color: var(--primary-color-active, #096dd9);
-  background: color-mix(in srgb, var(--primary-color, #1890ff) 8%, #ffffff);
-}
 .crypto-empty {
   text-align: center;
   padding: 32px 16px;
@@ -538,6 +512,8 @@ export default {
   i { color: rgba(255, 255, 255, 0.25); }
 }
 .crypto-empty-text { font-size: 13px; margin-bottom: 6px; }
+.crypto-empty-hint { font-size: 12px; color: #a0a8b5; }
+.crypto-card.theme-dark .crypto-empty-hint { color: rgba(255, 255, 255, 0.38); }
 .crypto-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -634,17 +610,6 @@ export default {
   color: #fff;
 }
 .crypto-card.theme-dark {
-  .crypto-open-account-btn {
-    border-color: #3a3a3a;
-    color: rgba(255, 255, 255, 0.78);
-    background: #262626;
-  }
-  .crypto-open-account-btn:hover,
-  .crypto-open-account-btn:focus {
-    border-color: var(--primary-color, #1890ff);
-    color: var(--primary-color, #1890ff);
-    background: color-mix(in srgb, var(--primary-color, #1890ff) 12%, transparent);
-  }
   .crypto-view-account-btn {
     border-color: color-mix(in srgb, var(--primary-color, #1890ff) 55%, transparent);
     background: color-mix(in srgb, var(--primary-color, #1890ff) 16%, transparent);

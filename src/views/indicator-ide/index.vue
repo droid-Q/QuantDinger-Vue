@@ -940,9 +940,10 @@ import request from '@/utils/request'
 import { formatBacktestTime } from '@/utils/userTime'
 import { resolveExperimentIndicatorParams } from '@/utils/experimentOverrides'
 import { loadEnabledMarketOptions, firstMarketValue } from '@/utils/marketModules'
-import { CRYPTO_EXCHANGE_IDS, marketContextKey } from '@/utils/marketContext'
+import { CRYPTO_EXCHANGE_IDS, marketContextKey, normalizeExchangeId, normalizeMarketType } from '@/utils/marketContext'
 import { getUserInfo } from '@/api/login'
 import { getWatchlist, addWatchlist, searchSymbols } from '@/api/market'
+import { getPublicSettingsConfig } from '@/api/settings'
 import KlineChart from '@/views/indicator-analysis/components/KlineChart.vue'
 import QuickTradePanel from '@/components/QuickTradePanel/QuickTradePanel'
 import { Modal } from 'ant-design-vue'
@@ -976,6 +977,16 @@ function strategyDirectivesAlertStorageKey (userId) {
 function ideUiCacheStorageKey (userId) {
   const u = userId != null && userId !== '' ? String(userId) : '0'
   return `qd_ide_ui_cache_v1_${u}`
+}
+
+function cryptoMarketSourceStorageKey (userId) {
+  const u = userId != null && userId !== '' ? String(userId) : '0'
+  return `qd_indicator_crypto_market_source_v1_${u}`
+}
+
+function ideSelectionStorageKey (userId) {
+  const u = userId != null && userId !== '' ? String(userId) : '0'
+  return `qd_indicator_ide_selection_v1_${u}`
 }
 
 function indicatorParamDefaultsStorageKey (userId) {
@@ -1881,11 +1892,14 @@ export default {
   created: async function () {
     await this.loadMarketModules()
     await this.loadUserId()
+    await this.initializeCryptoMarketSource()
     this.loadIndicatorParamDefaults()
     this.loadStrategyDirectivesAlertDismissed()
     await this.loadIndicators()
     await this.loadWatchlist()
     this.restoreIdeUiState()
+    this.restoreIdeSelectionPreference()
+    this.applyIndicatorRouteSelection()
     this.autoSelectFirstIndicator()
     this.loadSignalAlertTasks()
     this.applyCopilotDraft()
@@ -2098,9 +2112,9 @@ export default {
         if (s.market && s.symbol) {
           this.market = String(s.market)
           this.symbol = String(s.symbol)
-          this.cryptoExchangeId = String(s.exchange_id || s.exchangeId || this.cryptoExchangeId)
-          this.cryptoMarketType = String(s.market_type || s.marketType || this.cryptoMarketType)
-          this.currentInstrumentId = String(s.instrument_id || s.instrumentId || '')
+          this.currentInstrumentId = this.market === 'Crypto'
+            ? ''
+            : String(s.instrument_id || s.instrumentId || '')
           this.qtSymbol = this.symbol
           this.selectedWatchlistKey = marketContextKey({
             market: this.market,
@@ -2156,21 +2170,58 @@ export default {
       if (!this.userId) return
       try {
         const payload = {
-          market: this.market,
-          symbol: this.symbol,
-          exchange_id: this.cryptoExchangeId,
-          market_type: this.cryptoMarketType,
-          instrument_id: this.currentInstrumentId,
           timeframe: this.timeframe,
-          selectedIndicatorId: this.selectedIndicatorId,
-          chartVisibleIndicatorIds: this.chartVisibleIndicatorIds,
-          selectedWatchlistKey: this.selectedWatchlistKey,
           activeIndicators: this.serializeChartIndicators(),
           strictMode: this.strictMode,
           commission: this.commission,
           slippage: this.slippage
         }
         storage.set(ideUiCacheStorageKey(this.userId), JSON.stringify(payload))
+      } catch (_) { /* ignore quota */ }
+    },
+    restoreIdeSelectionPreference () {
+      if (!this.userId) return
+      try {
+        const raw = storage.get(ideSelectionStorageKey(this.userId))
+        if (raw == null || raw === '') return
+        const saved = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (!saved || typeof saved !== 'object') return
+
+        const market = String(saved.market || '')
+        const symbol = String(saved.symbol || '')
+        const watchlistKey = marketContextKey({ market, symbol })
+        const hasWatchlistItem = this.watchlist.some(item => this.watchlistContextKey(item) === watchlistKey)
+        if (market && symbol && hasWatchlistItem) {
+          this.market = market
+          this.symbol = symbol
+          this.qtSymbol = symbol
+          this.selectedWatchlistKey = watchlistKey
+          this.currentInstrumentId = market === 'Crypto' ? '' : String(saved.instrumentId || '')
+        }
+
+        const indicatorId = Number(saved.indicatorId)
+        if (indicatorId && this.indicators.some(item => Number(item.id) === indicatorId)) {
+          this.selectedIndicatorId = indicatorId
+          const visibleIds = Array.isArray(saved.visibleIndicatorIds)
+            ? saved.visibleIndicatorIds
+              .map(Number)
+              .filter(id => this.indicators.some(item => Number(item.id) === id))
+            : []
+          this.chartVisibleIndicatorIds = visibleIds.length ? visibleIds : [indicatorId]
+          this.onIndicatorChange(indicatorId)
+        }
+      } catch (_) { /* ignore corrupt preference */ }
+    },
+    persistIdeSelectionPreference () {
+      if (!this.userId) return
+      try {
+        storage.set(ideSelectionStorageKey(this.userId), JSON.stringify({
+          market: this.market,
+          symbol: this.symbol,
+          instrumentId: this.currentInstrumentId,
+          indicatorId: this.selectedIndicatorId,
+          visibleIndicatorIds: this.chartVisibleIndicatorIds
+        }))
       } catch (_) { /* ignore quota */ }
     },
     normalizePersistedChartIndicators (items) {
@@ -2870,6 +2921,7 @@ export default {
         this.chartVisibleIndicatorIds = this.chartVisibleIndicatorIds.filter(x => Number(x) !== id)
       }
       this.syncSelectedIndicatorToChart()
+      this.persistIdeSelectionPreference()
     },
     selectEditorIndicator (rawId) {
       this.indicatorDropdownVisible = false
@@ -2880,6 +2932,7 @@ export default {
         this.chartVisibleIndicatorIds = [id]
       }
       this.onIndicatorChange(rawId)
+      this.persistIdeSelectionPreference()
     },
     resolveIdeFullscreenMountNode () {
       const fs = document.fullscreenElement || document.webkitFullscreenElement
@@ -5993,6 +6046,7 @@ export default {
         this.market = ''
         this.symbol = ''
       }
+      this.persistIdeSelectionPreference()
     },
     getMarketColor (m) {
       const colors = { Crypto: 'orange', USStock: 'blue', CNStock: 'magenta', HKStock: 'red', Forex: 'green', Futures: 'purple' }
@@ -6005,12 +6059,56 @@ export default {
       return t !== key ? t : m
     },
     handleCryptoExchangeChange (value) {
-      this.cryptoExchangeId = String(value || '')
+      this.cryptoExchangeId = this.normalizeCryptoExchange(value)
       this.currentInstrumentId = ''
+      this.persistCryptoMarketSource()
     },
     handleCryptoMarketTypeChange (value) {
-      this.cryptoMarketType = String(value || 'spot')
+      this.cryptoMarketType = normalizeMarketType(value, 'Crypto')
       this.currentInstrumentId = ''
+      this.persistCryptoMarketSource()
+    },
+
+    normalizeCryptoExchange (value) {
+      const normalized = normalizeExchangeId(value)
+      return CRYPTO_EXCHANGE_IDS.includes(normalized) ? normalized : 'binance'
+    },
+    async initializeCryptoMarketSource () {
+      try {
+        const raw = storage.get(cryptoMarketSourceStorageKey(this.userId))
+        const cached = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (cached && typeof cached === 'object') {
+          const exchangeId = normalizeExchangeId(cached.exchangeId || cached.exchange_id)
+          const marketType = normalizeMarketType(cached.marketType || cached.market_type, 'Crypto')
+          if (CRYPTO_EXCHANGE_IDS.includes(exchangeId) && ['spot', 'swap'].includes(marketType)) {
+            this.cryptoExchangeId = exchangeId
+            this.cryptoMarketType = marketType
+            return
+          }
+        }
+      } catch (_) { /* ignore corrupt preference */ }
+
+      let defaultExchange = 'binance'
+      try {
+        const res = await getPublicSettingsConfig()
+        const value = res && res.code === 1 && res.data && res.data.ccxt_default_exchange
+        defaultExchange = this.normalizeCryptoExchange(value)
+      } catch (_) { /* keep fallback */ }
+      this.cryptoExchangeId = defaultExchange
+      this.cryptoMarketType = 'spot'
+    },
+    persistCryptoMarketSource () {
+      if (!this.userId) return
+      const exchangeId = this.normalizeCryptoExchange(this.cryptoExchangeId)
+      const marketType = normalizeMarketType(this.cryptoMarketType, 'Crypto')
+      this.cryptoExchangeId = exchangeId
+      this.cryptoMarketType = marketType
+      try {
+        storage.set(cryptoMarketSourceStorageKey(this.userId), JSON.stringify({
+          exchangeId,
+          marketType
+        }))
+      } catch (_) { /* ignore quota */ }
     },
 
     // ===== Add symbol modal =====
@@ -6021,6 +6119,7 @@ export default {
       this.addSearched = false
     },
     onAddSourceChange () {
+      this.persistCryptoMarketSource()
       this.addSearchResults = []
       this.addSelectedItem = null
       this.addSearched = false
