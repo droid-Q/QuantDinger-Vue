@@ -342,7 +342,7 @@
     <a-drawer
       :visible="showRobotBuilder"
       :title="text.robotTemplates"
-      width="96vw"
+      width="min(1540px, 96vw)"
       :destroy-on-close="true"
       :wrap-class-name="isDarkTheme ? 'robot-builder-drawer robot-builder-drawer--dark' : 'robot-builder-drawer'"
       @close="showRobotBuilder = false"
@@ -419,7 +419,7 @@ import {
   aiGenerateStrategy,
   createScriptSource,
   deleteScriptSource,
-  getUnifiedBacktestHistory,
+  getStrategyBacktestHistory,
   getIndicatorListForStrategy,
   getScriptSourceDetail,
   getScriptSourceList,
@@ -437,15 +437,19 @@ My Custom Strategy
 Describe the strategy logic, supported markets, entry/exit rules, and risk controls here.
 """
 
-def on_init(ctx):
-    # Declare strategy-owned parameters here.
-    # Symbol, investment amount, market type, leverage and direction come from the run panel.
-    pass
+def initialize(context):
+    context.set_universe(["USStock:SPY"])
+    context.subscribe(frequency="1d")
+    context.set_warmup(55)
+    g.period = 50
 
-def on_bar(ctx, bar):
-    # Core trading logic, called on each K-line bar.
-    # bar: { open, high, low, close, volume, timestamp }
-    pass
+def handle_data(context, data):
+    bars = get_history(g.period + 2, "1d", "close", "USStock:SPY")
+    if len(bars) < g.period:
+        return
+    average = float(bars["close"].tail(g.period).mean())
+    target = 1.0 if float(bars["close"].iloc[-1]) > average else 0.0
+    order_target_percent("USStock:SPY", target, reason="single_ma_regime")
 `
 
 const DEFAULT_PORTFOLIO_CODE = `"""
@@ -454,22 +458,31 @@ My Portfolio Strategy
 Rank the eligible point-in-time universe by momentum and hold an equal-weight Top-N portfolio.
 """
 
-def on_init(ctx):
-    ctx.param("top_n", 10, min=1, max=100, step=1)
-    ctx.param("lookback", 126, min=20, max=252, step=1)
+def initialize(context):
+    context.set_universe(pool="nasdaq100")
+    context.subscribe(frequency="1d")
+    context.set_warmup(130)
+    g.top_n = 10
+    g.lookback = 126
+    run_weekly(rebalance, weekday=1, time="09:35")
 
-def on_rebalance(ctx, panel):
-    top_n = int(ctx.param("top_n", 10))
-    lookback = int(ctx.param("lookback", 126))
+def rebalance(context, data):
     scores = {}
-    for symbol, frame in panel.items():
-        if len(frame) <= lookback:
+    for symbol in get_universe_stocks():
+        frame = get_history(g.lookback + 1, "1d", "close", symbol)
+        if len(frame) <= g.lookback:
             continue
-        start = float(frame["close"].iloc[-lookback - 1])
+        start = float(frame["close"].iloc[-g.lookback - 1])
         end = float(frame["close"].iloc[-1])
         if start > 0:
             scores[symbol] = end / start - 1.0
-    ctx.long_only_top_n(scores, n=top_n)
+    selected = sorted(scores, key=scores.get, reverse=True)[:g.top_n]
+    for symbol in get_positions().keys():
+        if symbol not in selected:
+            order_target_percent(symbol, 0.0, reason="left_top_n")
+    weight = 1.0 / len(selected) if selected else 0.0
+    for symbol in selected:
+        order_target_percent(symbol, weight, reason="momentum_top_n")
 `
 
 export default {
@@ -568,11 +581,11 @@ export default {
         return this.scriptParamSchema
       }
       const source = this.currentSource || {}
-      const direct = this.parseObject(source.param_schema || source.paramSchema)
+      const direct = this.parseObject(source.param_schema)
       if (Array.isArray(direct.params) && direct.params.length) return direct
       if (Array.isArray(source.params) && source.params.length) return { params: source.params }
       const metadata = this.parseObject(source.metadata)
-      const metaSchema = this.parseObject(metadata.param_schema || metadata.paramSchema)
+      const metaSchema = this.parseObject(metadata.param_schema)
       if (Array.isArray(metaSchema.params) && metaSchema.params.length) return metaSchema
       return direct
     },
@@ -778,19 +791,17 @@ export default {
     extractSources (res) {
       const data = res && res.data
       if (Array.isArray(data)) return data
-      if (data && Array.isArray(data.sources)) return data.sources
-      if (data && Array.isArray(data.strategies)) return data.strategies
       if (data && Array.isArray(data.items)) return data.items
       return []
     },
     getInitialRouteSourceId () {
       const query = this.$route.query || {}
-      const value = query.source_id || query.sourceId || query.strategy_id || query.strategyId
+      const value = query.sourceId
       return value ? String(value).trim() : ''
     },
     getRouteAssetType () {
       const query = this.$route.query || {}
-      return String(query.asset_type || query.assetType || '').trim() === 'portfolio_strategy' ? 'portfolio_strategy' : 'script'
+      return String(query.assetType || '').trim() === 'portfolio_strategy' ? 'portfolio_strategy' : 'script'
     },
     isDraftRoute () {
       const query = this.$route.query || {}
@@ -806,7 +817,7 @@ export default {
     hasCopilotScriptDraft () {
       if (typeof sessionStorage === 'undefined') return false
       try {
-        return !!String(sessionStorage.getItem('qd_copilot_script_strategy_code') || '').trim()
+        return !!String(sessionStorage.getItem('qd_strategy_source') || '').trim()
       } catch (_) {
         return false
       }
@@ -816,11 +827,11 @@ export default {
       let code = ''
       let meta = {}
       try {
-        code = String(sessionStorage.getItem('qd_copilot_script_strategy_code') || '').trim()
+        code = String(sessionStorage.getItem('qd_strategy_source') || '').trim()
         const rawMeta = sessionStorage.getItem('qd_copilot_script_strategy_meta') || ''
         meta = rawMeta ? JSON.parse(rawMeta) : {}
         if (code) {
-          sessionStorage.removeItem('qd_copilot_script_strategy_code')
+          sessionStorage.removeItem('qd_strategy_source')
           sessionStorage.removeItem('qd_copilot_script_strategy_meta')
         }
       } catch (_) {
@@ -850,7 +861,7 @@ export default {
     },
     getScriptSourceId (item) {
       if (!item) return ''
-      return String(item.id || item.source_id || item.sourceId || '').trim()
+      return String(item.id || '').trim()
     },
     async handleScriptSelect (id) {
       if (!id) {
@@ -883,16 +894,16 @@ export default {
       this.currentAssetType = source.asset_type === 'portfolio_strategy' ? 'portfolio_strategy' : 'script'
       this.currentSourceId = this.getScriptSourceId(source)
       this.selectedScriptId = this.currentSourceId ? String(this.currentSourceId) : undefined
-      this.scriptCodeHidden = !!(source.code_hidden || metadata.code_hidden || metadata.hide_code)
+      this.scriptCodeHidden = !!(source.code_hidden || metadata.code_hidden)
       this.scriptCode = this.scriptCodeHidden
         ? ''
-        : String(source.code || source.strategy_code || (this.currentAssetType === 'portfolio_strategy' ? DEFAULT_PORTFOLIO_CODE : DEFAULT_SCRIPT_CODE))
+        : String(source.code || (this.currentAssetType === 'portfolio_strategy' ? DEFAULT_PORTFOLIO_CODE : DEFAULT_SCRIPT_CODE))
       this.scriptTemplateKey = source.template_key || runConfig.script_template_key || ''
       this.scriptTemplateParams = {
         ...this.parseObject(metadata.script_template_params),
         ...this.parseObject(runConfig.script_template_params)
       }
-      this.scriptParamSchema = this.parseObject(source.param_schema || source.paramSchema)
+      this.scriptParamSchema = this.parseObject(source.param_schema)
       this.runConfig = {
         ...this.runConfig,
         ...runConfig
@@ -966,20 +977,24 @@ export default {
       switchWorkspace()
     },
     extractUniverseReferenceFromCode (code) {
-      const match = String(code || '').match(/^\s*#\s*@universe\s+(\d+)(?:\s+([^\s#]+))?/im)
-      return match ? { id: Number(match[1]), code: String(match[2] || '').trim() } : { id: undefined, code: '' }
+      const source = String(code || '')
+      const poolMatch = source.match(/context\.set_universe\(pool=["']([^"']+)["']\)/i)
+      if (poolMatch) return { id: undefined, code: String(poolMatch[1] || '').trim() }
+      const indexMatch = source.match(/context\.set_universe\(index=["']INDEX:([^"']+)["']\)/i)
+      return indexMatch ? { id: undefined, code: String(indexMatch[1] || '').trim() } : { id: undefined, code: '' }
     },
     applyUniverseReferenceToCode (item) {
       if (this.scriptCodeHidden) return
-      const line = `# @universe ${Number(item.id)} ${String(item.code || '').trim()}`
-      const pattern = /^\s*#\s*@universe\s+\d+(?:\s+[^\s#]+)?\s*$/im
+      const pool = String(item.code || '').trim().toLowerCase()
+      const line = `context.set_universe(pool="${pool}")`
+      const pattern = /context\.set_universe\((?:pool=["'][^"']+["']|index=["']INDEX:[^"']+["'])\)/i
       const code = String(this.scriptCode || '')
       if (pattern.test(code)) {
         this.scriptCode = code.replace(pattern, line)
         return
       }
-      const initPattern = /^def\s+on_init\s*\(/m
-      this.scriptCode = initPattern.test(code) ? code.replace(initPattern, `${line}\n\ndef on_init(`) : `${line}\n${code}`
+      const initPattern = /^(def\s+initialize\s*\([^)]*\):\s*)$/m
+      this.scriptCode = initPattern.test(code) ? code.replace(initPattern, `$1\n    ${line}`) : `${line}\n${code}`
     },
     handleUniverseUse (item) {
       if (!item || this.currentAssetType !== 'portfolio_strategy') return
@@ -994,8 +1009,8 @@ export default {
       this.$message.success(this.text.universeApplied.replace('{name}', item.name || item.code || ''))
     },
     async applyGeneratedRobot (generated) {
-      if (!generated || !generated.strategy_code) return
-      const generatedCode = String(generated.strategy_code)
+      if (!generated || !generated.code) return
+      const generatedCode = String(generated.code)
       this.currentSource = null
       this.currentSourceId = null
       this.selectedScriptId = undefined
@@ -1033,48 +1048,13 @@ export default {
     },
     writeRouteSource (sourceId) {
       if (!sourceId) return
-      const query = { ...(this.$route.query || {}), tab: 'script', source_id: String(sourceId) }
-      delete query.draft
-      delete query.template_picker
-      delete query.aiDraft
-      delete query.symbol
-      delete query.market
-      delete query.sourceId
-      delete query.strategy_id
-      delete query.strategyId
-      delete query.convert
-      delete query.convert_key
-      delete query.source_indicator_id
-      delete query.indicator_id
-      delete query.indicatorId
-      delete query.timeframe
-      delete query.asset_type
-      delete query.assetType
+      const query = { tab: 'script', sourceId: String(sourceId), assetType: this.currentAssetType }
       this.replaceRouteQuery(query)
     },
     writeDraftRoute ({ openTemplate = false } = {}) {
-      const query = {
-        ...(this.$route.query || {}),
-        tab: 'script',
-        draft: '1',
-        asset_type: this.currentAssetType
-      }
-      delete query.assetType
+      const query = { tab: 'script', draft: '1', assetType: this.currentAssetType }
       if (openTemplate) query.template_picker = '1'
       else delete query.template_picker
-      delete query.source_id
-      delete query.sourceId
-      delete query.strategy_id
-      delete query.strategyId
-      delete query.aiDraft
-      delete query.symbol
-      delete query.market
-      delete query.convert
-      delete query.convert_key
-      delete query.source_indicator_id
-      delete query.indicator_id
-      delete query.indicatorId
-      delete query.timeframe
       this.replaceRouteQuery(query)
     },
     replaceRouteQuery (query) {
@@ -1183,7 +1163,6 @@ export default {
       const investmentAmount = Number(cfg.initial_capital || cfg.investment_amount || 10000)
       const codeTimeframe = this.extractScriptTimeframeFromCode(this.getCurrentScriptCode())
       const out = {
-        runtime_contract_version: 'simple_script_v1',
         market_category: marketCategory,
         exchange_id: marketCategory === 'Crypto' ? String(cfg.exchange_id || 'binance').toLowerCase() : '',
         symbol: String(cfg.symbol || 'BTC/USDT').trim(),
@@ -1219,7 +1198,6 @@ export default {
       const meta = this.extractScriptMetadataFromCode(currentCode)
       const description = meta.description || (this.currentSource && this.currentSource.description) || ''
       return {
-        user_id: this.userId,
         name: meta.name || this.deriveScriptName(),
         description,
         code: currentCode,
@@ -1241,7 +1219,6 @@ export default {
       const description = (this.currentSource && this.currentSource.description) || ''
       const lastRunConfig = this.buildTradingConfig()
       return {
-        user_id: this.userId,
         name: this.currentSourceName || this.text.defaultName,
         description,
         asset_type: this.currentAssetType,
@@ -1251,7 +1228,6 @@ export default {
           ...existingMeta,
           description,
           code_hidden: true,
-          hide_code: true,
           last_run_config: lastRunConfig,
           script_template_params: { ...this.scriptTemplateParams }
         }
@@ -1290,20 +1266,10 @@ export default {
         return false
       }
       try {
-        const res = await verifyStrategyCode({
-          code,
-          assetType: this.currentAssetType,
-          user_id: this.userId,
-          strategyId: this.currentSourceId || undefined,
-          scriptSourceId: this.currentSourceId || undefined
-        })
-        const hints = Array.isArray(res && res.hints) ? res.hints : []
-        const blockers = hints.filter(item => {
-          const severity = String((item && item.severity) || '').toLowerCase()
-          return severity === 'error' || severity === 'fatal'
-        })
-        if (!(res && res.success) || blockers.length) {
-          const reason = this.formatVerifyHint(blockers[0]) || (res && (res.msg || res.message)) || this.text.verifyFailed
+        const res = await verifyStrategyCode({ code })
+        const verification = (res && res.data) || {}
+        if (!(res && res.code === 1 && verification.valid)) {
+          const reason = verification.error || (res && res.msg) || this.text.verifyFailed
           this.$message.error(this.text.verifyBlocked.replace('{reason}', reason))
           return false
         }
@@ -1387,8 +1353,7 @@ export default {
             code_hidden: 1,
             metadata: {
               ...metadata,
-              code_hidden: true,
-              hide_code: true
+              code_hidden: true
             }
           }
           this.lastSavedSnapshot = this.scriptSnapshot()
@@ -1432,7 +1397,7 @@ export default {
       const id = Number(sourceId || 0)
       if (!id) return false
       try {
-        const res = await getUnifiedBacktestHistory({
+        const res = await getStrategyBacktestHistory({
           assetType: 'script',
           assetId: id,
           status: 'success',
@@ -1516,15 +1481,11 @@ export default {
           ? await this.saveHiddenScriptParams({ silent: true, loadingMode: 'backtest' })
           : await this.saveScript(false, { skipUnchanged: true, silent: true, loadingMode: 'backtest' })
         if (!sourceId) return
-        const cfg = this.buildTradingConfig()
         this.$router.push({
           path: '/backtest-center',
           query: {
-            asset_type: this.currentAssetType,
-            source_id: String(sourceId),
-            exchange_id: cfg.exchange_id || '',
-            market_type: cfg.market_type,
-            universe_id: cfg.universe_id || ''
+            assetType: this.currentAssetType,
+            sourceId: String(sourceId)
           }
         }).catch(() => {})
       }
@@ -1535,15 +1496,13 @@ export default {
         ? await this.saveHiddenScriptParams({ silent: true, loadingMode: 'live' })
         : await this.saveScript(false, { skipUnchanged: true, silent: true, loadingMode: 'live' })
       if (!sourceId) return
-      const cfg = this.buildTradingConfig()
       if (this.currentAssetType === 'portfolio_strategy') {
         this.$router.push({
           path: '/strategy-center',
           query: {
             mode: 'create',
-            asset_type: 'portfolio_strategy',
-            source_id: String(sourceId),
-            universe_id: cfg.universe_id || ''
+            assetType: 'portfolio_strategy',
+            sourceId: String(sourceId)
           }
         }).catch(() => {})
         return
@@ -1552,12 +1511,7 @@ export default {
         path: '/strategy-center',
         query: {
           mode: 'create',
-          source_id: String(sourceId),
-          exchange_id: cfg.exchange_id || '',
-          market_type: cfg.market_type,
-          trade_direction: cfg.trade_direction,
-          initial_capital: String(cfg.initial_capital || 10000),
-          leverage: String(cfg.leverage || 1)
+          sourceId: String(sourceId)
         }
       }).catch(() => {})
     },
@@ -1653,7 +1607,7 @@ export default {
     async loadIndicatorOptions () {
       this.indicatorConvertIndicatorLoading = true
       try {
-        const res = await getIndicatorListForStrategy({ userid: this.userId })
+        const res = await getIndicatorListForStrategy()
         const list = this.extractIndicatorList(res)
           .map(item => this.normalizeIndicator(item))
           .filter(Boolean)
@@ -1668,25 +1622,17 @@ export default {
     extractIndicatorList (res) {
       const data = res && res.data
       if (Array.isArray(data)) return data
-      if (data && Array.isArray(data.items)) return data.items
-      if (data && Array.isArray(data.indicators)) return data.indicators
       return []
     },
     normalizeIndicator (raw) {
       if (!raw || typeof raw !== 'object') return null
-      const codeHidden = this.toBool(raw.codeHidden) || this.toBool(raw.code_hidden) || this.toBool(raw.is_encrypted)
+      const codeHidden = this.toBool(raw.code_hidden)
       return {
-        indicatorId: String(raw.indicatorId || raw.id || raw.indicator_id || '').trim(),
-        name: String(raw.name || raw.indicator_name || this.defaultIndicatorNameFromCode(raw.code || '') || '').trim(),
+        indicatorId: String(raw.id || '').trim(),
+        name: String(raw.name || this.defaultIndicatorNameFromCode(raw.code || '') || '').trim(),
         description: String(raw.description || '').trim(),
         code: codeHidden ? '' : String(raw.code || '').trim(),
         params: raw.params || {},
-        market: raw.market || raw.marketCategory || raw.market_category || 'Crypto',
-        symbol: raw.symbol || '',
-        exchangeId: raw.exchange_id || raw.exchangeId || '',
-        marketType: raw.market_type || raw.marketType || 'spot',
-        instrumentId: raw.instrument_id || raw.instrumentId || '',
-        timeframe: raw.timeframe || '1m',
         codeHidden
       }
     },
@@ -1702,16 +1648,6 @@ export default {
       const target = (this.indicatorConvertIndicators || []).find(item => String(item.indicatorId) === String(id))
       this.indicatorConvertContext = target || null
       this.indicatorConvertError = ''
-      if (target) {
-        this.runConfig = {
-          ...this.runConfig,
-          market_category: target.market || 'Crypto',
-          exchange_id: target.exchangeId || this.runConfig.exchange_id,
-          market_type: target.marketType || this.runConfig.market_type,
-          symbol: target.symbol || this.runConfig.symbol,
-          timeframe: target.timeframe || '1m'
-        }
-      }
     },
     buildIndicatorConversionPrompt () {
       const ctx = this.indicatorConvertContext || {}
@@ -1719,33 +1655,29 @@ export default {
       const instruction = String(this.indicatorConvertInstruction || '').trim() ||
         'Convert the visible indicator signals into a conservative, event-based strategy. Confirm signals on closed bars and execute on the next bar to avoid look-ahead bias.'
       return [
-        'Convert this QuantDinger chart-only indicator into executable QuantDinger Python ScriptStrategy code.',
+        'Convert this QuantDinger chart-only indicator into executable QuantDinger Strategy API V2 Python code.',
         '',
         'Hard boundaries:',
-        '- Return ScriptStrategy code only. Do not return indicator backtest code, live-indicator code, indicator output, plots, layers, signals, or calculatedVars.',
-        '- Start the script with a triple-quoted metadata docstring. The first non-empty line is the strategy name, and the following non-empty lines are the strategy description. Do not put name or description in ctx.param.',
-        '- The strategy run panel owns symbol, spot/swap, direction, investment amount, leverage, and timeframe unless the source indicator has an explicit timeframe header. Do not define these with ctx.param and do not hard-code them.',
-        '- Declare every strategy parameter in on_init as ctx.name = ctx.param("name", default). Do not call ctx.param("name") without a default, and do not repeatedly read ctx.param inside on_bar.',
+        '- Return Strategy API V2 code only, using the current manifest and handler contract.',
+        '- Start with a metadata docstring, then define initialize(context) and handle_data(context, data), scheduled callbacks, or on_rebalance(context, data).',
+        '- The strategy source owns its universe, markets, subscriptions, frequency, factors, schedules, direction, sizing, entries, exits, and risk rules.',
+        '- In initialize(context), call context.set_universe(...) and context.subscribe(frequency=...). Use context.set_warmup(...) when indicators need history.',
+        '- Backtest and deployment panels only provide initial capital, date range, and optional leverage for a Crypto @swap strategy that explicitly calls context.allow_leverage(max_leverage=N).',
         '- Preserve the indicator signal logic first. Map visual buy/entry markers to long entries, sell/exit markers to long exits, and warning markers to wait/risk states.',
         '- Default to long-only unless the user explicitly asks for shorts and the indicator has clear bearish short-entry logic.',
         '- First classify every marker as long entry, long exit, short entry, short exit, warning/wait, or visual-only. Marker color and type="sell" alone do not prove short-entry intent.',
         '- Preserve composite event algebra exactly. For edge(A | B), compare the complete previous composite A_prev | B_prev; do not emit a duplicate event on the next bar.',
         '- If the user explicitly requests symmetric shorts from a long-only indicator, derive and label them as new behavior; otherwise do not invent short entries.',
-        '- Confirm indicator conditions on the completed bar inside on_bar. Use # signal_timing: next_bar_open when code-owned timing is needed; the engine handles next-bar execution.',
-        '- Preserve recursive indicator parity. For EMA/ewm/MACD/Wilder-style smoothing, compute from all available bars with ctx.bars(ctx.current_index + 1), declare # startup_candle_count: N, and let the data engine own warmup readiness. Do not add a manual len(ctx.bars(...)) warmup gate inside on_bar.',
-        '- Prefer registered technical factors through ctx.factor(factor_id, **params) when the required calculation exists. CTA factors use only bars visible at the current index; fundamental factors are portfolio-only.',
-        '- Remove display-only params such as colors, visibility toggles, marker offsets, line extension, and plot layout. Every retained ctx.param must affect entry, exit, sizing, state, or risk.',
-        '- The chart timeframe below is UI context only. Do not emit a # timeframe header unless the indicator source code has an explicit timeframe header or the user explicitly requests one.',
-        '- For all-in compounding, size from ctx.available_capital and fall back to ctx.investment_amount. For proportional compounding, use current ctx.equity or available capital times an explicit allocation parameter.',
-        '- Use ScriptStrategy order APIs such as ctx.order_value, ctx.order_target, ctx.open_long, ctx.close_long, ctx.open_short, and ctx.close_short. Prevent duplicate orders on the same bar.',
-        '- Do not generate grid, DCA, or martingale executor logic unless the user explicitly asks for a ScriptStrategy version.',
+        '- Confirm indicator conditions on completed bars. Orders from handle_data are filled by the engine on the next available bar open.',
+        '- Use get_history, indicator, factor, get_factors, and get_fundamentals without future data. TA-Lib functions are available through indicator/factor.',
+        '- Fundamental factors are point-in-time and portfolio-oriented; never invent fundamental values or backfill future observations.',
+        '- Use order, order_value, order_target, order_target_value, and order_target_percent. Prevent duplicate intents on the same bar.',
+        '- For risk-managed entries, attach explicit protection rules to entries with stop_loss_pct, take_profit_pct, trailing_stop_pct, or time_limit_seconds.',
+        '- Remove display-only parameters such as colors, visibility toggles, marker offsets, line extension, and plot layout.',
+        '- Do not generate grid, DCA, or martingale logic unless the user explicitly requests a Strategy API V2 robot.',
         '',
         `Indicator name: ${ctx.name || this.text.defaultIndicatorName}`,
         ctx.description ? `Indicator description: ${ctx.description}` : '',
-        `Market: ${ctx.market || ''}`,
-        `Symbol: ${ctx.symbol || ''}`,
-        `Chart timeframe UI context only (not a source-code header): ${ctx.timeframe || ''}`,
-        '',
         `Indicator params JSON:\n${params}`,
         '',
         `User conversion request:\n${instruction}`,
@@ -1767,36 +1699,21 @@ export default {
       this.indicatorConvertError = ''
       try {
         const res = await aiGenerateStrategy({
-          intent: 'indicator_to_strategy',
-          source: 'indicator_to_strategy',
-          prompt: this.buildIndicatorConversionPrompt(),
-          source_indicator_id: ctx.indicatorId || '',
-          save_script_source: true,
-          script_source_name: `${ctx.name || this.text.defaultIndicatorName} Strategy`,
-          script_source_description: `AI converted from indicator: ${ctx.name || this.text.defaultIndicatorName}`,
-          script_source_metadata: this.buildGeneratedMetadata(ctx)
+          prompt: this.buildIndicatorConversionPrompt()
         })
-        const sourceId = this.extractGeneratedSourceId(res)
-        if (sourceId) {
-          await this.loadSources()
-          await this.openSource(sourceId, { updateRoute: false })
-          this.finishIndicatorConversion(sourceId)
-        } else {
-          const code = this.extractAiGeneratedCode(res)
-          if (!code) throw new Error((res && res.msg) || this.text.indicatorConvertFailed)
-          const fallback = await createScriptSource({
-            user_id: this.userId,
-            name: this.extractScriptMetadataFromCode(code).name || `${ctx.name || this.text.defaultIndicatorName} Strategy`,
-            description: this.extractScriptMetadataFromCode(code).description || `AI converted from indicator: ${ctx.name || this.text.defaultIndicatorName}`,
-            code,
-            metadata: this.buildGeneratedMetadata(ctx)
-          })
-          if (!(fallback && fallback.code === 1)) throw new Error((fallback && fallback.msg) || this.text.indicatorConvertFailed)
-          await this.loadSources()
-          const fallbackSourceId = this.getScriptSourceId(fallback.data)
-          await this.openSource(fallbackSourceId, { updateRoute: false })
-          this.finishIndicatorConversion(fallbackSourceId)
-        }
+        const code = this.extractAiGeneratedCode(res)
+        if (!code) throw new Error((res && res.msg) || this.text.indicatorConvertFailed)
+        const created = await createScriptSource({
+          name: this.extractScriptMetadataFromCode(code).name || `${ctx.name || this.text.defaultIndicatorName} Strategy`,
+          description: this.extractScriptMetadataFromCode(code).description || `AI converted from indicator: ${ctx.name || this.text.defaultIndicatorName}`,
+          code,
+          metadata: this.buildGeneratedMetadata(ctx)
+        })
+        if (!(created && created.code === 1)) throw new Error((created && created.msg) || this.text.indicatorConvertFailed)
+        await this.loadSources()
+        const sourceId = this.getScriptSourceId(created.data)
+        await this.openSource(sourceId, { updateRoute: false })
+        this.finishIndicatorConversion(sourceId)
         this.$message.success(this.text.indicatorConvertSuccess)
       } catch (e) {
         this.indicatorConvertError = e.backendMessage || e.message || this.text.indicatorConvertFailed
@@ -1804,14 +1721,10 @@ export default {
         this.indicatorConvertLoading = false
       }
     },
-    extractGeneratedSourceId (res) {
-      const data = (res && res.data) || {}
-      return data.source_id || data.sourceId || this.getScriptSourceId(data.source) || res.source_id || res.sourceId || ''
-    },
     extractAiGeneratedCode (res) {
       if (!res || typeof res !== 'object') return ''
       const data = res.data || {}
-      const candidates = [res.code, res.script_code, res.strategy_code, data.code, data.script_code, data.strategy_code]
+      const candidates = [res.code, data.code]
       const code = candidates.find(item => typeof item === 'string' && item.trim())
       return code ? String(code).trim() : ''
     },
@@ -2166,6 +2079,10 @@ export default {
 
 <style lang="less">
 .robot-builder-drawer {
+  .ant-drawer-content-wrapper {
+    max-width: 96vw;
+  }
+
   .ant-drawer-body {
     height: calc(100vh - 55px);
     overflow: auto;

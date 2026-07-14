@@ -8,20 +8,13 @@ const componentPath = fileURLToPath(
 )
 const source = fs.readFileSync(componentPath, 'utf8')
 
-test('a new backtest result disposes the previous equity chart instance', () => {
-  const watcher = source.match(/result \(\) \{([\s\S]*?)\n    \},\n    'form\.marketType'/)
-
-  assert.ok(watcher, 'result watcher must exist')
-  assert.match(watcher[1], /this\.disposeEquityChart\(\)/)
-  assert.ok(
-    watcher[1].indexOf('this.disposeEquityChart()') < watcher[1].indexOf('this.queueRenderEquityChart()'),
-    'the detached chart must be disposed before rendering the next result'
-  )
+test('backtest center compiles a source manifest before accepting runtime controls', () => {
+  assert.match(source, /compileScriptSource\(\{ sourceId \}\)/)
+  assert.match(source, /this\.manifest = compiled\.data && compiled\.data\.manifest/)
+  assert.match(source, /return Boolean\(this\.manifest && this\.manifest\.leverageAllowed\)/)
 })
 
-test('equity rendering rejects an instance attached to a stale DOM node', () => {
-  assert.match(
-    source,
-    /this\.equityChartInstance\.getDom\(\) !== el[\s\S]*?this\.equityChartInstance\.dispose\(\)[\s\S]*?this\.equityChartInstance = null/
-  )
+test('backtest center submits only the Strategy API V2 request contract', () => {
+  assert.match(source, /runStrategyBacktest\(\{[\s\S]*?sourceId: this\.form\.sourceId[\s\S]*?startDate:[\s\S]*?endDate:[\s\S]*?params: this\.params/)
+  assert.doesNotMatch(source, /strategy_config|script_params|strict_mode|strategy_code/)
 })

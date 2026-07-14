@@ -394,9 +394,9 @@ export default {
         .map(([key]) => `${key}=${this.pythonValue(this.parameterValue(key))}`)
         .join(', ')
       if (this.currentContext === 'cta') {
-        return `ctx.factor("${factor.factor_id}"${params ? `, ${params}` : ''})`
+        return `factor("${factor.factor_id}", "USStock:SPY"${params ? `, ${params}` : ''})`
       }
-      return `ctx.factor("${factor.factor_id}", panel${params ? `, ${params}` : ''})`
+      return `get_factors(g.symbols, ["${factor.factor_id}"]${params ? `, ${params}` : ''})`
     },
     estimatedWarmup (factor) {
       const value = (key, fallback = 1) => Math.max(1, Number(this.parameterValues[key] || fallback))
@@ -424,27 +424,33 @@ export default {
       if (this.currentContext === 'cta') {
         const warmup = this.estimatedWarmup(factor)
         return [
-          `# startup_candle_count: ${warmup}`,
+          'def initialize(context):',
+          '    context.set_universe(["USStock:SPY"])',
+          '    context.subscribe(frequency="1d")',
+          `    context.set_warmup(${warmup})`,
           '',
-          'def on_bar(ctx, bar):',
+          'def handle_data(context, data):',
           `    value = ${call}`,
-          '    if not np.isfinite(value):',
+          '    if value != value:',
           '        return',
           '    # Combine the factor value with explicit entry, exit, sizing and risk rules.'
         ].join('\n')
       }
       const lines = [
-        'def on_rebalance(ctx, panel):',
-        `    values = ${call}`
+        'def rebalance(context, data):',
+        `    values = ${call}["${factor.factor_id}"].dropna()`
       ]
       if (factor.direction_hint === 'lower_is_bullish') {
-        lines.push('    scores = {symbol: -value for symbol, value in values.items()}')
-        lines.push('    ctx.long_only_top_n(scores, n=10)')
+        lines.push('    selected = list(values.sort_values().head(10).index)')
       } else if (factor.direction_hint === 'higher_is_bullish') {
-        lines.push('    ctx.long_only_top_n(values, n=10)')
+        lines.push('    selected = list(values.sort_values(ascending=False).head(10).index)')
       } else {
         lines.push('    # Define the ranking direction for this strategy before selecting Top-N.')
+        lines.push('    selected = []')
       }
+      lines.push('    weight = 1.0 / len(selected) if selected else 0.0')
+      lines.push('    for symbol in selected:')
+      lines.push('        order_target_percent(symbol, weight, reason="factor_top_n")')
       return lines.join('\n')
     },
     async copyText (value) {

@@ -5,7 +5,6 @@ import {
   filterAndSortStrategies,
   strategyExecutionMode,
   strategyLastActivityTimestamp,
-  strategyModeBucket,
   strategyRuntimeSummary,
   strategySymbol
 } from '../../src/utils/strategyRuntime.js'
@@ -14,7 +13,6 @@ const rows = [
   {
     id: 1,
     strategy_name: 'Signal BTC',
-    strategy_mode: 'script',
     status: 'stopped',
     execution_mode: 'signal',
     initial_capital: 1000,
@@ -24,8 +22,7 @@ const rows = [
   },
   {
     id: 2,
-    strategy_name: 'Live ETH Grid',
-    strategy_mode: 'bot',
+    strategy_name: 'Live ETH Momentum',
     status: 'running',
     initial_capital: 2000,
     total_pnl: 25,
@@ -37,20 +34,16 @@ const rows = [
   },
   {
     id: 3,
-    strategy_name: 'Live SOL Script',
-    strategy_type: 'ScriptStrategy',
+    strategy_name: 'Live SOL Rotation',
     status: 'running',
     execution_mode: 'live',
     initial_capital: 500,
     total_pnl: 5,
-    trading_config: JSON.stringify({ symbols: ['SOL/USDT'], last_signal_time: '2026-07-10T09:00:00Z' })
+    trading_config: JSON.stringify({ symbol: 'SOL/USDT', last_signal_time: '2026-07-10T09:00:00Z' })
   }
 ]
 
 test('normalizes strategy runtime fields', () => {
-  assert.equal(strategyModeBucket(rows[1]), 'bot')
-  assert.equal(strategyModeBucket(rows[2]), 'script')
-  assert.equal(strategyModeBucket({ strategy_mode: 'signal', strategy_type: 'ScriptStrategy' }), 'signal')
   assert.equal(strategyExecutionMode(rows[1]), 'live')
   assert.equal(strategySymbol(rows[2]), 'SOL/USDT')
   assert.equal(strategyLastActivityTimestamp(rows[1]), 1783677600000)

@@ -3,17 +3,7 @@ import request from '@/utils/request'
 const api = {
   // Local Python backend
   strategies: '/api/strategies',
-  strategyDetail: '/api/strategies/detail',
-  createStrategy: '/api/strategies/create',
-  batchCreateStrategies: '/api/strategies/batch-create',
-  updateStrategy: '/api/strategies/update',
-  stopStrategy: '/api/strategies/stop',
-  startStrategy: '/api/strategies/start',
-  deleteStrategy: '/api/strategies/delete',
-  batchStartStrategies: '/api/strategies/batch-start',
-  batchStopStrategies: '/api/strategies/batch-stop',
-  batchDeleteStrategies: '/api/strategies/batch-delete',
-  testConnection: '/api/strategies/test-connection',
+  testConnection: '/api/strategies/exchange/test',
   trades: '/api/strategies/trades',
   positions: '/api/strategies/positions',
   accountPositions: '/api/account/positions',
@@ -21,8 +11,8 @@ const api = {
   equityCurve: '/api/strategies/equityCurve',
   notifications: '/api/strategies/notifications',
   unreadNotificationCount: '/api/strategies/notifications/unread-count',
-  verifyCode: '/api/strategies/verify-code',
-  aiGenerate: '/api/strategies/ai-generate',
+  verifyCode: '/api/strategies/verify',
+  aiGenerate: '/api/strategies/generate',
   scriptTemplates: '/api/strategies/script-templates',
   reviewReport: '/api/strategies/review-report',
   reviewReportHistory: '/api/strategies/review-report/history',
@@ -33,10 +23,10 @@ const api = {
   executorGenerate: '/api/strategies/executors/generate',
   executorCreate: '/api/strategies/executors/create',
   strategyAssets: '/api/strategy-assets',
-  unifiedBacktestRun: '/api/backtest/run',
-  unifiedBacktestTune: '/api/backtest/tune',
-  unifiedBacktestHistory: '/api/backtest/history',
-  unifiedBacktestGet: '/api/backtest/get',
+  strategyBacktestRun: '/api/backtest/run',
+  strategyBacktestTune: '/api/backtest/tune',
+  strategyBacktestHistory: '/api/backtest/history',
+  strategyBacktestGet: '/api/backtest/get',
   scriptSources: '/api/strategies/script-sources',
   scriptSourceDetail: '/api/strategies/script-sources/detail',
   createScriptSource: '/api/strategies/script-sources/create',
@@ -45,7 +35,7 @@ const api = {
   publishScriptSource: '/api/strategies/script-sources/publish',
   scriptSourceVersions: '/api/strategies/script-sources/versions',
   restoreScriptSourceVersion: '/api/strategies/script-sources/versions/restore',
-  publishTemplate: '/api/strategies/publish-template',
+  compileScriptSource: '/api/strategies/script-sources/compile',
   indicators: '/api/indicator/getIndicators'
 }
 
@@ -59,23 +49,14 @@ export function getStrategyList (params = {}) {
 
 export function getStrategyDetail (id) {
   return request({
-    url: api.strategyDetail,
-    method: 'get',
-    params: { id }
+    url: `${api.strategies}/${id}`,
+    method: 'get'
   })
 }
 
 export function createStrategy (data) {
   return request({
-    url: api.createStrategy,
-    method: 'post',
-    data
-  })
-}
-
-export function batchCreateStrategies (data) {
-  return request({
-    url: api.batchCreateStrategies,
+    url: api.strategies,
     method: 'post',
     data
   })
@@ -83,58 +64,30 @@ export function batchCreateStrategies (data) {
 
 export function updateStrategy (id, data) {
   return request({
-    url: api.updateStrategy,
+    url: `${api.strategies}/${id}`,
     method: 'put',
-    params: { id },
     data
   })
 }
 
 export function stopStrategy (id) {
   return request({
-    url: api.stopStrategy,
-    method: 'post',
-    params: { id }
+    url: `${api.strategies}/${id}/stop`,
+    method: 'post'
   })
 }
 
 export function startStrategy (id) {
   return request({
-    url: api.startStrategy,
-    method: 'post',
-    params: { id }
+    url: `${api.strategies}/${id}/start`,
+    method: 'post'
   })
 }
 
 export function deleteStrategy (id) {
   return request({
-    url: api.deleteStrategy,
-    method: 'delete',
-    params: { id }
-  })
-}
-
-export function batchStartStrategies (data) {
-  return request({
-    url: api.batchStartStrategies,
-    method: 'post',
-    data
-  })
-}
-
-export function batchStopStrategies (data) {
-  return request({
-    url: api.batchStopStrategies,
-    method: 'post',
-    data
-  })
-}
-
-export function batchDeleteStrategies (data) {
-  return request({
-    url: api.batchDeleteStrategies,
-    method: 'delete',
-    data
+    url: `${api.strategies}/${id}`,
+    method: 'delete'
   })
 }
 
@@ -142,7 +95,7 @@ export function testExchangeConnection (exchangeConfig) {
   return request({
     url: api.testConnection,
     method: 'post',
-    data: { exchange_config: exchangeConfig }
+    data: exchangeConfig
   })
 }
 
@@ -311,50 +264,41 @@ export function getStrategyAssetList (params = {}) {
   })
 }
 
-export function runUnifiedBacktest (data) {
+export function runStrategyBacktest (data) {
   const payload = { ...(data || {}) }
   const timeout = payload.timeout
   delete payload.timeout
   return request({
-    url: api.unifiedBacktestRun,
+    url: api.strategyBacktestRun,
     method: 'post',
     data: payload,
     timeout
   })
 }
 
-export function tuneUnifiedBacktest (data) {
+export function tuneStrategyBacktest (data) {
   const payload = { ...(data || {}) }
   const timeout = payload.timeout
   delete payload.timeout
-  const config = {
-    url: api.unifiedBacktestTune,
+  return request({
+    url: api.strategyBacktestTune,
     method: 'post',
     data: payload,
     timeout
-  }
-  return request(config).catch(error => {
-    if (error && error.response && error.response.status === 404) {
-      return request({
-        ...config,
-        url: '/api/experiment/structured-tune'
-      })
-    }
-    throw error
   })
 }
 
-export function getUnifiedBacktestHistory (params = {}) {
+export function getStrategyBacktestHistory (params = {}) {
   return request({
-    url: api.unifiedBacktestHistory,
+    url: api.strategyBacktestHistory,
     method: 'get',
     params
   })
 }
 
-export function getUnifiedBacktestRun (runId) {
+export function getStrategyBacktestRun (runId) {
   return request({
-    url: api.unifiedBacktestGet,
+    url: api.strategyBacktestGet,
     method: 'get',
     params: { runId }
   })
@@ -432,9 +376,9 @@ export function restoreScriptSourceVersion (versionId) {
   })
 }
 
-export function publishStrategyTemplate (data) {
+export function compileScriptSource (data) {
   return request({
-    url: api.publishTemplate,
+    url: api.compileScriptSource,
     method: 'post',
     data
   })

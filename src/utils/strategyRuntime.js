@@ -22,16 +22,6 @@ const timestampValue = value => {
 
 export const strategyTradingConfig = strategy => asObject(strategy && strategy.trading_config)
 
-export const strategyModeBucket = strategy => {
-  const mode = String((strategy && strategy.strategy_mode) || '').trim().toLowerCase()
-  if (mode === 'bot') return 'bot'
-  if (mode === 'script') return 'script'
-  if (mode === 'portfolio') return 'portfolio'
-  if (mode === 'signal') return 'signal'
-  if (String((strategy && strategy.strategy_type) || '') === 'ScriptStrategy') return 'script'
-  return 'signal'
-}
-
 export const strategyExecutionMode = strategy => {
   const config = strategyTradingConfig(strategy)
   const mode = String((strategy && strategy.execution_mode) || config.execution_mode || '').trim().toLowerCase()
@@ -40,12 +30,9 @@ export const strategyExecutionMode = strategy => {
 
 export const strategySymbol = strategy => {
   const config = strategyTradingConfig(strategy)
-  const deployment = asObject(strategy && strategy.portfolio_deployment)
-  if (deployment.universe_code) return deployment.universe_code
   const direct = String(config.symbol || (strategy && strategy.symbol) || '').trim()
   if (direct) return direct
-  const symbols = Array.isArray(config.symbols) ? config.symbols : []
-  return symbols.map(item => String(item || '').trim()).filter(Boolean).join(', ')
+  return ''
 }
 
 export const strategyLastActivity = strategy => {
@@ -95,8 +82,7 @@ export const filterAndSortStrategies = (strategies, filters = {}) => {
         strategy && strategy.strategy_name,
         strategySymbol(strategy),
         config.timeframe,
-        exchange.exchange_id,
-        strategyModeBucket(strategy)
+        exchange.exchange_id
       ].map(item => String(item || '').toLowerCase()).join(' ')
       return haystack.includes(keyword)
     })

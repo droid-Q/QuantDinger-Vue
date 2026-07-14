@@ -369,7 +369,7 @@ export default {
     },
     getAssetTypeText (assetType) {
       const type = assetType || 'indicator'
-      if (type === 'script_template' || type === 'bot_preset') return this.$t('community.tabScriptTemplates')
+      if (type === 'script_template') return this.$t('community.tabScriptTemplates')
       return this.$t('community.tabIndicators')
     }
   }

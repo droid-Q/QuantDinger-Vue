@@ -196,7 +196,11 @@
                   <a-tag v-if="item.pricing_type === 'free'" color="green">{{ $t('community.free') }}</a-tag>
                   <a-tag v-else color="orange">{{ item.price }} {{ $t('community.credits') }}</a-tag>
                   <a-tag v-if="item.vip_free" color="gold">{{ $t('community.vipFree') }}</a-tag>
-                  <a-tag :color="item.code_hidden ? 'default' : 'cyan'">
+                  <a-tag
+                    class="code-visibility-tag"
+                    :class="{ 'is-hidden': item.code_hidden }"
+                    :color="item.code_hidden ? 'default' : 'cyan'"
+                  >
                     {{ item.code_hidden ? $t('community.codeHidden') : $t('community.codeVisible') }}
                   </a-tag>
                   <a-tag :color="getStatusColor(item.review_status)">{{ getStatusText(item.review_status) }}</a-tag>
@@ -608,8 +612,7 @@ export default {
   mounted () {
     const q = this.$route.query
     if (q && q.asset_type) {
-      const assetType = String(q.asset_type)
-      this.marketAssetType = assetType === 'bot_preset' ? 'script_template' : assetType
+      this.marketAssetType = String(q.asset_type)
       this.filters.sortBy = this.defaultMarketSort
     }
     this.loadIndicators()
@@ -726,8 +729,8 @@ export default {
         return this.$t('community.restoreCopy')
       }
       const assetType = item && item.indicator && item.indicator.asset_type
-      if (assetType === 'script_template' || assetType === 'bot_preset') {
-        return this.$t('community.useScriptStrategy')
+      if (assetType === 'script_template') {
+        return this.$t('community.useStrategyV2')
       }
       return this.$t('community.useNow')
     },
@@ -740,12 +743,12 @@ export default {
       this.showMyPurchases = false
       const indicator = item && item.indicator
       const assetType = (indicator && indicator.asset_type) || 'indicator'
-      if (assetType === 'script_template' || assetType === 'bot_preset') {
+      if (assetType === 'script_template') {
         const sid = (item && (item.script_source_id || item.purchased_script_source_id)) || (indicator && (indicator.script_source_id || indicator.purchased_script_source_id))
         if (sid) {
           this.$router.push({
             path: '/strategy-ide',
-            query: { source_id: String(sid) }
+            query: { sourceId: String(sid) }
           })
         } else {
           this.$router.push({ path: '/strategy-ide' })
@@ -819,7 +822,6 @@ export default {
       if (isNaN(n)) return '0'
       return Number.isInteger(n) ? String(n) : n.toFixed(2)
     },
-
 
     handleTabChange (tab) {
       if (tab === 'review') {
@@ -939,7 +941,7 @@ export default {
 
     isStrategyAsset (item) {
       const assetType = String((item && item.asset_type) || '').toLowerCase()
-      return assetType === 'script_template' || assetType === 'bot_preset' || assetType === 'script' || assetType === 'strategy'
+      return assetType === 'script_template' || assetType === 'script' || assetType === 'strategy'
     },
 
     async openReviewPerformance (item) {
@@ -1007,7 +1009,7 @@ export default {
 
     getAssetTypeText (assetType) {
       const type = assetType || 'indicator'
-      if (type === 'script_template' || type === 'bot_preset') return this.$t('community.tabScriptTemplates')
+      if (type === 'script_template') return this.$t('community.tabScriptTemplates')
       return this.$t('community.tabIndicators')
     },
 
@@ -1295,6 +1297,12 @@ export default {
             font-size: 16px;
             font-weight: 600;
           }
+
+          .code-visibility-tag.is-hidden {
+            border-color: #d9d9d9;
+            background: #fafafa;
+            color: rgba(0, 0, 0, 0.65);
+          }
         }
 
         .item-author {
@@ -1449,6 +1457,12 @@ export default {
 
       .item-desc {
         color: rgba(255, 255, 255, 0.65);
+      }
+
+      .code-visibility-tag.is-hidden {
+        border-color: #434343;
+        background: #303030;
+        color: rgba(255, 255, 255, 0.78);
       }
 
       .item-code .code-preview {

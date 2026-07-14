@@ -29,7 +29,8 @@
           <a-menu slot="overlay" @click="handleAddAccountMenu">
             <a-menu-item key="crypto"><a-icon type="api" /> {{ $t('brokerAccounts.cryptoAccounts') }}</a-menu-item>
             <a-menu-item v-for="brokerItem in availableBrokers" :key="brokerItem.id">
-              <a-icon :type="brokerItem.icon" /> {{ $t('brokerAccounts.' + brokerItem.id + '.name') }}
+              <provider-logo class="ba-menu-provider-logo" :provider="brokerItem.id" :size="15" />
+              {{ $t('brokerAccounts.' + brokerItem.id + '.name') }}
             </a-menu-item>
           </a-menu>
         </a-dropdown>
@@ -56,8 +57,8 @@
             :class="{ active: activeProvider === b.id }"
             @click="selectProvider(b.id)"
           >
-            <span class="ba-provider-icon ba-provider-icon--broker" :style="{ color: b.color }">
-              <a-icon :type="b.icon" />
+            <span class="ba-provider-icon ba-provider-icon--broker" :style="{ '--brand-color': b.color }">
+              <provider-logo :provider="b.id" :size="24" />
             </span>
             <span class="ba-provider-copy">
               <strong>{{ $t('brokerAccounts.' + b.id + '.name') }}</strong>
@@ -83,7 +84,7 @@
             @click="selectProvider('crypto:' + exchange.id)"
           >
             <span class="ba-provider-icon" :style="{ '--brand-color': exchange.color }">
-              <a-icon :type="exchange.icon" />
+              <provider-logo :provider="exchange.id" :size="22" />
             </span>
             <span class="ba-provider-copy">
               <strong>{{ exchange.name }}</strong>
@@ -140,20 +141,21 @@ import { getDesktopBrokersPolicy, listExchangeCredentials } from '@/api/credenti
 import BrokerPanel from './components/BrokerPanel.vue'
 import CryptoExchangeAccountsCard from './components/CryptoExchangeAccountsCard.vue'
 import ExchangeSignupModal from '@/components/ExchangeSignupModal/ExchangeSignupModal.vue'
+import ProviderLogo from '@/components/ProviderLogo/ProviderLogo.vue'
 import { baseMixin } from '@/store/app-mixin'
 
 const CRYPTO_PROVIDERS = [
-  { id: 'binance', name: 'Binance', icon: 'stock', color: '#f0b90b' },
-  { id: 'okx', name: 'OKX', icon: 'gateway', color: '#7c8798' },
-  { id: 'bybit', name: 'Bybit', icon: 'swap', color: '#f7a600' },
-  { id: 'bitget', name: 'Bitget', icon: 'global', color: '#00a6c8' },
-  { id: 'gate', name: 'Gate.io', icon: 'deployment-unit', color: '#17b897' },
-  { id: 'htx', name: 'HTX', icon: 'fire', color: '#2563eb' }
+  { id: 'binance', name: 'Binance', color: '#f0b90b' },
+  { id: 'okx', name: 'OKX', color: '#7c8798' },
+  { id: 'bybit', name: 'Bybit', color: '#f7a600' },
+  { id: 'bitget', name: 'Bitget', color: '#00a6c8' },
+  { id: 'gate', name: 'Gate.io', color: '#2354e6' },
+  { id: 'htx', name: 'HTX', color: '#2e64fe' }
 ]
 
 export default {
   name: 'BrokerAccounts',
-  components: { BrokerPanel, CryptoExchangeAccountsCard, ExchangeSignupModal },
+  components: { BrokerPanel, CryptoExchangeAccountsCard, ExchangeSignupModal, ProviderLogo },
   mixins: [baseMixin],
   data () {
     return {
@@ -536,6 +538,12 @@ export default {
   min-height: 52px;
 }
 
+.ba-menu-provider-logo {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+
 .ba-provider-icon {
   width: 34px;
   height: 34px;
@@ -615,7 +623,7 @@ export default {
 }
 
 .broker-accounts.theme-dark {
-  background: #0f1012;
+  background: #080808;
 
   .ba-title {
     color: rgba(255, 255, 255, 0.93);
@@ -631,19 +639,19 @@ export default {
   }
 
   .ba-workbench {
-    background: #17191c;
-    border-color: #2b2f35;
+    background: #111;
+    border-color: rgba(255, 255, 255, 0.1);
     box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
   }
 
   .ba-rail {
-    background: #141619;
-    border-right-color: #2b2f35;
+    background: #0d0d0d;
+    border-right-color: rgba(255, 255, 255, 0.1);
   }
 
   .ba-rail-heading,
   .ba-rail-group--crypto {
-    border-color: #2b2f35;
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   .ba-rail-heading {
@@ -658,18 +666,18 @@ export default {
     color: rgba(255, 255, 255, 0.72);
 
     &:hover {
-      background: #20242a;
+      background: #181818;
     }
 
     &.active {
-      background: color-mix(in srgb, var(--primary-color, #52c41a) 13%, #17191c);
+      background: color-mix(in srgb, var(--primary-color, #52c41a) 13%, #111);
       color: var(--primary-color, #73d13d);
     }
   }
 
   .ba-provider-icon {
-    background: #202328;
-    border-color: #30353c;
+    background: #181818;
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   .ba-provider-copy small {
@@ -677,7 +685,7 @@ export default {
   }
 
   .ba-detail {
-    background: #191b1f;
+    background: #111;
   }
 }
 

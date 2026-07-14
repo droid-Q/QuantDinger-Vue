@@ -690,14 +690,14 @@ export default {
         monitorUpdated: t('monitorUpdated', 'Scheduled analysis updated'),
         monitorDeleted: t('monitorDeleted', 'Scheduled analysis deleted'),
         strategyFlowTitle: t('strategyFlowTitle', 'Choose the strategy type to create'),
-        indicatorStrategy: t('indicatorStrategy', 'Script Strategy'),
-        indicatorStrategyDesc: t('indicatorStrategyDesc', 'Generate chart-only indicator research with plots, markers, and parameters. Convert to ScriptStrategy before backtesting or live execution.'),
+        indicatorStrategy: t('indicatorStrategy', 'Strategy API V2'),
+        indicatorStrategyDesc: t('indicatorStrategyDesc', 'Generate chart-only indicator research with plots, markers, and parameters. Convert to Strategy API V2 before backtesting or live execution.'),
         scriptStrategy: t('scriptStrategy', 'Trading Script'),
-        scriptStrategyDesc: t('scriptStrategyDesc', 'Generate Python ScriptStrategy code for the Trading Script editor.'),
+        scriptStrategyDesc: t('scriptStrategyDesc', 'Generate Python Strategy API V2 code for the Trading Script editor.'),
         tradingBot: t('tradingBot', 'Strategy Template'),
         tradingBotDesc: t('tradingBotDesc', 'Recommend grid, trend, DCA, or martingale template parameters from market context.'),
         strategyRouteIndicatorTitle: t('strategyRouteIndicatorTitle', 'Output: Chart indicator code'),
-        strategyRouteIndicatorDesc: t('strategyRouteIndicatorDesc', 'Indicators are chart-only. Generate visual indicator code first, then convert the visible logic to a Python ScriptStrategy when backtesting or live execution is needed.'),
+        strategyRouteIndicatorDesc: t('strategyRouteIndicatorDesc', 'Indicators are chart-only. Generate visual indicator code first, then convert the visible logic to a Python Strategy API V2 when backtesting or live execution is needed.'),
         strategyRouteScriptTitle: t('strategyRouteScriptTitle', 'Output: Trading Script code'),
         strategyRouteScriptDesc: t('strategyRouteScriptDesc', 'Runs in the Trading Script editor. Use this for stateful logic, position management, API calls, logging, and automated execution.'),
         strategyRouteTemplateTitle: t('strategyRouteTemplateTitle', 'Output: Strategy Template parameters'),
@@ -769,7 +769,7 @@ export default {
       return [
         { key: 'diagnose', action: 'analysis', icon: 'line-chart', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.market_diagnosis.label', 'Diagnose symbol'), prompt: prompt('diagnose', 'Diagnose {symbol}: trend, momentum, support/resistance, liquidity, and risk.') },
         { key: 'indicator_research', action: 'strategy', icon: 'line-chart', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.indicator_research.label', 'Indicator R&D'), prompt: prompt('indicatorResearch', 'Generate chart-only QuantDinger indicator code for {symbol}, including plots, visual markers, and parameters.') },
-        { key: 'strategy_research', action: 'strategy', icon: 'experiment', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.strategy_research.label', 'Strategy R&D'), prompt: prompt('strategy', 'Generate executable QuantDinger ScriptStrategy code for {symbol}, including entry/exit logic, risk controls, and runtime-safe parameters.') },
+        { key: 'strategy_research', action: 'strategy', icon: 'experiment', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.strategy_research.label', 'Strategy R&D'), prompt: prompt('strategy', 'Generate executable QuantDinger Strategy API V2 code for {symbol}, including entry/exit logic, risk controls, and runtime-safe parameters.') },
         { key: 'radar', action: 'chat', icon: 'aim', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.opportunity_radar.label', 'Opportunity radar'), prompt: prompt('radar', 'Scan {symbol} for likely opportunities in the next 24 hours, with triggers and invalidation.') }
       ]
     },
@@ -788,7 +788,7 @@ export default {
         task('diagnose', 'analysis', 'line-chart', 'blue', 'market_diagnosis', 'market_diagnosis', 'diagnose', 'Diagnose {symbol}: trend, momentum, support/resistance, liquidity, and risk.'),
         task('chart', 'chart', 'picture', 'purple', 'chart_review', 'chart_review', 'chart', 'I will paste or upload a chart image. Judge whether the setup is tradable and give stop loss, take profit, and invalidation.'),
         task('indicator_research', 'strategy', 'line-chart', 'green', 'indicator_research', 'indicator_research', 'indicatorResearch', 'Generate chart-only QuantDinger indicator code for {symbol}, including plots, visual markers, and parameters.'),
-        task('strategy_research', 'strategy', 'experiment', 'green', 'strategy_research', 'strategy_research', 'strategy', 'Generate executable QuantDinger ScriptStrategy code for {symbol}, including entry/exit logic, risk controls, and runtime-safe parameters.'),
+        task('strategy_research', 'strategy', 'experiment', 'green', 'strategy_research', 'strategy_research', 'strategy', 'Generate executable QuantDinger Strategy API V2 code for {symbol}, including entry/exit logic, risk controls, and runtime-safe parameters.'),
         task('trade_plan', 'chat', 'profile', 'orange', 'trade_plan', 'trade_plan', 'tradePlan', 'Create a practical trading plan for {symbol}: bias, key levels, trigger, stop loss, take profit, position sizing, and when to stay out.'),
         task('news', 'chat', 'global', 'cyan', 'news_research', 'news_research', 'news', 'Search recent news and events for {symbol}; separate facts, interpretation, and uncertainty.'),
         task('macro', 'chat', 'global', 'indigo', 'macro_economic_data', 'macro_economic_data', 'macro', 'Review macro data such as CPI, FOMC, rates, GDP, and PCE, and explain the market impact.'),
@@ -804,8 +804,8 @@ export default {
         market_diagnosis: make('market_diagnosis', 'Diagnose symbol', 'Trend, momentum, support/resistance, liquidity, and risk.'),
         chart_review: make('chart_review', 'Chart review', 'Judge entries, stops, take profit, and invalidation from a chart image.'),
         indicator_research: make('indicator_research', 'Indicator R&D', 'Generate chart-only indicators with plots, markers, and parameters.'),
-        strategy_research: make('strategy_research', 'Strategy R&D', 'Generate executable ScriptStrategy drafts for backtest and live review.'),
-        script_strategy: make('strategy_research', 'Strategy R&D', 'Generate executable ScriptStrategy drafts for backtest and live review.'),
+        strategy_research: make('strategy_research', 'Strategy R&D', 'Generate executable Strategy API V2 drafts for backtest and live review.'),
+        script_strategy: make('strategy_research', 'Strategy R&D', 'Generate executable Strategy API V2 drafts for backtest and live review.'),
         trade_plan: make('trade_plan', 'Trading plan', 'Turn the current market context into a concrete execution checklist.'),
         news_research: make('news_research', 'News / event research', 'Search company, asset, macro, and industry news to build usable research context.'),
         macro_economic_data: make('macro_economic_data', 'Macro data', 'Query CPI, FOMC, rates, GDP, PCE, and other macro events.'),
@@ -919,7 +919,7 @@ export default {
           title: this.text.strategyExampleCode,
           prompt: this.i18nText(
             'aiAssetAnalysis.copilot.strategyExamples.code',
-            'Turn my idea into a QuantDinger Python ScriptStrategy: trend filter, entry/exit rules, position sizing, stop/take-profit, logging, and validation steps.',
+            'Turn my idea into a QuantDinger Python Strategy API V2: trend filter, entry/exit rules, position sizing, stop/take-profit, logging, and validation steps.',
             { symbol }
           )
         },
@@ -929,7 +929,7 @@ export default {
           title: this.text.strategyExampleStateful,
           prompt: this.i18nText(
             'aiAssetAnalysis.copilot.strategyExamples.statefulScript',
-            'Create a QuantDinger Python ScriptStrategy for {symbol}: keep position state, avoid duplicate entries, scale out at 2R, move stop to breakeven after 1R, and write clear logs.',
+            'Create a QuantDinger Python Strategy API V2 for {symbol}: keep position state, avoid duplicate entries, scale out at 2R, move stop to breakeven after 1R, and write clear logs.',
             { symbol }
           )
         }]
@@ -1135,8 +1135,8 @@ export default {
           '',
           'Requirements:',
           '1. Keep the task locked to the selected symbol; do not switch context because another symbol appears in examples.',
-          '2. Generate a Python ScriptStrategy draft that can land in Strategy R&D.',
-          '3. Do not use indicator code as an executable strategy. Indicators are chart-only; strategy execution belongs in ScriptStrategy.',
+          '2. Generate a Python Strategy API V2 draft that can land in Strategy R&D.',
+          '3. Do not use indicator code as an executable strategy. Indicators are chart-only; strategy execution belongs in Strategy API V2.',
           '4. Explain parameters, entry/exit signals, stop/take-profit logic, invalidation, and suitable market regimes.',
           '5. Keep code comments in English.'
         ].join('\n'), { label })
@@ -1698,14 +1698,14 @@ export default {
       const task = this.pendingAgentTask
       if (!task || task.type !== 'strategy_design') return
       const labels = {
-        indicator: this.i18nText('aiAssetAnalysis.copilot.actions.generateIndicatorStrategy', 'Generate chart indicator code'),
-        script: this.i18nText('aiAssetAnalysis.copilot.actions.generateScriptStrategy', 'Generate trading script')
+        indicator: this.i18nText('aiAssetAnalysis.copilot.actions.generateChartIndicator', 'Generate chart indicator code'),
+        script: this.i18nText('aiAssetAnalysis.copilot.actions.generateStrategyV2', 'Generate trading script')
       }
       const targetType = task.targetType || 'indicator'
       assistantMsg.actions = assistantMsg.actions || []
       assistantMsg.actions.push({
         key: `generate-strategy-${Date.now()}`,
-        type: 'generate_strategy_code',
+        type: 'generate_code',
         icon: 'code',
         label: labels[targetType] || labels.indicator,
         payload: {
@@ -1747,7 +1747,7 @@ export default {
       } else if (path === '/strategy-ide') {
         if (['template', 'preset'].includes(tab) || String(next.query.aiPreset || '') === '1') {
           next.query.tab = 'script'
-        } else if (['script', 'scripts', 'strategy-script'].includes(tab) || storageKey === 'qd_copilot_script_strategy_code') {
+        } else if (['script', 'scripts', 'strategy-script'].includes(tab) || storageKey === 'qd_strategy_source') {
           next.query.tab = 'script'
           next.query.draft = '1'
           delete next.query.aiDraft
@@ -1777,7 +1777,7 @@ export default {
         this.saveMemoryAction(action.payload || {})
         return
       }
-      if (action && action.type === 'generate_strategy_code') {
+      if (action && action.type === 'generate_code') {
         this.generateStrategyFromAction(action.payload || {})
         return
       }
@@ -1829,7 +1829,7 @@ export default {
       }
       if (!next.storageKey && code) {
         if (path === '/strategy-ide') {
-          next.storageKey = 'qd_copilot_script_strategy_code'
+          next.storageKey = 'qd_strategy_source'
           next.extraStorage.qd_copilot_script_strategy_meta = JSON.stringify(this.inferScriptDraftMetaFromMessage(msg))
           next.query = { ...next.query, tab: 'script', draft: '1' }
         } else if (path === '/indicator-ide') {
@@ -1879,7 +1879,7 @@ export default {
     },
     visibleMessageActions (msg) {
       const actions = Array.isArray(msg && msg.actions) ? msg.actions : []
-      return actions.filter(action => action && !['generate_strategy_code', 'agent_usage'].includes(action.type))
+      return actions.filter(action => action && !['generate_code', 'agent_usage'].includes(action.type))
     },
     strategyCodeForMessage (msg) {
       const action = this.workflowActionForMessage(msg)
@@ -1936,9 +1936,9 @@ export default {
         return
       }
       if (task.targetType === 'indicator') {
-        await this.generateIndicatorStrategyDraft(prompt, target)
+        await this.generateChartIndicatorDraft(prompt, target)
       } else {
-        await this.generateScriptStrategyDraft(prompt, target)
+        await this.generateStrategyV2Draft(prompt, target)
       }
       this.clearPendingAgentTask()
     },
@@ -2721,13 +2721,13 @@ export default {
       const promptText = (key, fallback, values = {}) => this.i18nText(`aiAssetAnalysis.copilot.executableStrategyPrompt.${key}`, fallback, values)
       const artifactRules = isIndicatorWorkflow
         ? [
-            promptText('ruleIndicatorCode', '- Generate QuantDinger chart-indicator Python code for visualization only, not ScriptStrategy execution code.'),
+            promptText('ruleIndicatorCode', '- Generate QuantDinger chart-indicator Python code for visualization only, not Strategy API V2 execution code.'),
             promptText('ruleIndicatorSignals', '- Indicator output.signals are visual markers only. Do not emit ctx orders or open/close/add/reduce execution fields.'),
             promptText('ruleChartAnnotations', '- Do not add output.layers by default. Use layers only for explicitly requested zones, channels, support/resistance, or invalidation areas.'),
             promptText('ruleSparseAnnotations', '- Keep chart annotations sparse, transparent, and clear of dense candles.')
           ]
         : [
-            promptText('ruleScriptDraft', '- Generate one executable Python ScriptStrategy draft using explicit position intents and runtime-safe sizing.')
+            promptText('ruleScriptDraft', '- Generate one executable Python Strategy API V2 draft using explicit position intents and runtime-safe sizing.')
           ]
       const memoryLines = (this.userMemories || [])
         .slice(0, 8)
@@ -2809,9 +2809,9 @@ export default {
         agentIntent: plan
       }
       if (targetType === 'script') {
-        await this.generateScriptStrategyDraft(prompt, target)
+        await this.generateStrategyV2Draft(prompt, target)
       } else {
-        await this.generateIndicatorStrategyDraft(prompt, target)
+        await this.generateChartIndicatorDraft(prompt, target)
       }
       this.clearPendingAgentTask()
       return true
@@ -2846,9 +2846,9 @@ export default {
       const prompt = this.buildExecutableStrategyPrompt(plan, content, target)
       await this.persistCopilotMessage(userMsg, targetType === 'indicator' ? 'indicator_research_user' : 'strategy_research_user')
       if (targetType === 'indicator') {
-        await this.generateIndicatorStrategyDraft(prompt, target)
+        await this.generateChartIndicatorDraft(prompt, target)
       } else {
-        await this.generateScriptStrategyDraft(prompt, target)
+        await this.generateStrategyV2Draft(prompt, target)
       }
       this.clearPendingAgentTask()
       return true
@@ -2898,7 +2898,7 @@ export default {
         promptText('ruleEnglishComments', '- Code comments must be English.'),
         isIndicatorWorkflow
           ? promptText('ruleIndicatorVerification', '- Encode visual parameters and marker meanings as # @param declarations, plot/signal names, labels, and concise code comments.')
-          : promptText('ruleRiskVerification', '- Encode risk parameters, invalidation, and safety behavior as ctx.param defaults, explicit exits, state guards, and concise code comments.'),
+          : promptText('ruleRiskVerification', '- Encode risk parameters, invalidation, and safety behavior as context.params defaults, explicit exits, state guards, and concise code comments.'),
         promptText('ruleConservativeDefaults', '- If a required assumption is missing, choose conservative defaults and encode them in code params or comments, not prose outside the code.'),
         '',
         memoryLines ? `[${promptText('userMemory', 'User memory')}]\n${memoryLines}\n` : '',
@@ -2911,25 +2911,25 @@ export default {
           0,
           promptText('ruleIndicatorRunnable', '- Indicator output must be runnable in the QuantDinger Indicator editor and suitable for chart display only.'),
           promptText('ruleIndicatorSignals', '- Do not emit strategy execution columns such as open_long, close_long, open_short, close_short, add_long, or reduce_long.'),
-          promptText('ruleIndicatorNoStrategyMeta', '- Do not include strategy/backtest metadata such as # @strategy, # signal_form, # exit_owner, # flip_mode, four_way, or ScriptStrategy.'),
+          promptText('ruleIndicatorNoStrategyMeta', '- Do not include strategy/backtest metadata such as # @strategy, # signal_form, # exit_owner, # flip_mode, four_way, or Strategy API V2.'),
           promptText('ruleOutputSignalsChartOnly', '- output.signals is chart-only and never places backtest/live orders.'),
           promptText('ruleOutputSignalsVisualOnly', '- If markers are needed, write them only as visual marker rows for output.signals with type, text, color, and data arrays. They must not imply executable orders.'),
           promptText('ruleOutputLayers', '- Do not add output.layers by default. Use layers only when the user explicitly asks for zones, channels, support/resistance, invalidation ranges, or premium/discount areas. Prefer plots and output.signals for normal indicators.'),
           promptText('ruleLightChartLayers', '- When layers are truly needed, they must look like lightweight analysis annotations, not blocking panels: short text, transparent fills, dashed borders when useful, and labels near the right edge or outside dense candles.')
         )
       } else if (targetType === 'script') {
-        hardRules.splice(6, 0, promptText('ruleScriptDraft', '- Trading Script output must be a Python ScriptStrategy draft for the QuantDinger Trading Script editor.'))
+        hardRules.splice(6, 0, promptText('ruleScriptDraft', '- Trading Script output must be a Python Strategy API V2 draft for the QuantDinger Trading Script editor.'))
       } else {
-        hardRules.splice(6, 0, promptText('ruleScriptDraft', '- Trading Script output must be a Python ScriptStrategy draft for the QuantDinger Trading Script editor.'))
+        hardRules.splice(6, 0, promptText('ruleScriptDraft', '- Trading Script output must be a Python Strategy API V2 draft for the QuantDinger Trading Script editor.'))
       }
       return hardRules.join('\n')
     },
-    async generateIndicatorStrategyDraft (prompt, target) {
+    async generateChartIndicatorDraft (prompt, target) {
       this.generatingStrategy = true
       const assistantMsg = {
         localId: 'local-' + (localId++),
         role: 'assistant',
-        content: this.i18nText('aiAssetAnalysis.copilot.generatingIndicatorStrategy', 'Generating chart indicator draft...'),
+        content: this.i18nText('aiAssetAnalysis.copilot.generatingChartIndicator', 'Generating chart indicator draft...'),
         meta: 'indicator_research'
       }
       this.messages.push(assistantMsg)
@@ -3017,12 +3017,12 @@ export default {
         this.scrollToBottom()
       }
     },
-    async generateScriptStrategyDraft (prompt, target) {
+    async generateStrategyV2Draft (prompt, target) {
       this.generatingStrategy = true
       const assistantMsg = {
         localId: 'local-' + (localId++),
         role: 'assistant',
-        content: this.i18nText('aiAssetAnalysis.copilot.generatingScriptStrategy', 'Generating trading script draft...'),
+        content: this.i18nText('aiAssetAnalysis.copilot.generatingStrategyV2', 'Generating trading script draft...'),
         meta: 'strategy_build'
       }
       this.messages.push(assistantMsg)
@@ -3040,7 +3040,7 @@ export default {
           market: target.market,
           name: `${target.symbol} ${this.text.scriptStrategy}`
         }
-        sessionStorage.setItem('qd_copilot_script_strategy_code', res.code)
+        sessionStorage.setItem('qd_strategy_source', res.code)
         sessionStorage.setItem('qd_copilot_script_strategy_meta', JSON.stringify(scriptDraftMeta))
         assistantMsg.content = [
           `## ${target.symbol} ${this.text.scriptStrategy}`,
@@ -3056,9 +3056,9 @@ export default {
           key: 'open-script-strategy',
           group: 'strategy_workflow',
           icon: 'code',
-          label: this.i18nText('aiAssetAnalysis.copilot.openScriptStrategyIde', 'Open Trading Script editor'),
+          label: this.i18nText('aiAssetAnalysis.copilot.openStrategyV2Ide', 'Open Trading Script editor'),
           path: '/strategy-ide',
-          storageKey: 'qd_copilot_script_strategy_code',
+          storageKey: 'qd_strategy_source',
           storageValue: res.code,
           extraStorage: {
             qd_copilot_script_strategy_meta: JSON.stringify(scriptDraftMeta)

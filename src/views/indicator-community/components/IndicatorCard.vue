@@ -148,7 +148,7 @@ export default {
     },
     isStrategyAsset () {
       const assetType = String(this.indicator.asset_type || '').toLowerCase()
-      return assetType === 'script_template' || assetType === 'bot_preset' || assetType === 'script' || assetType === 'strategy'
+      return assetType === 'script_template' || assetType === 'script' || assetType === 'strategy'
     },
     coverGradient () {
       const index = (this.indicator.id || 0) % GRADIENT_PRESETS.length

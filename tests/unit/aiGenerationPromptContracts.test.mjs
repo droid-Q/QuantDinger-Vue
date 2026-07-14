@@ -12,11 +12,12 @@ const strategyIde = read('../../src/views/strategy-ide/index.vue')
 const copilot = read('../../src/views/ai-analysis/components/CopilotWorkbench.vue')
 const overrides = read('../../src/locales/copilot-overrides.js')
 
-test('indicator conversion prompt protects direction, edge, timeframe, and sizing semantics', () => {
+test('indicator conversion prompt protects direction, edge, execution, and risk semantics', () => {
   assert.match(strategyIde, /classify every marker as long entry, long exit, short entry, short exit/)
   assert.match(strategyIde, /For edge\(A \| B\), compare the complete previous composite/)
-  assert.match(strategyIde, /Chart timeframe UI context only \(not a source-code header\)/)
-  assert.match(strategyIde, /For all-in compounding, size from ctx\.available_capital/)
+  assert.match(strategyIde, /The strategy source owns its universe, markets, subscriptions, frequency/)
+  assert.match(strategyIde, /Orders from handle_data are filled by the engine on the next available bar open/)
+  assert.match(strategyIde, /attach explicit protection rules to entries/)
 })
 
 test('copilot builds workflow-specific artifact rules instead of mixing indicator and strategy rules', () => {
@@ -32,6 +33,6 @@ test('English prompt overrides identify the indicator workflow as chart-only', (
   )
   assert.doesNotMatch(
     overrides,
-    /"aiAssetAnalysis\.copilot\.nativeStrategyPrompt\.workflowIndicator": "QuantDinger Python ScriptStrategy"/
+    /"aiAssetAnalysis\.copilot\.nativeStrategyPrompt\.workflowIndicator": "QuantDinger Python Strategy API V2"/
   )
 })

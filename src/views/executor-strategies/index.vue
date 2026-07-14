@@ -14,15 +14,19 @@
 
     <main class="executor-workbench">
       <aside class="executor-catalog">
-        <div class="panel-title">
-          <a-icon type="appstore" />
-          <span>{{ t('executorStrategies.catalog') }}</span>
+        <div class="panel-title panel-title--between">
+          <span><a-icon type="appstore" />{{ t('executorStrategies.catalog') }}</span>
+          <span v-if="embedded" class="safe-mode-pill">
+            <a-icon type="safety-certificate" />
+            {{ t('executorStrategies.signal') }}
+          </span>
         </div>
         <button
           v-for="item in executorCatalog"
           :key="item.key"
           type="button"
           class="catalog-item"
+          :data-testid="`robot-template-${item.key}`"
           :class="{ active: form.executor_type === item.key, disabled: item.disabled }"
           :disabled="item.disabled"
           @click="selectExecutor(item.key)"
@@ -814,7 +818,7 @@ export default {
           })
           const body = res && (res.data || res)
           const generated = body && body.data ? body.data : body
-          if (!generated || !generated.strategy_code) {
+          if (!generated || !generated.code) {
             throw new Error((body && body.msg) || this.t('executorStrategies.createFailed'))
           }
           this.$emit('generated', generated)
@@ -831,7 +835,7 @@ export default {
           path: '/strategy-center',
           query: {
             tab: 'strategy',
-            ...(strategyId ? { strategy_id: String(strategyId) } : {})
+            ...(strategyId ? { strategyId: String(strategyId) } : {})
           }
         })
       } catch (err) {
@@ -959,6 +963,22 @@ export default {
 
 .panel-title--between {
   justify-content: space-between;
+}
+
+.panel-title--between > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.safe-mode-pill {
+  padding: 4px 8px;
+  border: 1px solid #d9f7be;
+  border-radius: 999px;
+  color: #3f7f1f;
+  background: #f6ffed;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .catalog-item {
@@ -1217,6 +1237,12 @@ export default {
 .theme-dark .config-actions {
   border-color: #262a2f;
   background: #17191c;
+}
+
+.theme-dark .safe-mode-pill {
+  border-color: #274916;
+  color: #b7eb8f;
+  background: #15230f;
 }
 
 @media (max-width: 1500px) {

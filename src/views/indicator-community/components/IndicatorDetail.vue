@@ -56,11 +56,6 @@
             <p class="description">{{ detail.description || $t('community.noDescription') }}</p>
           </div>
 
-          <div class="section" v-if="isBotPreset">
-            <h3>{{ $t('community.botPresetInfo') }}</h3>
-            <p class="description">{{ $t('community.botPresetUseHint') }}</p>
-          </div>
-
           <div class="section strategy-performance-section" v-if="isStrategyAsset">
             <h3>{{ $t('community.performance') }}</h3>
             <div v-if="performance" class="performance-grid">
@@ -298,7 +293,7 @@
                 </a-badge>
               </a-tooltip>
               <a-button v-if="!localCopyMissing" type="primary" @click="goToUse">
-                <a-icon :type="isBotPreset ? 'robot' : (isScriptTemplate ? 'code-sandbox' : 'code')" />
+                <a-icon :type="isScriptTemplate ? 'code-sandbox' : 'code'" />
                 {{ useNowLabel }}
               </a-button>
             </template>
@@ -386,14 +381,11 @@ export default {
     },
     isScriptTemplate () {
       const assetType = this.detail && this.detail.asset_type
-      return assetType === 'script_template' || assetType === 'bot_preset'
-    },
-    isBotPreset () {
-      return (this.detail && this.detail.asset_type) === 'bot_preset'
+      return assetType === 'script_template'
     },
     isStrategyAsset () {
       const assetType = String((this.detail && this.detail.asset_type) || '').toLowerCase()
-      return assetType === 'script_template' || assetType === 'bot_preset' || assetType === 'script' || assetType === 'strategy'
+      return assetType === 'script_template' || assetType === 'script' || assetType === 'strategy'
     },
     isIndicatorAsset () {
       return !this.isStrategyAsset
@@ -477,7 +469,7 @@ export default {
     },
     useNowLabel () {
       if (this.isScriptTemplate) {
-        return this.$t('community.useScriptStrategy')
+        return this.$t('community.useStrategyV2')
       }
       return this.$t('community.useNow')
     },
@@ -779,7 +771,7 @@ export default {
         if (res.code === 1) {
           const assetType = res.data && res.data.asset_type
           let successKey = 'community.purchaseSuccess'
-          if (assetType === 'script_template' || assetType === 'bot_preset') {
+          if (assetType === 'script_template') {
             successKey = 'community.scriptTemplatePurchased'
           }
           this.$message.success(this.$t(successKey))
@@ -817,12 +809,12 @@ export default {
     goToUse () {
       this.$emit('close')
       const assetType = (this.detail && this.detail.asset_type) || 'indicator'
-      if (assetType === 'script_template' || assetType === 'bot_preset') {
+      if (assetType === 'script_template') {
         const sid = this.detail && (this.detail.script_source_id || this.detail.purchased_script_source_id)
         if (sid) {
           this.$router.push({
             path: '/strategy-ide',
-            query: { source_id: String(sid) }
+            query: { sourceId: String(sid) }
           })
         } else {
           this.$router.push({ path: '/strategy-ide' })

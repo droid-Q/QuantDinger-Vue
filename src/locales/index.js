@@ -6,6 +6,7 @@ import enUS from './lang/en-US'
 import copilotOverrides from './copilot-overrides'
 import profileSecurityMessages from './lang/profile-security'
 import brokerAccountWorkspaceMessages from './lang/broker-account-workspace'
+import strategyV2Messages from './lang/strategy-v2'
 
 Vue.use(VueI18n)
 
@@ -16,7 +17,8 @@ const messages = {
     ...enUS,
     ...(copilotOverrides[defaultLang] || {}),
     ...(profileSecurityMessages[defaultLang] || {}),
-    ...(brokerAccountWorkspaceMessages[defaultLang] || {})
+    ...(brokerAccountWorkspaceMessages[defaultLang] || {}),
+    ...(strategyV2Messages[defaultLang] || {})
   }
 }
 
@@ -86,7 +88,8 @@ function mergeLocaleOverrides (lang) {
   const overrides = {
     ...(copilotOverrides[lang] || {}),
     ...(profileSecurityMessages[lang] || {}),
-    ...(brokerAccountWorkspaceMessages[lang] || {})
+    ...(brokerAccountWorkspaceMessages[lang] || {}),
+    ...(strategyV2Messages[lang] || {})
   }
   i18n.setLocaleMessage(lang, {
     ...(i18n.getLocaleMessage(lang) || {}),

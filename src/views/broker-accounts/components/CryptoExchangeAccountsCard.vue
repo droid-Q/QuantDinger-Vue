@@ -451,11 +451,11 @@ export default {
   margin-bottom: 16px;
 }
 .crypto-card.theme-dark {
-  background: #1f1f1f;
+  background: #111;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 
   ::v-deep .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link) {
-    background: #262626;
+    background: #181818;
     border-color: #3a3a3a;
     color: rgba(255, 255, 255, 0.76);
   }
@@ -464,7 +464,7 @@ export default {
   ::v-deep .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link):focus {
     border-color: var(--primary-color, #1890ff);
     color: var(--primary-color, #1890ff);
-    background: color-mix(in srgb, var(--primary-color, #1890ff) 10%, #262626);
+    background: color-mix(in srgb, var(--primary-color, #1890ff) 10%, #181818);
   }
 }
 .crypto-card-header {
@@ -535,7 +535,7 @@ export default {
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.08);
 }
 .crypto-card.theme-dark .crypto-item {
-  background: linear-gradient(135deg, #262626 0%, #1f1f1f 100%);
+  background: #181818;
   border-color: #303030;
 }
 .crypto-item-top {

@@ -1,4 +1,4 @@
-const enUS = {
+const locale = {
   'profile.security.title': 'Security',
   'profile.mfa.systemDisabled': 'Two-factor authentication is currently unavailable.',
   'profile.mfa.title': 'Two-factor authentication',
@@ -124,11 +124,13 @@ const localeLabels = {
   }
 }
 
-export default Object.keys(localeLabels).reduce((messages, locale) => {
-  messages[locale] = { ...enUS, ...localeLabels[locale] }
+const enUSFallback = locale
+
+export default Object.keys(localeLabels).reduce((messages, localeName) => {
+  messages[localeName] = { ...enUSFallback, ...localeLabels[localeName] }
   return messages
 }, {
-  'en-US': enUS,
+  'en-US': locale,
   'zh-CN': zhCN,
   'zh-TW': zhTW
 })

@@ -379,13 +379,7 @@ export function buildTemplateCode (templateOrKey, overrides = {}) {
   const template = typeof templateOrKey === 'string' ? getScriptTemplateByKey(templateOrKey) : templateOrKey
   if (!template) return ''
   const values = buildTemplateParamValues(template, overrides)
-  return template.params.filter(param => !isRuntimeReservedParam(param.name)).reduce((code, param) => {
-    const stored = values[param.name]
-    const codeValue = stored
-    const literal = toPythonLiteral(codeValue)
-    const pattern = new RegExp(`(ctx\\.param\\(['"]${escapeForRegExp(param.name)}['"],\\s*)([^\\)]+)(\\))`)
-    return code.replace(pattern, `$1${literal}$3`)
-  }, template.code)
+  return buildScriptCodeWithParamValues(template.code, template.params, values)
 }
 
 export function buildScriptCodeWithParamValues (code, params = [], overrides = {}) {
@@ -397,21 +391,20 @@ export function buildScriptCodeWithParamValues (code, params = [], overrides = {
     const codeValue = stored
     const literal = toPythonLiteral(codeValue)
     const pattern = new RegExp(`(ctx\\.param\\(\\s*['"]${escapeForRegExp(param.name)}['"]\\s*,\\s*)([^\\)\\n]+)(\\))`)
-    const next = source.replace(pattern, `$1${literal}$3`)
-    if (next !== source) return next
+    let next = source.replace(pattern, `$1${literal}$3`)
     const indicatorLiteral = param.type === 'boolean'
       ? (stored ? 'true' : 'false')
       : String(codeValue)
     const indicatorPattern = new RegExp(`(^\\s*#\\s*@param\\s+${escapeForRegExp(param.name)}\\s+(?:int|float|bool|str|string)\\s+)(\\S+)(.*$)`, 'im')
-    const withParamLine = source.replace(indicatorPattern, `$1${indicatorLiteral}$3`)
-    if (withParamLine !== source) return withParamLine
+    next = next.replace(indicatorPattern, `$1${indicatorLiteral}$3`)
     const strategyLiteral = param.type === 'boolean'
       ? (stored ? 'true' : 'false')
       : String(codeValue)
     const strategyPattern = new RegExp(`(^\\s*#\\s*@strategy\\s+${escapeForRegExp(param.name)}\\s*:?\\s+)(\\S+)(.*$)`, 'im')
-    const withStrategyLine = source.replace(strategyPattern, `$1${strategyLiteral}$3`)
-    if (withStrategyLine !== source) return withStrategyLine
+    next = next.replace(strategyPattern, `$1${strategyLiteral}$3`)
     const getPattern = new RegExp(`(params\\.get\\(\\s*['"]${escapeForRegExp(param.name)}['"]\\s*,\\s*)([^\\)\\n]+)(\\))`, 'g')
-    return source.replace(getPattern, `$1${literal}$3`)
+    next = next.replace(getPattern, `$1${literal}$3`)
+    const contextGetPattern = new RegExp(`(context\\.params\\.get\\(\\s*['"]${escapeForRegExp(param.name)}['"]\\s*,\\s*)([^\\)\\n]+)(\\))`, 'g')
+    return next.replace(contextGetPattern, `$1${literal}$3`)
   }, String(code || ''))
 }

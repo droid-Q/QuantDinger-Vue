@@ -1,4 +1,4 @@
-const enUS = {
+const locale = {
   'brokerAccounts.commandCenterTitle': 'Account Center',
   'brokerAccounts.commandCenterSubtitle': 'Manage brokerage and crypto exchange connections from one workspace.',
   'brokerAccounts.connectionHealth': 'Connection health',
@@ -43,13 +43,14 @@ const zhTW = {
   'brokerAccounts.cryptoSection.emptyHint': '請使用右上角「新增帳戶」連線第一個交易所。'
 }
 
+const enUSFallback = locale
 const locales = ['ar-SA', 'de-DE', 'fr-FR', 'ja-JP', 'ko-KR', 'ru-RU', 'th-TH', 'vi-VN']
 
-export default locales.reduce((messages, locale) => {
-  messages[locale] = { ...enUS }
+export default locales.reduce((messages, localeName) => {
+  messages[localeName] = { ...enUSFallback }
   return messages
 }, {
-  'en-US': enUS,
+  'en-US': locale,
   'zh-CN': zhCN,
   'zh-TW': zhTW
 })

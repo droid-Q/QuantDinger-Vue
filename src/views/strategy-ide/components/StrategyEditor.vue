@@ -178,6 +178,10 @@
                   <span class="template-card__name">{{ getTemplateTitle(tpl) }}</span>
                 </div>
                 <div class="template-card__desc">{{ getTemplateDesc(tpl) }}</div>
+                <div class="template-card__meta">
+                  <span>{{ (tpl.params || []).length }} {{ $t('trading-assistant.editor.paramsTab') }}</span>
+                  <span>{{ $t('strategyV2.apiBadge') }}</span>
+                </div>
                 <div class="template-card__foot">
                   <span class="template-card__action">
                     {{ $t('trading-assistant.template.useTemplate') }}
@@ -285,14 +289,17 @@
       :visible="showTemplatePicker"
       :title="$t('trading-assistant.editor.templateTab')"
       :footer="null"
-      :width="760"
+      :width="980"
       :destroy-on-close="false"
       :get-container="templateModalGetContainer"
       :wrap-class-name="isDark ? 'script-template-picker script-template-picker--dark' : 'script-template-picker'"
       @cancel="showTemplatePicker = false"
     >
       <div class="panel-intro panel-intro--compact">
-        <div class="panel-intro__title">{{ templatePickerTitle }}</div>
+        <div class="panel-intro__title">
+          {{ templatePickerTitle }}
+          <a-tag color="green">{{ visibleTemplates.length }}</a-tag>
+        </div>
         <div class="panel-intro__desc">{{ templatePickerDescription }}</div>
       </div>
 
@@ -320,6 +327,7 @@
           v-for="tpl in visibleTemplates"
           :key="tpl.key"
           class="template-card"
+          :data-testid="`strategy-template-${tpl.key}`"
           :class="[`template-card--${tpl.accent || 'blue'}`, { active: selectedTemplateKey === tpl.key, disabled: readonly }]"
           @click="loadTemplate(tpl.key, { focusParams: true, resetParams: true })"
         >
@@ -330,6 +338,10 @@
             <span class="template-card__name">{{ getTemplateTitle(tpl) }}</span>
           </div>
           <div class="template-card__desc">{{ getTemplateDesc(tpl) }}</div>
+          <div class="template-card__meta">
+            <span>{{ (tpl.params || []).length }} {{ $t('trading-assistant.editor.paramsTab') }}</span>
+            <span>{{ $t('strategyV2.apiBadge') }}</span>
+          </div>
           <div class="template-card__foot">
             <span class="template-card__action">
               {{ $t('trading-assistant.template.useTemplate') }}
@@ -571,7 +583,7 @@ export default {
         const data = res && res.data
         const items = Array.isArray(data)
           ? data
-          : ((data && (data.items || data.templates)) || [])
+          : ((data && data.items) || [])
         this.templates = [...setScriptTemplateCatalog(items)]
       } catch (e) {
         this.templates = [...setScriptTemplateCatalog([])]
@@ -586,8 +598,8 @@ export default {
       if (this.hiddenSource) return
       let code = ''
       try {
-        code = sessionStorage.getItem('qd_copilot_script_strategy_code') || ''
-        if (code) sessionStorage.removeItem('qd_copilot_script_strategy_code')
+        code = sessionStorage.getItem('qd_strategy_source') || ''
+        if (code) sessionStorage.removeItem('qd_strategy_source')
       } catch (_) {}
       if (code) {
         this.activeTab = 'ai'
@@ -667,15 +679,19 @@ My Custom Strategy
 Describe the strategy logic, supported markets, entry/exit rules, and risk controls here.
 """
 
-def on_init(ctx):
-    # Declare strategy-owned parameters here.
-    # Symbol, investment amount, market type, leverage and direction come from the run panel.
-    pass
+def initialize(context):
+    context.set_universe(["USStock:SPY"])
+    context.subscribe(frequency="1d")
+    context.set_warmup(55)
+    g.period = 50
 
-def on_bar(ctx, bar):
-    # Core trading logic, called on each K-line bar
-    # bar: { open, high, low, close, volume, timestamp }
-    pass
+def handle_data(context, data):
+    bars = get_history(g.period + 2, "1d", "close", "USStock:SPY")
+    if len(bars) < g.period:
+        return
+    average = float(bars["close"].tail(g.period).mean())
+    target = 1.0 if float(bars["close"].iloc[-1]) > average else 0.0
+    order_target_percent("USStock:SPY", target, reason="single_ma_regime")
 `
     },
 
@@ -876,20 +892,6 @@ def on_bar(ctx, bar):
         const directValue = this.$t(directKey)
         if (directValue !== directKey) return directValue
       }
-      const aliasKeys = {
-        entryPct: 'indicatorIde.strategyDirectives.fields.entryPct',
-        stopLossPct: 'indicatorIde.strategyDirectives.fields.stopLossPct',
-        takeProfitPct: 'indicatorIde.strategyDirectives.fields.takeProfitPct',
-        trailingEnabled: 'indicatorIde.strategyDirectives.fields.trailingEnabled',
-        trailingStopPct: 'indicatorIde.trailingStopPct',
-        trailingActivationPct: 'indicatorIde.trailingActivationPct',
-        maxHoldingBars: 'trading-assistant.strategyAnnotation.maxHoldingBars.label'
-      }
-      const aliasKey = aliasKeys[param.name]
-      if (aliasKey) {
-        const aliasValue = this.$t(aliasKey)
-        if (aliasValue !== aliasKey) return aliasValue
-      }
       const key = `trading-assistant.templateParam.${param.name}.label`
       const value = this.$t(key)
       if (value !== key) return value
@@ -902,20 +904,6 @@ def on_bar(ctx, bar):
       if (directKey) {
         const directValue = this.$t(directKey)
         if (directValue !== directKey) return directValue
-      }
-      const aliasKeys = {
-        entryPct: 'trading-assistant.strategyAnnotation.entryPct.desc',
-        stopLossPct: 'trading-assistant.strategyAnnotation.stopLossPct.desc',
-        takeProfitPct: 'trading-assistant.strategyAnnotation.takeProfitPct.desc',
-        trailingEnabled: 'trading-assistant.strategyAnnotation.trailingEnabled.desc',
-        trailingStopPct: 'trading-assistant.strategyAnnotation.trailingStopPct.desc',
-        trailingActivationPct: 'trading-assistant.strategyAnnotation.trailingActivationPct.desc',
-        maxHoldingBars: 'trading-assistant.strategyAnnotation.maxHoldingBars.desc'
-      }
-      const aliasKey = aliasKeys[param.name]
-      if (aliasKey) {
-        const aliasValue = this.$t(aliasKey)
-        if (aliasValue !== aliasKey) return aliasValue
       }
       const key = `trading-assistant.templateParam.${param.name}.desc`
       const value = this.$t(key)
@@ -1042,72 +1030,21 @@ def on_bar(ctx, bar):
       try {
         const code = this.getCode()
         const res = await request({
-          url: '/api/strategies/verify-code',
+          url: '/api/strategies/verify',
           method: 'post',
-          data: {
-            code,
-            assetType: this.assetType,
-            user_id: this.userId,
-            strategyId: this.strategyId || undefined,
-            scriptSourceId: this.scriptSourceId || undefined
-          }
+          data: { code }
         })
-        const hints = Array.isArray(res && res.hints) ? res.hints : []
-        const warningHints = hints.filter(item => item && item.severity === 'warn')
-        const errorHints = hints.filter(item => item && item.severity === 'error')
-        const warningMessages = warningHints.map(this.formatVerifyHint).filter(Boolean)
-        const errorMessages = errorHints.map(this.formatVerifyHint).filter(Boolean)
-        if (res && res.success) {
-          if (warningMessages.length) {
-            message.warning(warningMessages[0])
-          } else {
-            message.success(this.$t('trading-assistant.editor.verifySuccess'))
-          }
+        if (res && res.code === 1 && res.data && res.data.valid) {
+          message.success(this.$t('trading-assistant.editor.verifySuccess'))
           this.$emit('verified')
         } else {
-          message.error((errorMessages[0]) || (res && (res.msg || res.message)) || this.$t('trading-assistant.editor.verifyFailed'))
+          message.error((res && res.data && res.data.error) || (res && res.msg) || this.$t('trading-assistant.editor.verifyFailed'))
         }
       } catch (e) {
         message.error(this.$t('trading-assistant.editor.verifyFailed') + ': ' + (e.message || ''))
       } finally {
         this.verifying = false
       }
-    },
-
-    formatVerifyHint (hint) {
-      if (!hint || !hint.code) return ''
-      const params = hint.params || {}
-      const isZh = String((this.$i18n && this.$i18n.locale) || '').toLowerCase().startsWith('zh')
-      if (hint.code === 'CTX_PARAM_MISSING_DEFAULT') {
-        const count = params.count || 0
-        return isZh
-          ? `发现 ${count} 处 ctx.param(...) 没有默认值，建议在 on_init 中用 ctx.xxx = ctx.param('name', default) 声明。`
-          : `Found ${count} ctx.param(...) call(s) without defaults. Declare params in on_init with ctx.xxx = ctx.param('name', default).`
-      }
-      if (hint.code === 'CTX_PARAM_RUN_PANEL_FIELD') {
-        const names = Array.from(new Set((params.calls || []).map(item => item && item.name).filter(Boolean))).join(', ')
-        return isZh
-          ? `运行面板字段不能用 ctx.param 声明：${names}。`
-          : `Run-panel fields must not be declared with ctx.param: ${names}.`
-      }
-      if (hint.code === 'INDICATOR_OUTPUT_CONTRACT') {
-        return isZh
-          ? '检测到指标输出结构，脚本策略不能保留 output/plots/layers/signals。'
-          : 'Indicator output structures were detected; ScriptStrategy code must not keep output/plots/layers/signals.'
-      }
-      if (hint.code === 'POSSIBLE_BULLISH_SIGNAL_FOR_SHORT') {
-        return isZh
-          ? '代码疑似把偏多/买入信号用于开空，请检查多空语义。'
-          : 'The script may use bullish/buy-style signals for short entries; check long/short semantics.'
-      }
-      const fallback = {
-        MISSING_ON_INIT: isZh ? '缺少 on_init(ctx) 函数。' : 'Missing on_init(ctx) function.',
-        MISSING_ON_BAR: isZh ? '缺少 on_bar(ctx, bar) 函数。' : 'Missing on_bar(ctx, bar) function.',
-        NO_CTX_PARAM_DEFAULTS: isZh ? '没有通过 ctx.param(...) 声明任何策略参数。' : 'No parameter defaults were declared via ctx.param(...).',
-        NO_ORDER_INTENT: isZh ? '未检测到明确下单意图。' : 'No explicit order intent was detected.',
-        EMPTY_CODE: isZh ? '策略代码为空。' : 'Strategy code is empty.'
-      }
-      return fallback[hint.code] || hint.code
     }
   }
 }
@@ -1505,8 +1442,8 @@ def on_bar(ctx, bar):
 
 .template-grid--modal {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-height: 420px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-height: 520px;
   overflow-x: hidden;
   overflow-y: auto;
   padding-right: 4px;
@@ -1611,6 +1548,22 @@ def on_bar(ctx, bar):
     overflow: hidden;
   }
 
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+
+    span {
+      padding: 2px 6px;
+      border-radius: 999px;
+      color: #6b7280;
+      background: #f3f4f6;
+      font-size: 9px;
+      font-weight: 600;
+    }
+  }
+
   &__foot {
     display: flex;
     align-items: center;
@@ -1628,6 +1581,29 @@ def on_bar(ctx, bar):
       font-size: 10px;
       margin-left: 2px;
     }
+  }
+}
+
+.template-grid--modal .template-card {
+  min-height: 136px;
+  display: flex;
+  flex-direction: column;
+}
+
+.template-grid--modal .template-card__foot {
+  margin-top: auto;
+  padding-top: 7px;
+}
+
+@media (max-width: 900px) {
+  .template-grid--modal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .template-grid--modal {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1831,6 +1807,11 @@ def on_bar(ctx, bar):
 
     &__desc {
       color: rgba(255, 255, 255, 0.4);
+    }
+
+    &__meta span {
+      color: rgba(255, 255, 255, 0.52);
+      background: rgba(255, 255, 255, 0.07);
     }
 
     &__check {

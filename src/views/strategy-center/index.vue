@@ -25,7 +25,6 @@
       :initial-strategy-id="initialStrategyId"
       :control-loading-id="controlLoadingId"
       @start="handleStart"
-      @run="handleRun"
       @stop="handleStop"
       @edit="openEditLive"
       @delete="handleDelete"
@@ -47,7 +46,6 @@
 <script>
 import { mapState } from 'vuex'
 import { deleteStrategy, getStrategyList, startStrategy, stopStrategy } from '@/api/strategy'
-import { deletePortfolioDeployment, listPortfolioDeployments, runPortfolioDeployment, startPortfolioDeployment, stopPortfolioDeployment } from '@/api/portfolioDeployment'
 import LiveOperationsTable from './components/LiveOperationsTable.vue'
 import LiveStrategyEditor from './components/LiveStrategyEditor.vue'
 
@@ -73,7 +71,7 @@ export default {
       return this.navTheme === 'dark' || this.navTheme === 'realdark'
     },
     initialStrategyId () {
-      const value = Number(this.$route.query.strategy_id || 0)
+      const value = Number(this.$route.query.strategyId || 0)
       return Number.isFinite(value) ? value : 0
     }
   },
@@ -95,23 +93,16 @@ export default {
     parseList (res) {
       if (!res || res.code !== 1 || !res.data) return []
       if (Array.isArray(res.data)) return res.data
-      return res.data.strategies || res.data.items || []
+      return []
     },
     async loadStrategies () {
       if (this.loading) return
       this.loading = true
       this.loadError = false
       try {
-        const [res, portfolioRes] = await Promise.all([getStrategyList(), listPortfolioDeployments()])
+        const res = await getStrategyList()
         if (!res || res.code !== 1) throw new Error('STRATEGY_LIST_LOAD_FAILED')
-        const deployments = portfolioRes && portfolioRes.code === 1 && Array.isArray(portfolioRes.data) ? portfolioRes.data : []
-        const deploymentsByStrategy = new Map(deployments.map(item => [Number(item.strategy_id), item]))
-        this.strategies = this.parseList(res).map(strategy => {
-          const deployment = deploymentsByStrategy.get(Number(strategy.id))
-          return deployment
-            ? { ...strategy, deployment_id: Number(deployment.id), portfolio_deployment: deployment, asset_type: 'portfolio_strategy' }
-            : strategy
-        })
+        this.strategies = this.parseList(res)
         this.refreshedAt = new Date()
       } catch (error) {
         this.loadError = true
@@ -123,9 +114,7 @@ export default {
       if (!strategy || !strategy.id || this.controlLoadingId) return
       this.controlLoadingId = strategy.id
       try {
-        const res = strategy.deployment_id
-          ? await startPortfolioDeployment(strategy.deployment_id)
-          : await startStrategy(strategy.id)
+        const res = await startStrategy(strategy.id)
         if (res && res.code === 1) {
           this.$message.success(this.$t('trading-assistant.messages.startSuccess'))
           await this.loadStrategies()
@@ -138,30 +127,11 @@ export default {
         this.controlLoadingId = null
       }
     },
-    async handleRun (strategy) {
-      if (!strategy || !strategy.deployment_id || this.controlLoadingId) return
-      this.controlLoadingId = strategy.id
-      try {
-        const res = await runPortfolioDeployment(strategy.deployment_id)
-        if (res && res.code === 1) {
-          this.$message.success(this.$t('portfolioDeployment.runQueued'))
-          await this.loadStrategies()
-        } else {
-          this.$message.error((res && res.msg) || this.$t('portfolioDeployment.runFailed'))
-        }
-      } catch (error) {
-        this.$message.error(error.backendMessage || error.message || this.$t('portfolioDeployment.runFailed'))
-      } finally {
-        this.controlLoadingId = null
-      }
-    },
     async handleStop (strategy) {
       if (!strategy || !strategy.id || this.controlLoadingId) return
       this.controlLoadingId = strategy.id
       try {
-        const res = strategy.deployment_id
-          ? await stopPortfolioDeployment(strategy.deployment_id)
-          : await stopStrategy(strategy.id)
+        const res = await stopStrategy(strategy.id)
         if (res && res.code === 1) {
           this.$message.success(this.$t('trading-assistant.messages.stopSuccess'))
           await this.loadStrategies()
@@ -191,9 +161,9 @@ export default {
         this.openCreateLive()
         return
       }
-      if (mode === 'edit' && this.$route.query.strategy_id) {
+      if (mode === 'edit' && this.$route.query.strategyId) {
         this.editorMode = 'edit'
-        this.editorStrategyId = Number(this.$route.query.strategy_id)
+        this.editorStrategyId = Number(this.$route.query.strategyId)
         this.editorOpen = true
       }
     },
@@ -211,23 +181,16 @@ export default {
       if (!this.$route.query.mode) return
       const query = { ...this.$route.query }
       delete query.mode
-      delete query.source_id
-      delete query.exchange_id
-      delete query.market_type
-      delete query.trade_direction
-      delete query.initial_capital
+      delete query.sourceId
+      delete query.strategyId
       delete query.leverage
-      delete query.asset_type
-      delete query.universe_id
       this.$router.replace({ path: '/strategy-center', query }).catch(() => {})
     },
     async handleDelete (strategy) {
       if (!strategy || !strategy.id || this.controlLoadingId) return
       this.controlLoadingId = strategy.id
       try {
-        const res = strategy.deployment_id
-          ? await deletePortfolioDeployment(strategy.deployment_id)
-          : await deleteStrategy(strategy.id)
+        const res = await deleteStrategy(strategy.id)
         if (res && res.code === 1) {
           this.$message.success(this.$t('trading-assistant.messages.deleteSuccess'))
           await this.loadStrategies()
@@ -301,7 +264,7 @@ export default {
 }
 .sc-refresh { display: flex; align-items: center; gap: 12px; color: #667085; font-size: 13px; font-variant-numeric: tabular-nums; }
 .theme-dark {
-  background: #0d0f11;
+  background: #080808;
   color: #e7e9ed;
   .sc-header h1 { color: #f3f4f6; }
   .sc-header p, .sc-refresh { color: #7f8793; }

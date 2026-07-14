@@ -4,7 +4,7 @@
     <div class="bp-status-card" :class="connectionStateClass">
       <div class="bp-status-left">
         <div class="bp-status-icon">
-          <a-icon :type="broker.icon" :style="{ color: broker.color }" />
+          <provider-logo :provider="broker.id" :size="34" />
         </div>
         <div class="bp-status-meta">
           <div class="bp-status-name">
@@ -96,6 +96,7 @@ import IbkrConnectForm from './forms/IbkrConnectForm.vue'
 import BrokerAccountCard from './BrokerAccountCard.vue'
 import BrokerPositionsTable from './BrokerPositionsTable.vue'
 import BrokerOrdersTable from './BrokerOrdersTable.vue'
+import ProviderLogo from '@/components/ProviderLogo/ProviderLogo.vue'
 
 const FORM_BY_BROKER = {
   alpaca: 'AlpacaConnectForm',
@@ -109,7 +110,7 @@ const DOCS = {
 
 export default {
   name: 'BrokerPanel',
-  components: { AlpacaConnectForm, IbkrConnectForm, BrokerAccountCard, BrokerPositionsTable, BrokerOrdersTable },
+  components: { AlpacaConnectForm, IbkrConnectForm, BrokerAccountCard, BrokerPositionsTable, BrokerOrdersTable, ProviderLogo },
   props: {
     broker: { type: Object, required: true },
     status: { type: Object, default: () => null },

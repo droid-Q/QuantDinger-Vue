@@ -1,12 +1,15 @@
 <template>
-  <section class="operations-workspace" :class="{ 'theme-dark': dark }">
+  <section
+    class="operations-workspace"
+    :class="{ 'theme-dark': dark, 'is-empty': !loading && strategies.length === 0 }"
+  >
     <a-alert v-if="loadError" type="warning" show-icon :message="$t('globalMarket.refreshError')" />
 
     <div v-if="!loading && strategies.length === 0" class="workspace-empty">
       <a-icon type="fund" />
       <h2>{{ $t('strategyCenter.console.emptyTitle') }}</h2>
       <p>{{ $t('strategyCenter.console.emptyDescription') }}</p>
-      <a-button type="primary" @click="$emit('open-workspace')">{{ $t('strategyCenter.header.openIde') }}</a-button>
+      <a-button type="primary" @click="$emit('open-workspace')">{{ $t('strategyCenter.stats.createLive') }}</a-button>
     </div>
 
     <template v-else>
@@ -80,12 +83,6 @@
             </p>
           </div>
           <div class="detail-actions">
-            <a-button
-              v-if="selectedStrategy.deployment_id"
-              icon="thunderbolt"
-              :loading="controlLoadingId === selectedStrategy.id"
-              @click="$emit('run', selectedStrategy)"
-            >{{ $t('portfolioDeployment.runNow') }}</a-button>
             <a-button
               v-if="!isRunning(selectedStrategy)"
               type="primary"
@@ -387,16 +384,10 @@ export default {
     executionLabel (strategy) { return this.executionMode(strategy) === 'live' ? this.$t('systemOverview.live') : this.$t('systemOverview.signal') },
     symbol (strategy) { return strategySymbol(strategy) },
     timeframe (strategy) {
-      const deployment = strategy && strategy.portfolio_deployment
-      return String((deployment && deployment.rebalance_frequency) || strategyTradingConfig(strategy).timeframe || strategy.timeframe || '')
+      return String(strategyTradingConfig(strategy).timeframe || strategy.timeframe || '')
     },
     health (strategy) { return strategy && strategy.runtime_health || {} },
     healthState (strategy) {
-      const deployment = strategy && strategy.portfolio_deployment
-      if (deployment) {
-        if (String(deployment.last_error || '').trim()) return 'degraded'
-        return this.isRunning(strategy) ? 'healthy' : 'inactive'
-      }
       return String(this.health(strategy).health || (this.isRunning(strategy) ? 'unknown' : 'inactive')).toLowerCase()
     },
     healthLabel (strategy) { return this.$t(`liveMonitor.${this.healthState(strategy)}`) },
@@ -406,8 +397,7 @@ export default {
     statusLabel (strategy) { return this.needsAttention(strategy) ? this.healthLabel(strategy) : (this.isRunning(strategy) ? this.$t('systemOverview.running') : this.$t('systemOverview.stopped')) },
     strategyPnl (strategy) { return Number(strategy && (strategy.today_pnl != null ? strategy.today_pnl : strategy.total_pnl) || 0) },
     lastActivity (strategy) {
-      const deployment = strategy && strategy.portfolio_deployment
-      return this.health(strategy).last_heartbeat_at || (deployment && (deployment.last_run_at || deployment.updated_at)) || strategyLastActivity(strategy)
+      return this.health(strategy).last_heartbeat_at || strategyLastActivity(strategy)
     },
     pnlClass (value) { const number = Number(value || 0); return number > 0 ? 'profit' : number < 0 ? 'loss' : '' },
     formatPnl (value) { const number = Number(value || 0); return `${number > 0 ? '+' : ''}${number.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
@@ -420,7 +410,7 @@ export default {
       const date = new Date(normalized)
       return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
     },
-    shortTime (value) { if (!value) return ''; const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) },
+    shortTime (value) { if (!value) return ''; const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }
   }
 }
 </script>
@@ -498,6 +488,13 @@ export default {
   overflow: hidden;
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(24, 32, 44, .06);
+}
+.operations-workspace.is-empty { grid-template-columns: minmax(0, 1fr); }
+.operations-workspace.is-empty .workspace-empty {
+  grid-column: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 .strategy-master {
   min-height: 0;
@@ -644,27 +641,27 @@ export default {
   opacity: .8;
 }
 .theme-dark.operations-workspace {
-  border-color: #272b31;
-  background: #111315;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #111;
   box-shadow: 0 14px 34px rgba(0, 0, 0, .24);
-  .strategy-master { background: #121416; }
-  .master-tabs { border-color: #2b2f35; background: #191c20; }
-  .master-tabs button.active { background: #292d32; color: var(--primary-color, #52c41a); box-shadow: none; }
-  .strategy-list { border-color: #292d33; background: #151719; }
-  .strategy-row.selected { background: color-mix(in srgb, var(--primary-color, #52c41a) 12%, #151719); }
-  .strategy-detail { background: #0f1113; }
+  .strategy-master { background: #0d0d0d; }
+  .master-tabs { border-color: rgba(255, 255, 255, 0.1); background: #111; }
+  .master-tabs button.active { background: #242424; color: var(--primary-color, #52c41a); box-shadow: none; }
+  .strategy-list { border-color: rgba(255, 255, 255, 0.1); background: #111; }
+  .strategy-row.selected { background: color-mix(in srgb, var(--primary-color, #52c41a) 12%, #111); }
+  .strategy-detail { background: #080808; }
   .detail-header,
   .health-strip > div,
   .performance-strip > div,
-  .panel-section { border-color: #292d33; background: #151719; }
+  .panel-section { border-color: rgba(255, 255, 255, 0.1); background: #111; }
   .runtime-tabs ::v-deep .ant-tabs-bar,
-  .runtime-tabs ::v-deep .strategy-tab-pane-inner { border-color: #292d33; background: #151719; }
+  .runtime-tabs ::v-deep .strategy-tab-pane-inner { border-color: rgba(255, 255, 255, 0.1); background: #111; }
   .runtime-tabs ::v-deep .ant-tabs-nav .ant-tabs-tab { color: #89919c; }
   .runtime-tabs ::v-deep .ant-tabs-nav .ant-tabs-tab-active { color: var(--primary-color, #52c41a); }
   .health-strip { background: transparent; }
-  .health-strip > div:last-child { border-right-color: #292d33; }
+  .health-strip > div:last-child { border-right-color: rgba(255, 255, 255, 0.1); }
   .performance-strip strong { color: #e1e4e8; }
-  .section-empty { background: #121416; }
+  .section-empty { background: #0d0d0d; }
   .section-empty > .anticon { color: var(--primary-color, #52c41a); }
 }
 .runtime-tabs .overview-positions-panel ::v-deep .position-records .strategy-tab-empty.is-compact {
