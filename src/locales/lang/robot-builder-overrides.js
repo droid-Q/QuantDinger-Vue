@@ -1,4 +1,4 @@
-const enUS = {
+const locale = {
   'executorStrategies.section.capitalRisk': 'Strategy risk',
   'executorStrategies.baseOrder': 'Initial allocation weight',
   'executorStrategies.safetyOrder': 'Add-on allocation weight',
@@ -16,7 +16,10 @@ const enUS = {
   'trading-assistant.tradeReason.robot_level': 'Robot level entry'
 }
 
+const enUSFallback = locale
+
 const zhCN = {
+  ...enUSFallback,
   'executorStrategies.section.capitalRisk': '策略风控',
   'executorStrategies.baseOrder': '首单分配权重',
   'executorStrategies.safetyOrder': '补仓分配权重',
@@ -35,6 +38,7 @@ const zhCN = {
 }
 
 const zhTW = {
+  ...enUSFallback,
   'executorStrategies.section.capitalRisk': '策略風控',
   'executorStrategies.baseOrder': '首單分配權重',
   'executorStrategies.safetyOrder': '補倉分配權重',
@@ -53,15 +57,15 @@ const zhTW = {
 }
 
 export default {
-  'en-US': enUS,
-  'ar-SA': enUS,
-  'de-DE': enUS,
-  'fr-FR': enUS,
-  'ja-JP': enUS,
-  'ko-KR': enUS,
-  'ru-RU': enUS,
-  'th-TH': enUS,
-  'vi-VN': enUS,
+  'en-US': locale,
+  'ar-SA': enUSFallback,
+  'de-DE': enUSFallback,
+  'fr-FR': enUSFallback,
+  'ja-JP': enUSFallback,
+  'ko-KR': enUSFallback,
+  'ru-RU': enUSFallback,
+  'th-TH': enUSFallback,
+  'vi-VN': enUSFallback,
   'zh-CN': zhCN,
   'zh-TW': zhTW
 }

@@ -3597,10 +3597,14 @@ export default {
 .ide-toolbar-select {
   min-width: 0;
   ::v-deep .ant-select-selection {
+    height: 30px;
     border-radius: 8px;
     border-color: #e2e8f0;
     box-shadow: none;
     transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  ::v-deep .ant-select-selection__rendered {
+    line-height: 28px;
   }
   ::v-deep .ant-select-selection:hover,
   ::v-deep .ant-select-focused .ant-select-selection {
@@ -5107,12 +5111,14 @@ body.dark .ide-signal-alert-modal-wrap {
   .chart-panel-toolbar-controls {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: stretch;
     gap: 10px;
     min-width: 0;
     .ide-toolbar-group {
       flex: 0 1 auto;
       min-width: 0;
+      min-height: 62px;
+      box-sizing: border-box;
     }
     // Same fix as on the backtest tab: don't let the TF segmented control
     // grow past its 8-button natural width.

@@ -1005,7 +1005,23 @@ export default {
           await this.refreshUniverseOverview()
         }
       } catch (error) {
-        this.$message.error((error && error.backendMessage) || this.$t('settings.universeSync.failed'))
+        const envelope = error && error.response && error.response.data
+        const details = envelope && envelope.data
+        const failures = details && Array.isArray(details.errors) ? details.errors : []
+        if (failures.length) {
+          const codes = failures.map(item => {
+            const row = this.systemUniverseRows.find(universe => universe.code === item.code)
+            return row ? this.universeAdminLabel(row) : item.code
+          }).join(', ')
+          const partial = Array.isArray(details.results) && details.results.length > 0
+          const key = partial
+            ? 'settings.universeSync.partialWithCodes'
+            : 'settings.universeSync.failedWithCodes'
+          this.$message[partial ? 'warning' : 'error'](this.$t(key, { codes }))
+          if (partial) await this.refreshUniverseOverview()
+        } else {
+          this.$message.error((error && error.backendMessage) || this.$t('settings.universeSync.failed'))
+        }
       } finally {
         this.universeSyncing = false
       }

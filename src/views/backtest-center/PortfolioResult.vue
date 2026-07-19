@@ -20,7 +20,12 @@
 
     <div class="metrics-grid">
       <div v-for="item in metrics" :key="item.key" class="metric-card">
-        <span>{{ item.label }}</span>
+        <span class="metric-label">
+          {{ item.label }}
+          <a-tooltip v-if="item.hint" :title="item.hint">
+            <a-icon type="info-circle" />
+          </a-tooltip>
+        </span>
         <strong :class="item.tone">{{ item.value }}</strong>
       </div>
     </div>
@@ -203,23 +208,25 @@ export default {
   computed: {
     auditPassed () { return Boolean(this.result.audit && this.result.audit.passed) },
     legacyBackfilled () { return Boolean(this.result.compatibility && this.result.compatibility.legacyBackfill) },
+    initialCapital () {
+      return Number(
+        this.result.initialCapital ||
+        (this.result.executionAssumptions && this.result.executionAssumptions.initialCapital) ||
+        0
+      )
+    },
     attribution () {
       const source = this.result.attribution && typeof this.result.attribution === 'object'
         ? this.result.attribution
         : {}
       const executions = this.result.executions || this.result.rawTrades || []
-      const initialCapital = Number(
-        this.result.initialCapital ||
-        (this.result.executionAssumptions && this.result.executionAssumptions.initialCapital) ||
-        0
-      )
       const recordedCommission = Number(this.result.totalCommission)
       const totalCommission = Number.isFinite(recordedCommission)
         ? recordedCommission
         : executions.reduce((sum, item) => sum + Number(item.commission || 0), 0)
       const feeDrag = source.feeDrag !== undefined && source.feeDrag !== null
         ? source.feeDrag
-        : (initialCapital > 0 ? totalCommission / initialCapital : 0)
+        : (this.initialCapital > 0 ? totalCommission / this.initialCapital : 0)
       const savedStatuses = source.orderStatus && typeof source.orderStatus === 'object'
         ? source.orderStatus
         : null
@@ -246,7 +253,7 @@ export default {
         { key: 'return', label: this.$t('backtest-center.metrics.totalReturn'), value: this.formatPercent(this.result.totalReturn), tone: this.profitTone(this.result.totalReturn) },
         { key: 'benchmark', label: this.$t('strategyV2.backtest.benchmarkReturn'), value: this.result.benchmarkStatus === 'available' ? this.formatPercent(this.result.benchmarkTotalReturn) : '-', tone: this.profitTone(this.result.benchmarkTotalReturn) },
         { key: 'excess', label: this.$t('strategyV2.backtest.excessReturn'), value: this.result.benchmarkStatus === 'available' ? this.formatPercent(this.result.excessReturn) : '-', tone: this.profitTone(this.result.excessReturn) },
-        { key: 'drawdown', label: this.$t('backtest-center.metrics.maxDrawdown'), value: this.formatPercent(this.result.maxDrawdown), tone: 'negative' },
+        { key: 'drawdown', label: this.$t('backtest-center.metrics.maxDrawdown'), value: this.formatPercent(this.result.maxDrawdown), tone: 'negative', hint: this.$t('strategyV2.backtest.maxDrawdownHint') },
         { key: 'executions', label: this.$t('strategyV2.backtest.executions'), value: Number(this.result.totalExecutions || 0), tone: '' },
         { key: 'trades', label: this.$t('strategyV2.backtest.closedTrades'), value: Number(this.result.totalTrades || 0), tone: '' },
         { key: 'win', label: this.$t('backtest-center.metrics.winRate'), value: this.formatPercent(this.result.winRate, false), tone: '' },
@@ -368,12 +375,18 @@ export default {
           this.resizeObserver.observe(this.$refs.chart)
         }
       }
-      const base = Number(curve[0].value || 1)
+      const firstValue = Number(curve[0].value || 0)
+      const base = this.initialCapital > 0 ? this.initialCapital : (firstValue > 0 ? firstValue : 1)
       let peak = base
       const normalized = curve.map(item => [moment(item.time).valueOf(), Number(item.value) / base * 100])
       const drawdown = curve.map(item => {
-        peak = Math.max(peak, Number(item.value))
-        return [moment(item.time).valueOf(), (Number(item.value) / peak - 1) * 100]
+        const value = Number(item.value)
+        peak = Math.max(peak, value)
+        const savedDrawdown = Number(item.drawdown)
+        const pointDrawdown = item.drawdown !== undefined && item.drawdown !== null && Number.isFinite(savedDrawdown)
+          ? savedDrawdown
+          : ((value / peak - 1) * 100)
+        return [moment(item.time).valueOf(), pointDrawdown]
       })
       const benchmarkRaw = this.result.benchmarkCurve || []
       const benchmarkBase = benchmarkRaw.length ? Number(benchmarkRaw[0].value || 1) : 1
@@ -442,6 +455,8 @@ export default {
 .metric-card, .overview-card, .status-card { min-width: 0; padding: 12px; border: 1px solid #edf0f4; border-radius: 8px; background: #f8fafc; }
 .metric-card { display: flex; flex-direction: column; gap: 3px; }
 .metric-card span, .overview-card span, .status-card span { color: #7c8ca1; font-size: 11px; }
+.metric-label { display: inline-flex; align-items: center; gap: 5px; }
+.metric-label .anticon { cursor: help; }
 .metric-card strong { color: #20324a; font-size: 18px; font-variant-numeric: tabular-nums; }
 .positive { color: #16a34a !important; }
 .negative { color: #dc2626 !important; }

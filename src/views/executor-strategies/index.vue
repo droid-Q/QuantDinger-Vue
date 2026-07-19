@@ -73,8 +73,7 @@
                 <a-radio-button
                   v-if="form.executor_type === 'grid'"
                   value="neutral"
-                  disabled
-                  :title="t('executorStrategies.neutralUnsupported')">
+                  :disabled="form.market_type === 'spot'">
                   {{ t('executorStrategies.neutral') }}
                 </a-radio-button>
               </a-radio-group>
@@ -134,15 +133,19 @@
           <div class="section-title">{{ t('executorStrategies.section.capitalRisk') }}</div>
           <div class="field-grid">
             <div class="field-block">
-              <label>{{ t('executorStrategies.takeProfitPct') }}</label>
+              <label>{{ t(supportsTrailingTakeProfit ? 'executorStrategies.fixedTakeProfitPct' : 'executorStrategies.takeProfitPct') }}</label>
               <a-input-number
                 v-model="takeProfitPctDisplay"
                 :min="0"
                 :max="100"
                 :step="0.1"
                 :precision="3"
+                :disabled="supportsTrailingTakeProfit && form.trailing_take_profit_enabled"
                 style="width: 100%"
                 @change="value => setRatio('take_profit_pct', value)" />
+              <small v-if="supportsTrailingTakeProfit" class="field-hint">
+                {{ t(form.trailing_take_profit_enabled ? 'executorStrategies.fixedTakeProfitDisabledHint' : 'executorStrategies.fixedTakeProfitHint') }}
+              </small>
             </div>
             <div class="field-block">
               <label>{{ t('executorStrategies.hardStopPct') }}</label>
@@ -154,6 +157,42 @@
                 :precision="3"
                 style="width: 100%"
                 @change="value => setRatio('hard_stop_pct', value)" />
+            </div>
+          </div>
+
+          <div v-if="supportsTrailingTakeProfit" class="trailing-profit-card">
+            <div class="trailing-profit-card__header">
+              <div>
+                <strong>{{ t('executorStrategies.trailingTakeProfit') }}</strong>
+                <small>{{ t('executorStrategies.trailingTakeProfitHint') }}</small>
+              </div>
+              <a-switch v-model="form.trailing_take_profit_enabled" />
+            </div>
+            <div v-if="form.trailing_take_profit_enabled" class="field-grid">
+              <div class="field-block">
+                <label>{{ t('executorStrategies.trailingActivationPct') }}</label>
+                <a-input-number
+                  v-model="trailingActivationPctDisplay"
+                  :min="0.01"
+                  :max="100"
+                  :step="0.1"
+                  :precision="3"
+                  style="width: 100%"
+                  @change="value => setRatio('trailing_activation_pct', value)" />
+                <small class="field-hint">{{ t('executorStrategies.trailingActivationHint') }}</small>
+              </div>
+              <div class="field-block">
+                <label>{{ t('executorStrategies.trailingCallbackPct') }}</label>
+                <a-input-number
+                  v-model="trailingCallbackPctDisplay"
+                  :min="0.01"
+                  :max="100"
+                  :step="0.05"
+                  :precision="3"
+                  style="width: 100%"
+                  @change="value => setRatio('trailing_callback_pct', value)" />
+                <small class="field-hint">{{ t('executorStrategies.trailingCallbackHint') }}</small>
+              </div>
             </div>
           </div>
 
@@ -248,6 +287,16 @@
           </div>
 
           <div v-else-if="form.executor_type === 'layered_martingale'" class="executor-specific">
+            <a-alert
+              class="layered-explainer"
+              type="info"
+              show-icon
+              :message="t('executorStrategies.layeredExplainerTitle')"
+              :description="t('executorStrategies.layeredExplainerDesc', {
+                layers: form.layer_count,
+                orders: form.orders_per_layer,
+                total: Number(form.layer_count || 0) * Number(form.orders_per_layer || 0)
+              })" />
             <div class="field-grid">
               <div v-if="!form.dynamic_anchor" class="field-block">
                 <label>{{ t('executorStrategies.entryPrice') }}</label>
@@ -256,16 +305,19 @@
               <div class="field-block">
                 <label>{{ t('executorStrategies.layerCount') }}</label>
                 <a-input-number v-model="form.layer_count" :min="1" :max="20" style="width: 100%" />
+                <small class="field-hint">{{ t('executorStrategies.layerCountHint') }}</small>
               </div>
             </div>
             <div class="field-grid">
               <div class="field-block">
                 <label>{{ t('executorStrategies.ordersPerLayer') }}</label>
                 <a-input-number v-model="form.orders_per_layer" :min="1" :max="10" style="width: 100%" />
+                <small class="field-hint">{{ t('executorStrategies.ordersPerLayerHint') }}</small>
               </div>
               <div class="field-block">
                 <label>{{ t('executorStrategies.baseOrder') }}</label>
                 <a-input-number v-model="form.base_order_size" :min="0.01" :step="0.1" :precision="2" style="width: 100%" />
+                <small class="field-hint">{{ t('executorStrategies.layeredBaseOrderHint') }}</small>
               </div>
             </div>
             <div class="field-grid">
@@ -278,6 +330,7 @@
                   :step="0.1"
                   :precision="3"
                   style="width: 100%" />
+                <small class="field-hint">{{ t('executorStrategies.layeredVolumeMultiplierHint') }}</small>
               </div>
               <div class="field-block">
                 <label>{{ t('executorStrategies.intraSpacing1') }}</label>
@@ -289,6 +342,7 @@
                   :precision="3"
                   style="width: 100%"
                   @change="value => setRatio('intra_spacing_1_pct', value)" />
+                <small class="field-hint">{{ t('executorStrategies.intraSpacing1Hint') }}</small>
               </div>
             </div>
             <div class="field-grid">
@@ -302,6 +356,7 @@
                   :precision="3"
                   style="width: 100%"
                   @change="value => setRatio('intra_spacing_2_pct', value)" />
+                <small class="field-hint">{{ t('executorStrategies.intraSpacing2Hint') }}</small>
               </div>
               <div class="field-block">
                 <label>{{ t('executorStrategies.interSpacing1') }}</label>
@@ -313,6 +368,7 @@
                   :precision="3"
                   style="width: 100%"
                   @change="value => setRatio('inter_spacing_1_pct', value)" />
+                <small class="field-hint">{{ t('executorStrategies.interSpacingHint') }}</small>
               </div>
             </div>
             <div class="field-grid">
@@ -566,11 +622,14 @@ export default {
     },
     executorCatalog () {
       return [
-        { key: 'grid', icon: 'border', titleKey: 'executorStrategies.type.grid', descKey: 'executorStrategies.catalog.grid', badgeKey: 'executorStrategies.supported' },
+        { key: 'grid', icon: 'table', titleKey: 'executorStrategies.type.grid', descKey: 'executorStrategies.catalog.grid', badgeKey: 'executorStrategies.supported' },
         { key: 'dca', icon: 'ordered-list', titleKey: 'executorStrategies.type.dca', descKey: 'executorStrategies.catalog.dca', badgeKey: 'executorStrategies.supported' },
         { key: 'martingale', icon: 'rise', titleKey: 'executorStrategies.type.martingale', descKey: 'executorStrategies.catalog.martingale', badgeKey: 'executorStrategies.supported' },
-        { key: 'layered_martingale', icon: 'partition', titleKey: 'executorStrategies.type.layered_martingale', descKey: 'executorStrategies.catalog.layered_martingale', badgeKey: 'executorStrategies.supported' }
+        { key: 'layered_martingale', icon: 'cluster', titleKey: 'executorStrategies.type.layered_martingale', descKey: 'executorStrategies.catalog.layered_martingale', badgeKey: 'executorStrategies.supported' }
       ]
+    },
+    supportsTrailingTakeProfit () {
+      return ['dca', 'martingale', 'layered_martingale'].includes(this.form.executor_type)
     },
     summary () {
       return (this.preview && this.preview.summary) || {}
@@ -595,7 +654,6 @@ export default {
     validationIssues () {
       const issues = []
       if (!String(this.form.symbol || '').trim()) issues.push('symbol')
-      if (this.form.side === 'neutral') issues.push('neutral')
       if (this.form.executor_type === 'grid') {
         const start = Number(this.form.start_price || 0)
         const end = Number(this.form.end_price || 0)
@@ -605,6 +663,11 @@ export default {
         if (Number(this.form.base_order_size || 0) <= 0) issues.push('baseOrder')
       }
       if (this.form.execution_mode === 'live' && !this.selectedCredential) issues.push('credential')
+      if (this.supportsTrailingTakeProfit && this.form.trailing_take_profit_enabled) {
+        const activation = Number(this.form.trailing_activation_pct || 0)
+        const callback = Number(this.form.trailing_callback_pct || 0)
+        if (activation <= 0 || callback <= 0 || callback >= activation) issues.push('trailingTakeProfit')
+      }
       return issues
     },
     primaryValidationText () {
@@ -622,6 +685,14 @@ export default {
     hardStopPctDisplay: {
       get () { return Number(this.form.hard_stop_pct || 0) * 100 },
       set (value) { this.setRatio('hard_stop_pct', value) }
+    },
+    trailingActivationPctDisplay: {
+      get () { return Number(this.form.trailing_activation_pct || 0) * 100 },
+      set (value) { this.setRatio('trailing_activation_pct', value) }
+    },
+    trailingCallbackPctDisplay: {
+      get () { return Number(this.form.trailing_callback_pct || 0) * 100 },
+      set (value) { this.setRatio('trailing_callback_pct', value) }
     },
     minSpreadPctDisplay: {
       get () { return Number(this.form.min_spread_between_orders || 0) * 100 },
@@ -672,7 +743,7 @@ export default {
         { title: this.t('executorStrategies.table.side'), dataIndex: 'side', scopedSlots: { customRender: 'side' }, width: 100 },
         { title: this.t('executorStrategies.table.price'), dataIndex: 'price', scopedSlots: { customRender: 'price' }, width: 140 },
         { title: this.t('executorStrategies.table.amount'), dataIndex: 'amount_quote', scopedSlots: { customRender: 'money' }, width: 140 },
-        { title: this.t('executorStrategies.table.takeProfit'), dataIndex: 'take_profit_price', scopedSlots: { customRender: 'price' }, width: 150 },
+        { title: this.t(this.supportsTrailingTakeProfit && this.form.trailing_take_profit_enabled ? 'executorStrategies.table.trailingActivation' : 'executorStrategies.table.takeProfit'), dataIndex: 'take_profit_price', scopedSlots: { customRender: 'price' }, width: 150 },
         { title: this.t('executorStrategies.table.trigger'), dataIndex: 'trigger_pct', scopedSlots: { customRender: 'pct' }, width: 130 }
       ]
     }
@@ -696,8 +767,8 @@ export default {
     window.clearTimeout(this._previewTimer)
   },
   methods: {
-    t (key) {
-      return this.$t(key)
+    t (key, params) {
+      return this.$t(key, params)
     },
     defaultForm () {
       return {
@@ -735,6 +806,9 @@ export default {
         step_multiplier: 1.2,
         volume_multiplier: 1.15,
         take_profit_pct: 0.004,
+        trailing_take_profit_enabled: true,
+        trailing_activation_pct: 0.006,
+        trailing_callback_pct: 0.002,
         hard_stop_pct: 0.12,
         max_entry_drift_pct: 0.03
       }
@@ -1175,6 +1249,49 @@ export default {
   font-weight: 700;
 }
 
+.field-hint {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.trailing-profit-card {
+  margin: 4px 0 10px;
+  padding: 10px;
+  border: 1px solid #b7eb8f;
+  border-radius: 8px;
+  background: #f6ffed;
+}
+
+.trailing-profit-card__header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trailing-profit-card__header strong,
+.trailing-profit-card__header small {
+  display: block;
+}
+
+.trailing-profit-card__header small {
+  margin-top: 2px;
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.trailing-profit-card .field-grid {
+  margin-top: 10px;
+}
+
+.layered-explainer {
+  margin-bottom: 10px;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1424,6 +1541,16 @@ export default {
 .theme-dark .anchor-setting {
   border-color: #2a2f35;
   background: #111315;
+}
+
+.theme-dark .trailing-profit-card {
+  border-color: #274916;
+  background: #15230f;
+}
+
+.theme-dark .field-hint,
+.theme-dark .trailing-profit-card__header small {
+  color: #9aa4b2;
 }
 
 .theme-dark .anchor-setting label {

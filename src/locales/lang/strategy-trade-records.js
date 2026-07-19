@@ -1,21 +1,25 @@
-const enUS = {
+const locale = {
   'trading-assistant.table.instrument': 'Instrument'
 }
 
+const enUSFallback = locale
+
 export default {
-  'en-US': enUS,
-  'ar-SA': enUS,
-  'de-DE': enUS,
-  'fr-FR': enUS,
-  'ja-JP': enUS,
-  'ko-KR': enUS,
-  'ru-RU': enUS,
-  'th-TH': enUS,
-  'vi-VN': enUS,
+  'en-US': locale,
+  'ar-SA': enUSFallback,
+  'de-DE': enUSFallback,
+  'fr-FR': enUSFallback,
+  'ja-JP': enUSFallback,
+  'ko-KR': enUSFallback,
+  'ru-RU': enUSFallback,
+  'th-TH': enUSFallback,
+  'vi-VN': enUSFallback,
   'zh-CN': {
+    ...enUSFallback,
     'trading-assistant.table.instrument': '交易标的'
   },
   'zh-TW': {
+    ...enUSFallback,
     'trading-assistant.table.instrument': '交易標的'
   }
 }

@@ -49,6 +49,7 @@
       <template v-if="addExchangeType === 'crypto'">
         <a-form-item :label="$t('profile.exchange.environment')">
           <a-select
+            :key="`environment-${selectedExchangeId}`"
             v-decorator="['environment', { initialValue: 'live' }]"
             @change="handleEnvironmentChange"
           >
@@ -222,6 +223,13 @@
 <script>
 import { mapState } from 'vuex'
 import { createExchangeCredential, getCredentialsEgressIp, getDesktopBrokersPolicy, testExchangeCredential } from '@/api/credentials'
+import { getCryptoEnvironmentValues, normalizeCryptoExchangeId } from './environmentOptions'
+
+const CRYPTO_ENVIRONMENT_LABEL_KEYS = Object.freeze({
+  live: 'profile.exchange.environmentLive',
+  demo: 'profile.exchange.environmentDemo',
+  testnet: 'profile.exchange.environmentTestnet'
+})
 
 export default {
   name: 'ExchangeAccountModal',
@@ -285,14 +293,10 @@ export default {
       return this.selectedCryptoExchangeMeta ? this.selectedCryptoExchangeMeta.docsUrl : ''
     },
     cryptoEnvironmentOptions () {
-      const live = { value: 'live', labelKey: 'profile.exchange.environmentLive' }
-      const demo = { value: 'demo', labelKey: 'profile.exchange.environmentDemo' }
-      const testnet = { value: 'testnet', labelKey: 'profile.exchange.environmentTestnet' }
-      if (this.selectedExchangeId === 'bybit') return [live, demo]
-      if (['okx', 'bitget'].includes(this.selectedExchangeId)) return [live, demo]
-      if (this.selectedExchangeId === 'binance') return [live, demo]
-      if (this.selectedExchangeId === 'gate') return [live, testnet]
-      return [live]
+      return getCryptoEnvironmentValues(this.selectedExchangeId).map(value => ({
+        value,
+        labelKey: CRYPTO_ENVIRONMENT_LABEL_KEYS[value]
+      }))
     },
     marketScopeOptions () {
       const options = [
@@ -315,6 +319,7 @@ export default {
   watch: {
     visible (open) {
       if (open) {
+        this.resetExchangeFormState()
         this.fetchEgressIp()
         this.loadDesktopPolicy()
       }
@@ -347,7 +352,15 @@ export default {
       return this.exchangeModalGetContainer()
     },
     handleCancel () {
+      this.resetExchangeFormState()
       this.$emit('update:visible', false)
+    },
+    resetExchangeFormState () {
+      this.exchangeForm.resetFields()
+      this.addExchangeType = ''
+      this.selectedExchangeId = ''
+      this.selectedEnvironment = 'live'
+      this.exchangeTestResult = null
     },
     getExchangeDisplayName (id) {
       const names = {
@@ -458,15 +471,16 @@ export default {
       }
     },
     handleExchangeTypeChange (val) {
-      this.selectedExchangeId = val
+      const exchangeId = normalizeCryptoExchangeId(val)
+      this.selectedExchangeId = exchangeId
       this.selectedEnvironment = 'live'
       this.exchangeTestResult = null
       const cryptoIds = this.cryptoExchangeList.map(e => e.id)
-      if (cryptoIds.includes(val)) {
+      if (cryptoIds.includes(exchangeId)) {
         this.addExchangeType = 'crypto'
-      } else if (val === 'alpaca') {
+      } else if (exchangeId === 'alpaca') {
         this.addExchangeType = 'alpaca'
-      } else if (val === 'ibkr') {
+      } else if (exchangeId === 'ibkr') {
         this.addExchangeType = 'ibkr'
       } else {
         this.addExchangeType = ''
@@ -503,10 +517,7 @@ export default {
           if (res.code === 1) {
             this.$message.success(this.$t('profile.exchange.saveSuccess'))
             this.$emit('update:visible', false)
-            this.exchangeForm.resetFields()
-            this.addExchangeType = ''
-            this.selectedExchangeId = ''
-            this.exchangeTestResult = null
+            this.resetExchangeFormState()
             this.$emit('success', res.data)
           } else {
             this.$message.error(res.msg || this.$t('profile.exchange.saveFailed'))

@@ -7,6 +7,10 @@ const componentPath = fileURLToPath(
   new URL('../../src/views/backtest-center/index.vue', import.meta.url)
 )
 const source = fs.readFileSync(componentPath, 'utf8')
+const portfolioResultPath = fileURLToPath(
+  new URL('../../src/views/backtest-center/PortfolioResult.vue', import.meta.url)
+)
+const portfolioResultSource = fs.readFileSync(portfolioResultPath, 'utf8')
 
 test('backtest center compiles a source manifest before accepting runtime controls', () => {
   assert.match(source, /compileScriptSource\(\{ sourceId \}\)/)
@@ -40,4 +44,11 @@ test('CTA source summary exposes the concrete instrument instead of only its cou
   assert.match(source, /this\.manifest\.strategyType === 'cta' && instruments\.length/)
   assert.match(source, /instruments\.map\(this\.formatInstrument\)\.join\(', '\)/)
   assert.match(source, /marketContext\.\$\{marketType\}/)
+})
+
+test('portfolio drawdown chart uses initial capital and backend drawdown points', () => {
+  assert.match(portfolioResultSource, /const base = this\.initialCapital > 0/)
+  assert.match(portfolioResultSource, /const savedDrawdown = Number\(item\.drawdown\)/)
+  assert.match(portfolioResultSource, /item\.drawdown !== undefined/)
+  assert.match(portfolioResultSource, /strategyV2\.backtest\.maxDrawdownHint/)
 })

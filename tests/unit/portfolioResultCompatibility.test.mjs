@@ -14,7 +14,7 @@ test('legacy history uses the equity curve when holding snapshots are empty', ()
 
 test('missing legacy attribution is recovered from saved executions', () => {
   assert.match(source, /executions\.reduce\(\(sum, item\) => sum \+ Number\(item\.commission \|\| 0\), 0\)/)
-  assert.match(source, /initialCapital > 0 \? totalCommission \/ initialCapital : 0/)
+  assert.match(source, /this\.initialCapital > 0 \? totalCommission \/ this\.initialCapital : 0/)
   assert.match(source, /counts\[status\] \+= 1/)
 })
 

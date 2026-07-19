@@ -7,6 +7,7 @@ const locale = {
   'strategyV2.backtest.benchmarkNormalized': 'Benchmark (normalized)',
   'strategyV2.backtest.normalizedBase': 'Base 100',
   'strategyV2.backtest.drawdown': 'Drawdown',
+  'strategyV2.backtest.maxDrawdownHint': 'Largest peak-to-trough decline in portfolio equity. It is measured from the historical peak, not from initial capital.',
   'strategyV2.backtest.exposure': 'Exposure',
   'strategyV2.backtest.cash': 'Cash',
   'strategyV2.backtest.latestCash': 'Latest cash',

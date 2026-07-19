@@ -32,7 +32,7 @@
         <a-card class="ad-stat-card" :loading="summaryLoading">
           <div class="ad-stat-label">{{ $t('authorDashboard.stat.totalRevenue') }}</div>
           <div class="ad-stat-value ad-stat-value-revenue">
-            {{ summary.total_revenue.toFixed(2) }}
+            {{ formatNumber(summary.total_revenue) }}
             <span class="ad-stat-unit">{{ $t('community.credits') }}</span>
           </div>
           <div class="ad-stat-sub">{{ $t('authorDashboard.stat.totalRevenueHint') }}</div>
@@ -43,7 +43,7 @@
           <div class="ad-stat-label">{{ $t('authorDashboard.stat.avgRating') }}</div>
           <div class="ad-stat-value">
             <span v-if="summary.rating_count > 0">
-              {{ summary.avg_rating.toFixed(2) }}
+              {{ formatNumber(summary.avg_rating) }}
               <a-icon type="star" theme="filled" class="ad-rating-star" />
             </span>
             <span v-else class="ad-stat-empty">—</span>
@@ -102,7 +102,7 @@
               {{ $t('community.free') }}
             </span>
             <span v-else>
-              {{ record.price.toFixed(2) }} {{ $t('community.credits') }}
+              {{ formatNumber(record.price) }} {{ $t('community.credits') }}
               <a-tag v-if="record.vip_free" color="gold" class="ad-vip-tag">
                 {{ $t('community.vipFree') }}
               </a-tag>
@@ -110,12 +110,12 @@
           </template>
 
           <template slot="revenue" slot-scope="text, record">
-            <span class="ad-revenue">{{ record.revenue.toFixed(2) }}</span>
+            <span class="ad-revenue">{{ formatNumber(record.revenue) }}</span>
           </template>
 
           <template slot="rating" slot-scope="text, record">
             <span v-if="record.rating_count > 0">
-              {{ record.avg_rating.toFixed(2) }}
+              {{ formatNumber(record.avg_rating) }}
               <a-icon type="star" theme="filled" class="ad-rating-star" />
               <span class="ad-rating-count">({{ record.rating_count }})</span>
             </span>
@@ -172,7 +172,7 @@
           </template>
           <template slot="price" slot-scope="text, record">
             <span v-if="record.price > 0" class="ad-revenue">
-              +{{ record.price.toFixed(2) }} {{ $t('community.credits') }}
+              +{{ formatNumber(record.price) }} {{ $t('community.credits') }}
             </span>
             <span v-else class="ad-free">{{ $t('community.free') }}</span>
           </template>
@@ -327,6 +327,10 @@ export default {
     clearSalesFilter () {
       this.salesIndicatorFilter = null
       this.loadSales(1)
+    },
+    formatNumber (value, digits = 2) {
+      const numericValue = Number(value)
+      return Number.isFinite(numericValue) ? numericValue.toFixed(digits) : Number(0).toFixed(digits)
     },
     confirmUnpublish (record) {
       if (!record || !record.id) return
