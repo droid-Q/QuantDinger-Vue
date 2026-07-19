@@ -469,7 +469,7 @@ export default {
       }
     },
     openQuickstart () {
-      window.open('https://github.com/brokermr810/QuantDinger/blob/main/docs/agent/AGENT_QUICKSTART.md', '_blank')
+      window.open('https://github.com/OpenByteInc/QuantDinger/blob/main/docs/agent/AGENT_QUICKSTART.md', '_blank')
     }
   },
   watch: {
