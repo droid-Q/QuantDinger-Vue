@@ -40,4 +40,3 @@ export async function loadEnabledMarketOptions (opts = {}) {
 export function firstMarketValue (options, fallback = 'Crypto') {
   return options && options.length > 0 ? options[0].value : fallback
 }
-

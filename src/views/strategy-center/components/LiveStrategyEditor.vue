@@ -126,7 +126,7 @@
             <a-form-item v-if="model.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')" required>
               <a-input-number v-model="model.leverage" :min="1" :max="Number(strategyManifest.maxLeverage || 1)" :step="1" />
             </a-form-item>
-            <div v-if="requiresPositionSide" class="account-risk-panel">
+            <div v-if="requiresDirectionMode" class="account-risk-panel">
               <div class="account-risk-panel__head">
                 <strong>{{ $t('strategyCenter.editor.accountRiskTitle') }}</strong>
                 <span>{{ $t('strategyCenter.editor.accountRiskHint') }}</span>
@@ -189,12 +189,25 @@
                 <router-link :to="{ path: '/broker-accounts' }">{{ $t('trading-assistant.form.goToProfile') }}</router-link>
               </div>
             </a-form-item>
-            <a-form-item v-if="requiresPositionSide" :label="$t('strategyCenter.editor.positionSide')" required>
-              <a-radio-group v-model="model.positionSide" button-style="solid">
-                <a-radio-button value="long">{{ $t('strategyCenter.editor.positionSideLong') }}</a-radio-button>
-                <a-radio-button value="short">{{ $t('strategyCenter.editor.positionSideShort') }}</a-radio-button>
-              </a-radio-group>
-              <div class="field-hint">{{ $t('strategyCenter.editor.positionSideHint') }}</div>
+            <a-form-item
+              v-if="requiresDirectionMode"
+              :label="$t('strategyCenter.editor.directionMode')"
+              :required="requiresDirectionFallback">
+              <template v-if="manifestDirectionMode">
+                <a-tag :color="directionModeColor(manifestDirectionMode)">
+                  {{ directionModeLabel(manifestDirectionMode) }}
+                </a-tag>
+                <div class="field-hint">{{ $t('strategyCenter.editor.directionModeDetectedHint') }}</div>
+              </template>
+              <template v-else>
+                <a-radio-group v-model="model.directionMode" button-style="solid" class="full-radio-group">
+                  <a-radio-button value="long_only">{{ $t('strategyCenter.editor.directionLongOnly') }}</a-radio-button>
+                  <a-radio-button value="short_only">{{ $t('strategyCenter.editor.directionShortOnly') }}</a-radio-button>
+                  <a-radio-button value="both">{{ $t('strategyCenter.editor.directionBoth') }}</a-radio-button>
+                  <a-radio-button value="neutral">{{ $t('strategyCenter.editor.directionNeutral') }}</a-radio-button>
+                </a-radio-group>
+                <div class="field-hint field-hint--warning">{{ $t('strategyCenter.editor.directionModeLegacyHint') }}</div>
+              </template>
             </a-form-item>
             <div v-if="selectedCredentialExchange" class="execution-summary">
               <span>{{ $t('trading-assistant.form.exchange') }}</span>
@@ -236,6 +249,28 @@ import { extractScriptParamsFromCode } from '@/views/strategy-ide/components/scr
 const DEFAULT_CHANNELS = ['browser', 'email']
 const CRYPTO_EXCHANGES = ['binance', 'bitget', 'bybit', 'okx', 'gate', 'htx']
 const LIVE_CRYPTO_EXCHANGES = new Set(CRYPTO_EXCHANGES)
+const DIRECTION_MODE_ALIASES = {
+  long: 'long_only',
+  longonly: 'long_only',
+  short: 'short_only',
+  shortonly: 'short_only',
+  dual: 'both',
+  hedged: 'both',
+  bidirectional: 'both'
+}
+const DIRECTION_MODES = new Set(['long_only', 'short_only', 'both', 'neutral'])
+const normalizeDirectionMode = value => {
+  const normalized = String(value || '').trim().toLowerCase().replace(/-/g, '_')
+  const result = DIRECTION_MODE_ALIASES[normalized] || normalized
+  return DIRECTION_MODES.has(result) ? result : ''
+}
+const directionModePositionSide = value => {
+  const mode = normalizeDirectionMode(value)
+  if (mode === 'long_only') return 'long'
+  if (mode === 'short_only') return 'short'
+  if (mode === 'both' || mode === 'neutral') return 'neutral'
+  return ''
+}
 const notificationTargets = settings => ({
   email: settings.email || '',
   phone: settings.phone || '',
@@ -336,13 +371,32 @@ export default {
       if (this.isPortfolioStrategy) return this.marketCategory === 'USStock'
       return ['Crypto', 'USStock'].includes(this.marketCategory)
     },
-    requiresPositionSide () {
+    requiresDirectionMode () {
       if (this.marketCategory !== 'Crypto') return false
       const universe = this.parseObject(this.strategyManifest.universe)
       const instruments = Array.isArray(universe.instruments) ? universe.instruments : []
       return instruments.length > 0 && instruments.every(item => {
         return String(item.market_type || '').toLowerCase() === 'swap'
       })
+    },
+    manifestDirectionMode () {
+      const metadata = this.parseObject(this.strategyManifest.metadata)
+      const explicit = normalizeDirectionMode(
+        this.strategyManifest.directionMode ||
+        this.strategyManifest.direction_mode ||
+        metadata.direction_mode ||
+        metadata.directionMode ||
+        metadata.trade_direction ||
+        metadata.position_side ||
+        metadata.side
+      )
+      return explicit || this.inferLegacyDirectionMode()
+    },
+    effectiveDirectionMode () {
+      return this.manifestDirectionMode || normalizeDirectionMode(this.model.directionMode)
+    },
+    requiresDirectionFallback () {
+      return this.requiresDirectionMode && !this.manifestDirectionMode
     },
     sourceMetadata () {
       return this.parseObject(this.sourceDetail.metadata)
@@ -397,7 +451,7 @@ export default {
         leverage: Number(config.leverage) > 0 ? Number(config.leverage) : 1,
         executionMode: 'signal',
         credentialId: undefined,
-        positionSide: '',
+        directionMode: '',
         accountRisk: {
           max_gross_notional: 0,
           max_symbol_gross_notional: 0,
@@ -474,6 +528,7 @@ export default {
     async loadSourceDetail (id, applyDefaults = true) {
       if (!id) return
       const sourceId = String(id)
+      if (applyDefaults && !this.isEdit) this.model.directionMode = ''
       this.compiledManifest = {}
       this.sourceContractError = false
       this.sourceContractLoading = true
@@ -488,7 +543,6 @@ export default {
         const manifest = this.parseObject(contractResult.response && contractResult.response.data && contractResult.response.data.manifest)
         this.compiledManifest = manifest
         this.sourceContractError = Boolean(contractResult.error) || !Object.keys(manifest).length
-        if (!this.model.positionSide) this.model.positionSide = this.inferPositionSide()
         if (!this.model.name || (applyDefaults && !this.isEdit)) {
           this.model.name = this.sourceDetail.name || this.sourceDetail.title || ''
         }
@@ -522,7 +576,7 @@ export default {
         leverage: Number(config.leverage || 1),
         executionMode: strategy.execution_mode === 'live' ? 'live' : 'signal',
         credentialId: config.credential_id || undefined,
-        positionSide: config.position_side || '',
+        directionMode: normalizeDirectionMode(config.direction_mode || config.position_side),
         accountRisk: {
           ...this.defaultModel().accountRisk,
           ...accountRisk
@@ -549,14 +603,29 @@ export default {
     credentialLabel (credential) {
       return formatExchangeCredentialLabel(credential)
     },
-    inferPositionSide () {
+    inferLegacyDirectionMode () {
       const metadata = this.parseObject(this.strategyManifest.metadata)
-      const explicit = String(metadata.position_side || metadata.trade_direction || metadata.side || '').toLowerCase()
-      if (explicit === 'long' || explicit === 'short') return explicit
+      const explicit = normalizeDirectionMode(metadata.position_side || metadata.trade_direction || metadata.side)
+      if (explicit) return explicit
       const code = String(this.sourceDetail.code || '')
+      const sides = new Set(Array.from(code.matchAll(/position_side\s*=\s*['"](long|short)['"]/g), match => match[1]))
+      if (sides.has('long') && sides.has('short')) return 'both'
+      if (sides.has('long')) return 'long_only'
+      if (sides.has('short')) return 'short_only'
       const match = code.match(/^\s*DIRECTION\s*=\s*(-?1(?:\.0)?)\s*$/m)
       if (!match) return ''
-      return Number(match[1]) < 0 ? 'short' : 'long'
+      return Number(match[1]) < 0 ? 'short_only' : 'long_only'
+    },
+    directionModeLabel (mode) {
+      return this.$t(`strategyCenter.editor.directionMode.${normalizeDirectionMode(mode) || 'unknown'}`)
+    },
+    directionModeColor (mode) {
+      return {
+        long_only: 'green',
+        short_only: 'red',
+        both: 'blue',
+        neutral: 'purple'
+      }[normalizeDirectionMode(mode)] || 'default'
     },
     exchangeName (exchangeId) {
       return getExchangeDisplayName(exchangeId)
@@ -644,8 +713,8 @@ export default {
         this.$message.warning(this.$t('trading-assistant.validation.credentialRequired'))
         return false
       }
-      if (this.model.executionMode === 'live' && this.requiresPositionSide && !this.model.positionSide) {
-        this.$message.warning(this.$t('strategyCenter.editor.positionSideRequired'))
+      if (this.model.executionMode === 'live' && this.requiresDirectionFallback && !this.model.directionMode) {
+        this.$message.warning(this.$t('strategyCenter.editor.directionModeRequired'))
         return false
       }
       return true
@@ -662,8 +731,9 @@ export default {
           leverage: this.model.leverageEnabled ? Number(this.model.leverage || 1) : 1,
           executionMode: this.model.executionMode,
           credentialId: this.model.executionMode === 'live' ? this.model.credentialId : undefined,
-          positionSide: this.requiresPositionSide ? this.model.positionSide : undefined,
-          accountRisk: this.requiresPositionSide ? { ...this.model.accountRisk } : undefined,
+          directionMode: this.requiresDirectionMode ? this.effectiveDirectionMode : undefined,
+          positionSide: this.requiresDirectionMode ? directionModePositionSide(this.effectiveDirectionMode) : undefined,
+          accountRisk: this.requiresDirectionMode ? { ...this.model.accountRisk } : undefined,
           params: { ...this.model.templateParams },
           notificationChannels: [...this.model.notifyChannels],
           notificationTargets: notificationTargets(this.notificationSettings)

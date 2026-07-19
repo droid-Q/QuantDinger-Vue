@@ -22,8 +22,6 @@
 
     </div>
 
-
-
     <a-alert
 
       v-if="showSubBarFallback"
@@ -39,8 +37,6 @@
       :message="subBarFallbackMessage"
 
     />
-
-
 
     <div class="backtest-assumptions__grid">
 
@@ -78,8 +74,6 @@
 
     </div>
 
-
-
     <p class="backtest-assumptions__body">{{ bodyText }}</p>
 
     <p v-if="tradeCountNote" class="backtest-assumptions__note backtest-assumptions__note--muted">{{ tradeCountNote }}</p>
@@ -88,13 +82,9 @@
 
 </template>
 
-
-
 <script>
 
 import { ratioToPercent } from '@/utils/backtestPresets'
-
-
 
 export default {
 
@@ -119,33 +109,24 @@ export default {
   computed: {
 
     ea () {
-
       return this.executionAssumptions || {}
-
     },
 
     isScriptBacktest () {
-
       if (this.scriptBacktest) return true
 
       if (this.ea.scriptBacktest === true) return true
 
       return String(this.ea.simulationMode || '').toLowerCase() === 'script_standard'
-
     },
 
     pi () {
-
       return this.precisionInfo || {}
-
     },
 
     isStrictMode () {
-
       if (this.strictMode !== null && this.strictMode !== undefined) {
-
         return !!this.strictMode
-
       }
 
       if (this.ea.strictMode != null) return !!this.ea.strictMode
@@ -153,125 +134,88 @@ export default {
       const timing = this.ea.signalTiming || ''
 
       return timing === 'next_bar_open' || timing === ''
-
     },
 
     showSubBarFallback () {
-
       return !this.isStrictMode && this.ea.mtfRequested && !this.ea.mtfActive && !!this.ea.mtfFallbackReason
-
     },
 
     subBarFallbackMessage () {
-
       return this.pi.message || this.$t('dashboard.indicator.backtest.executionAssumptions.aggressiveFallback')
-
     },
 
     simulationModeLabel () {
-
       if (this.isScriptBacktest) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.modeScriptStandard')
-
       }
 
       if (!this.isStrictMode && (this.ea.mtfActive || this.pi.enabled)) {
-
         const exec = this.ea.executionTimeframe || this.pi.timeframe || '1m'
 
         return this.$t('dashboard.indicator.backtest.executionAssumptions.modeAggressive1m', { exec })
-
       }
 
       if (!this.isStrictMode) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.modeAggressiveBar')
-
       }
 
       return this.$t('dashboard.indicator.backtest.executionAssumptions.modeStrict')
-
     },
 
     signalTimingLabel () {
-
       if (this.isScriptBacktest) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.timingScriptNextBar')
-
       }
 
       if (this.isStrictMode) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.timingNextBar')
-
       }
 
       return this.$t('dashboard.indicator.backtest.executionAssumptions.timingSameBar')
-
     },
 
     commissionLabel () {
-
       const raw = this.ea.commission != null ? this.ea.commission : this.commission
 
       return ratioToPercent(raw)
-
     },
 
     slippageLabel () {
-
       const raw = this.ea.slippage != null ? this.ea.slippage : this.slippage
 
       return ratioToPercent(raw)
-
     },
 
     bodyText () {
-
       if (this.isScriptBacktest) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.bodyScriptStandard')
-
       }
 
       if (this.isStrictMode) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.bodyStrict')
-
       }
 
       if (this.ea.mtfActive || this.pi.enabled) {
-
         const sig = this.ea.strategyTimeframe || '--'
 
         const exec = this.ea.executionTimeframe || this.pi.timeframe || '1m'
 
         return this.$t('dashboard.indicator.backtest.executionAssumptions.bodyAggressive1m', { sig, exec })
-
       }
 
       return this.$t('dashboard.indicator.backtest.executionAssumptions.bodyAggressiveBar')
-
     },
 
     tradeCountNote () {
-
       if (this.isScriptBacktest) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.tradeCountScriptNote')
-
       }
 
       if (!this.isStrictMode && (this.ea.mtfActive || this.pi.enabled)) {
-
         return this.$t('dashboard.indicator.backtest.executionAssumptions.tradeCountMtfNote')
-
       }
 
       return this.$t('dashboard.indicator.backtest.executionAssumptions.tradeCountStandardNote')
-
     }
 
   }
@@ -279,8 +223,6 @@ export default {
 }
 
 </script>
-
-
 
 <style scoped lang="less">
 
@@ -389,4 +331,3 @@ export default {
 }
 
 </style>
-

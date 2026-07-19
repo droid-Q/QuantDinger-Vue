@@ -207,251 +207,251 @@
       </div>
 
       <div class="ide-right ide-right--workspace">
-            <div class="ide-workspace-pane ide-workspace-pane--chart">
-              <div
-                ref="chartFullscreenEl"
-                class="ide-chart-fs-root"
-                :class="{ 'ide-panel--fullscreen': chartFullscreen }"
-              >
-                <div class="ide-chart-fs-row">
-                  <div class="chart-panel">
-                    <div class="chart-panel-toolbar">
-                      <div class="chart-panel-toolbar-top">
-                        <span class="chart-panel-toolbar-title">{{ $t('indicatorIde.chartWindow') }}</span>
-                        <div class="chart-panel-toolbar-top-actions">
+        <div class="ide-workspace-pane ide-workspace-pane--chart">
+          <div
+            ref="chartFullscreenEl"
+            class="ide-chart-fs-root"
+            :class="{ 'ide-panel--fullscreen': chartFullscreen }"
+          >
+            <div class="ide-chart-fs-row">
+              <div class="chart-panel">
+                <div class="chart-panel-toolbar">
+                  <div class="chart-panel-toolbar-top">
+                    <span class="chart-panel-toolbar-title">{{ $t('indicatorIde.chartWindow') }}</span>
+                    <div class="chart-panel-toolbar-top-actions">
+                      <a-button
+                        size="small"
+                        class="chart-panel-action-btn chart-panel-signal-alert-btn"
+                        :disabled="!selectedIndicatorId"
+                        @click="openSignalAlertModal"
+                      >
+                        <a-icon type="bell" />
+                        <span>通知</span>
+                        <em>{{ runningSignalAlertCount }}</em>
+                      </a-button>
+                      <a-tooltip
+                        placement="bottom"
+                        :title="selectedIndicatorCodeHidden ? $t('indicatorIde.aiConvertHiddenBlocked') : $t('indicatorIde.aiConvertToStrategy')"
+                      >
+                        <span class="chart-panel-action-wrap">
                           <a-button
                             size="small"
-                            class="chart-panel-action-btn chart-panel-signal-alert-btn"
-                            :disabled="!selectedIndicatorId"
-                            @click="openSignalAlertModal"
+                            type="primary"
+                            class="chart-panel-action-btn chart-panel-convert-strategy-btn"
+                            :disabled="!selectedIndicatorId || selectedIndicatorCodeHidden"
+                            @click="handleCreateStrategyFromIndicator"
                           >
-                            <a-icon type="bell" />
-                            <span>通知</span>
-                            <em>{{ runningSignalAlertCount }}</em>
+                            <a-icon type="deployment-unit" />
+                            <span>{{ $t('indicatorIde.aiConvertToStrategy') }}</span>
                           </a-button>
-                          <a-tooltip
-                            placement="bottom"
-                            :title="selectedIndicatorCodeHidden ? $t('indicatorIde.aiConvertHiddenBlocked') : $t('indicatorIde.aiConvertToStrategy')"
-                          >
-                            <span class="chart-panel-action-wrap">
-                              <a-button
-                                size="small"
-                                type="primary"
-                                class="chart-panel-action-btn chart-panel-convert-strategy-btn"
-                                :disabled="!selectedIndicatorId || selectedIndicatorCodeHidden"
-                                @click="handleCreateStrategyFromIndicator"
-                              >
-                                <a-icon type="deployment-unit" />
-                                <span>{{ $t('indicatorIde.aiConvertToStrategy') }}</span>
-                              </a-button>
-                            </span>
-                          </a-tooltip>
-                          <a-tooltip placement="bottomLeft">
-                            <template slot="title">
-                              {{ quickTradeDrawerVisible ? $t('indicatorIde.hideQuickTrade') : $t('indicatorIde.showQuickTrade') }}
-                            </template>
-                            <a-button
-                              class="chart-panel-qt-btn"
-                              size="small"
-                              :type="quickTradeDrawerVisible ? 'primary' : 'default'"
-                              @click="toggleQuickTradeDrawer"
-                            >
-                              <a-icon type="thunderbolt" theme="filled" />
-                              <span class="chart-panel-qt-label">{{ $t('quickTrade.title') }}</span>
-                            </a-button>
-                          </a-tooltip>
-                          <a-tooltip :title="chartFullscreen ? $t('indicatorIde.exitFullscreen') : $t('indicatorIde.fullscreenChart')">
-                            <a-button size="small" class="chart-panel-fs-btn" @click="toggleChartFullscreen"><a-icon :type="chartFullscreen ? 'fullscreen-exit' : 'fullscreen'" /></a-button>
-                          </a-tooltip>
-                        </div>
-                      </div>
-                      <div class="chart-panel-toolbar-controls">
-                        <div class="ide-toolbar-group ide-toolbar-group--params">
-                          <span class="ide-toolbar-label">{{ $t('indicatorIde.paramPanel.shortTitle') }}</span>
-                          <a-button
-                            size="small"
-                            class="ide-param-trigger"
-                            :type="currentIndicatorParamSpecs.length ? 'primary' : 'default'"
-                            :disabled="!selectedIndicatorId"
-                            @click="openIndicatorParamsDrawer"
-                          >
-                            <a-icon type="sliders" />
-                            <span>{{ $t('indicatorIde.paramPanel.button') }}</span>
-                            <em>{{ currentIndicatorParamSpecs.length }}</em>
-                          </a-button>
-                        </div>
-                        <div class="ide-toolbar-group ide-toolbar-group--watchlist">
-                          <span class="ide-toolbar-label">{{ $t('indicatorIde.toolbar.watchlist') }}</span>
-                          <a-select
-                            v-model="selectedWatchlistKey"
-                            class="ide-toolbar-select ide-toolbar-select--watchlist chart-panel-watchlist-select"
-                            :placeholder="$t('backtest-center.config.watchlistPlaceholder')"
-                            size="small"
-                            show-search
-                            allow-clear
-                            :filter-option="filterWatchlistOption"
-                            :dropdown-class-name="isDarkTheme ? 'ide-watchlist-dropdown ide-watchlist-dropdown--dark' : 'ide-watchlist-dropdown'"
-                            :get-popup-container="chartToolbarGetPopupContainer"
-                            @change="handleWatchlistChange"
-                          >
-                            <a-select-option
-                              v-for="w in watchlist"
-                              :key="watchlistContextKey(w)"
-                              :value="watchlistContextKey(w)"
-                            >
-                              <span class="wl-opt-tag" :class="'wl-mkt-' + (w.market || '').toLowerCase()">{{ marketLabel(w.market) }}</span>
-                              <strong class="wl-opt-symbol">{{ w.symbol }}</strong>
-                              <span v-if="w.name" class="wl-opt-name">{{ w.name }}</span>
-                            </a-select-option>
-                            <a-select-option key="__add__" value="__add__" class="add-option">
-                              <div class="ide-watchlist-add-row">
-                                <a-icon type="plus" /> {{ $t('backtest-center.config.addSymbol') }}
-                              </div>
-                            </a-select-option>
-                          </a-select>
-                        </div>
-                        <div v-if="market === 'Crypto'" class="ide-toolbar-group ide-toolbar-group--venue">
-                          <span class="ide-toolbar-label">{{ $t('marketContext.source') }}</span>
-                          <div class="ide-market-context-controls">
-                            <a-select
-                              v-model="cryptoExchangeId"
-                              size="small"
-                              class="ide-toolbar-select ide-toolbar-select--exchange"
-                              :get-popup-container="chartToolbarGetPopupContainer"
-                              @change="handleCryptoExchangeChange"
-                            >
-                              <a-select-option v-for="exchangeId in cryptoExchangeIds" :key="exchangeId" :value="exchangeId">
-                                {{ exchangeId.toUpperCase() }}
-                              </a-select-option>
-                            </a-select>
-                            <a-select
-                              v-model="cryptoMarketType"
-                              size="small"
-                              class="ide-toolbar-select ide-toolbar-select--market-type"
-                              :get-popup-container="chartToolbarGetPopupContainer"
-                              @change="handleCryptoMarketTypeChange"
-                            >
-                              <a-select-option value="spot">{{ $t('marketContext.spot') }}</a-select-option>
-                              <a-select-option value="swap">{{ $t('marketContext.swap') }}</a-select-option>
-                            </a-select>
-                          </div>
-                        </div>
-                        <div class="ide-toolbar-group ide-toolbar-group--tf">
-                          <span class="ide-toolbar-label">{{ $t('indicatorIde.toolbar.timeframe') }}</span>
-                          <a-radio-group
-                            v-model="timeframe"
-                            button-style="solid"
-                            size="small"
-                            class="tf-group ide-tf-seg ide-tf-seg--chart"
-                          >
-                            <a-radio-button value="1m">1m</a-radio-button>
-                            <a-radio-button value="5m">5m</a-radio-button>
-                            <a-radio-button value="15m">15m</a-radio-button>
-                            <a-radio-button value="30m">30m</a-radio-button>
-                            <a-radio-button value="1H">1H</a-radio-button>
-                            <a-radio-button value="4H">4H</a-radio-button>
-                            <a-radio-button value="1D">1D</a-radio-button>
-                            <a-radio-button value="1W">1W</a-radio-button>
-                          </a-radio-group>
-                        </div>
-                        <div class="ide-toolbar-group ide-toolbar-group--indicator">
-                          <span class="ide-toolbar-label">{{ $t('indicatorIde.toolbar.indicator') }}</span>
-                          <a-dropdown
-                            :trigger="['click']"
-                            placement="bottomLeft"
-                            :visible="indicatorDropdownVisible"
-                            :get-popup-container="chartToolbarGetPopupContainer"
-                            @visibleChange="onIndicatorDropdownVisibleChange"
-                            :overlay-class-name="isDarkTheme ? 'ide-indicator-multiselect-dropdown ide-indicator-multiselect-dropdown--dark' : 'ide-indicator-multiselect-dropdown'"
-                          >
-                            <a-button
-                              size="small"
-                              class="ide-toolbar-select ide-toolbar-select--indicator ide-indicator-multiselect-trigger"
-                              :loading="loadingIndicators"
-                            >
-                              <span class="ide-indicator-trigger-text">{{ indicatorToolbarSummary }}</span>
-                              <a-icon type="down" />
-                            </a-button>
-                            <div slot="overlay" class="ide-indicator-overlay" @mousedown.stop @click.stop>
-                              <div class="ide-indicator-overlay-hint">{{ $t('indicatorIde.chartPickHint') }}</div>
-                              <a-spin v-if="loadingIndicators" size="small" style="padding: 12px;" />
-                              <div v-else-if="!indicators.length" class="ide-indicator-overlay-empty">{{ $t('indicatorIde.noIndicatorsYet') }}</div>
-                              <div v-else class="ide-indicator-overlay-list">
-                                <div
-                                  v-for="ind in indicators"
-                                  :key="'ind-row-' + ind.id"
-                                  class="ide-indicator-row"
-                                >
-                                  <a-checkbox
-                                    :checked="(chartVisibleIndicatorIds || []).some(x => Number(x) === Number(ind.id))"
-                                    @change="e => onChartIndicatorCheckChange(ind.id, e.target.checked)"
-                                  />
-                                  <span
-                                    class="ide-indicator-name"
-                                    :class="{ active: Number(selectedIndicatorId) === Number(ind.id) }"
-                                    @click="selectEditorIndicator(ind.id)"
-                                  >{{ indicatorDisplayName(ind) }}</span>
-                                  <a-tag
-                                    v-if="Number(ind.is_buy) === 1"
-                                    color="purple"
-                                    class="ide-indicator-purchased-tag"
-                                  >{{ $t('indicatorIde.purchasedBadge') }}</a-tag>
-                                </div>
-                              </div>
-                            </div>
-                          </a-dropdown>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="chart-panel-inner">
-                      <kline-chart
-                        ref="klineChart"
-                        :symbol="symbol"
-                        :market="market"
-                        :exchange-id="cryptoExchangeId"
-                        :market-type="cryptoMarketType"
-                        :instrument-id="currentInstrumentId"
-                        :timeframe="timeframe"
-                        :theme="chartTheme"
-                        :activeIndicators="activeIndicators"
-                        :userId="userId"
-                        :realtime-enabled="klineRealtimeEnabled"
-                        @indicator-toggle="handleIndicatorToggle"
-                      />
+                        </span>
+                      </a-tooltip>
+                      <a-tooltip placement="bottomLeft">
+                        <template slot="title">
+                          {{ quickTradeDrawerVisible ? $t('indicatorIde.hideQuickTrade') : $t('indicatorIde.showQuickTrade') }}
+                        </template>
+                        <a-button
+                          class="chart-panel-qt-btn"
+                          size="small"
+                          :type="quickTradeDrawerVisible ? 'primary' : 'default'"
+                          @click="toggleQuickTradeDrawer"
+                        >
+                          <a-icon type="thunderbolt" theme="filled" />
+                          <span class="chart-panel-qt-label">{{ $t('quickTrade.title') }}</span>
+                        </a-button>
+                      </a-tooltip>
+                      <a-tooltip :title="chartFullscreen ? $t('indicatorIde.exitFullscreen') : $t('indicatorIde.fullscreenChart')">
+                        <a-button size="small" class="chart-panel-fs-btn" @click="toggleChartFullscreen"><a-icon :type="chartFullscreen ? 'fullscreen-exit' : 'fullscreen'" /></a-button>
+                      </a-tooltip>
                     </div>
                   </div>
-                  <div v-show="quickTradeDrawerVisible" class="ide-quick-right ide-quick-right--chart-fs">
-                    <div class="ide-quick-panel-head">
-                      <span class="ide-quick-panel-head-title">
-                        <a-icon type="thunderbolt" theme="filled" class="ide-quick-panel-head-icon" />
-                        {{ $t('quickTrade.title') }}
-                      </span>
-                      <a-button type="link" size="small" class="ide-quick-panel-close" @click="closeQuickTradeDrawer">
-                        <a-icon type="close" />
+                  <div class="chart-panel-toolbar-controls">
+                    <div class="ide-toolbar-group ide-toolbar-group--params">
+                      <span class="ide-toolbar-label">{{ $t('indicatorIde.paramPanel.shortTitle') }}</span>
+                      <a-button
+                        size="small"
+                        class="ide-param-trigger"
+                        :type="currentIndicatorParamSpecs.length ? 'primary' : 'default'"
+                        :disabled="!selectedIndicatorId"
+                        @click="openIndicatorParamsDrawer"
+                      >
+                        <a-icon type="sliders" />
+                        <span>{{ $t('indicatorIde.paramPanel.button') }}</span>
+                        <em>{{ currentIndicatorParamSpecs.length }}</em>
                       </a-button>
                     </div>
-                    <div class="ide-quick-panel-body">
-                      <quick-trade-panel
-                        key="ide-embedded-qt"
-                        embedded
-                        embedded-ide
-                        :visible="true"
-                        :symbol="qtSymbol"
-                        :preset-side="qtSide"
-                        :preset-price="qtPrice"
-                        source="indicator"
-                        :market="market"
-                        symbol-locked
-                        :market-type="market === 'Crypto' ? cryptoMarketType : 'spot'"
-                        :overlay-get-container="ideQtOverlayGetContainer"
-                        @order-success="onQuickTradeSuccess"
-                        @update:symbol="handleQuickTradeSymbolChange"
-                      />
+                    <div class="ide-toolbar-group ide-toolbar-group--watchlist">
+                      <span class="ide-toolbar-label">{{ $t('indicatorIde.toolbar.watchlist') }}</span>
+                      <a-select
+                        v-model="selectedWatchlistKey"
+                        class="ide-toolbar-select ide-toolbar-select--watchlist chart-panel-watchlist-select"
+                        :placeholder="$t('backtest-center.config.watchlistPlaceholder')"
+                        size="small"
+                        show-search
+                        allow-clear
+                        :filter-option="filterWatchlistOption"
+                        :dropdown-class-name="isDarkTheme ? 'ide-watchlist-dropdown ide-watchlist-dropdown--dark' : 'ide-watchlist-dropdown'"
+                        :get-popup-container="chartToolbarGetPopupContainer"
+                        @change="handleWatchlistChange"
+                      >
+                        <a-select-option
+                          v-for="w in watchlist"
+                          :key="watchlistContextKey(w)"
+                          :value="watchlistContextKey(w)"
+                        >
+                          <span class="wl-opt-tag" :class="'wl-mkt-' + (w.market || '').toLowerCase()">{{ marketLabel(w.market) }}</span>
+                          <strong class="wl-opt-symbol">{{ w.symbol }}</strong>
+                          <span v-if="w.name" class="wl-opt-name">{{ w.name }}</span>
+                        </a-select-option>
+                        <a-select-option key="__add__" value="__add__" class="add-option">
+                          <div class="ide-watchlist-add-row">
+                            <a-icon type="plus" /> {{ $t('backtest-center.config.addSymbol') }}
+                          </div>
+                        </a-select-option>
+                      </a-select>
+                    </div>
+                    <div v-if="market === 'Crypto'" class="ide-toolbar-group ide-toolbar-group--venue">
+                      <span class="ide-toolbar-label">{{ $t('marketContext.source') }}</span>
+                      <div class="ide-market-context-controls">
+                        <a-select
+                          v-model="cryptoExchangeId"
+                          size="small"
+                          class="ide-toolbar-select ide-toolbar-select--exchange"
+                          :get-popup-container="chartToolbarGetPopupContainer"
+                          @change="handleCryptoExchangeChange"
+                        >
+                          <a-select-option v-for="exchangeId in cryptoExchangeIds" :key="exchangeId" :value="exchangeId">
+                            {{ exchangeId.toUpperCase() }}
+                          </a-select-option>
+                        </a-select>
+                        <a-select
+                          v-model="cryptoMarketType"
+                          size="small"
+                          class="ide-toolbar-select ide-toolbar-select--market-type"
+                          :get-popup-container="chartToolbarGetPopupContainer"
+                          @change="handleCryptoMarketTypeChange"
+                        >
+                          <a-select-option value="spot">{{ $t('marketContext.spot') }}</a-select-option>
+                          <a-select-option value="swap">{{ $t('marketContext.swap') }}</a-select-option>
+                        </a-select>
+                      </div>
+                    </div>
+                    <div class="ide-toolbar-group ide-toolbar-group--tf">
+                      <span class="ide-toolbar-label">{{ $t('indicatorIde.toolbar.timeframe') }}</span>
+                      <a-radio-group
+                        v-model="timeframe"
+                        button-style="solid"
+                        size="small"
+                        class="tf-group ide-tf-seg ide-tf-seg--chart"
+                      >
+                        <a-radio-button value="1m">1m</a-radio-button>
+                        <a-radio-button value="5m">5m</a-radio-button>
+                        <a-radio-button value="15m">15m</a-radio-button>
+                        <a-radio-button value="30m">30m</a-radio-button>
+                        <a-radio-button value="1H">1H</a-radio-button>
+                        <a-radio-button value="4H">4H</a-radio-button>
+                        <a-radio-button value="1D">1D</a-radio-button>
+                        <a-radio-button value="1W">1W</a-radio-button>
+                      </a-radio-group>
+                    </div>
+                    <div class="ide-toolbar-group ide-toolbar-group--indicator">
+                      <span class="ide-toolbar-label">{{ $t('indicatorIde.toolbar.indicator') }}</span>
+                      <a-dropdown
+                        :trigger="['click']"
+                        placement="bottomLeft"
+                        :visible="indicatorDropdownVisible"
+                        :get-popup-container="chartToolbarGetPopupContainer"
+                        @visibleChange="onIndicatorDropdownVisibleChange"
+                        :overlay-class-name="isDarkTheme ? 'ide-indicator-multiselect-dropdown ide-indicator-multiselect-dropdown--dark' : 'ide-indicator-multiselect-dropdown'"
+                      >
+                        <a-button
+                          size="small"
+                          class="ide-toolbar-select ide-toolbar-select--indicator ide-indicator-multiselect-trigger"
+                          :loading="loadingIndicators"
+                        >
+                          <span class="ide-indicator-trigger-text">{{ indicatorToolbarSummary }}</span>
+                          <a-icon type="down" />
+                        </a-button>
+                        <div slot="overlay" class="ide-indicator-overlay" @mousedown.stop @click.stop>
+                          <div class="ide-indicator-overlay-hint">{{ $t('indicatorIde.chartPickHint') }}</div>
+                          <a-spin v-if="loadingIndicators" size="small" style="padding: 12px;" />
+                          <div v-else-if="!indicators.length" class="ide-indicator-overlay-empty">{{ $t('indicatorIde.noIndicatorsYet') }}</div>
+                          <div v-else class="ide-indicator-overlay-list">
+                            <div
+                              v-for="ind in indicators"
+                              :key="'ind-row-' + ind.id"
+                              class="ide-indicator-row"
+                            >
+                              <a-checkbox
+                                :checked="(chartVisibleIndicatorIds || []).some(x => Number(x) === Number(ind.id))"
+                                @change="e => onChartIndicatorCheckChange(ind.id, e.target.checked)"
+                              />
+                              <span
+                                class="ide-indicator-name"
+                                :class="{ active: Number(selectedIndicatorId) === Number(ind.id) }"
+                                @click="selectEditorIndicator(ind.id)"
+                              >{{ indicatorDisplayName(ind) }}</span>
+                              <a-tag
+                                v-if="Number(ind.is_buy) === 1"
+                                color="purple"
+                                class="ide-indicator-purchased-tag"
+                              >{{ $t('indicatorIde.purchasedBadge') }}</a-tag>
+                            </div>
+                          </div>
+                        </div>
+                      </a-dropdown>
                     </div>
                   </div>
                 </div>
+                <div class="chart-panel-inner">
+                  <kline-chart
+                    ref="klineChart"
+                    :symbol="symbol"
+                    :market="market"
+                    :exchange-id="cryptoExchangeId"
+                    :market-type="cryptoMarketType"
+                    :instrument-id="currentInstrumentId"
+                    :timeframe="timeframe"
+                    :theme="chartTheme"
+                    :activeIndicators="activeIndicators"
+                    :userId="userId"
+                    :realtime-enabled="klineRealtimeEnabled"
+                    @indicator-toggle="handleIndicatorToggle"
+                  />
+                </div>
+              </div>
+              <div v-show="quickTradeDrawerVisible" class="ide-quick-right ide-quick-right--chart-fs">
+                <div class="ide-quick-panel-head">
+                  <span class="ide-quick-panel-head-title">
+                    <a-icon type="thunderbolt" theme="filled" class="ide-quick-panel-head-icon" />
+                    {{ $t('quickTrade.title') }}
+                  </span>
+                  <a-button type="link" size="small" class="ide-quick-panel-close" @click="closeQuickTradeDrawer">
+                    <a-icon type="close" />
+                  </a-button>
+                </div>
+                <div class="ide-quick-panel-body">
+                  <quick-trade-panel
+                    key="ide-embedded-qt"
+                    embedded
+                    embedded-ide
+                    :visible="true"
+                    :symbol="qtSymbol"
+                    :preset-side="qtSide"
+                    :preset-price="qtPrice"
+                    source="indicator"
+                    :market="market"
+                    symbol-locked
+                    :market-type="market === 'Crypto' ? cryptoMarketType : 'spot'"
+                    :overlay-get-container="ideQtOverlayGetContainer"
+                    @order-success="onQuickTradeSuccess"
+                    @update:symbol="handleQuickTradeSymbolChange"
+                  />
+                </div>
               </div>
             </div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1120,7 +1120,7 @@ export default {
       codeVersionPreview: null,
       restoringCodeVersionId: null,
 
-      ideAddMarketKeys: [],
+      ideAddMarketKeys: []
 
     }
   },
@@ -1207,7 +1207,7 @@ export default {
       if (!this.indicators.length) return this.$t('indicatorIde.noIndicatorsYet')
       if (!n) return `${edLabel} · ${this.$t('indicatorIde.indicatorPickPlaceholder')}`
       return `${edLabel} · ${this.$t('indicatorIde.indicatorCountOnChart', { n })}`
-    },
+    }
   },
   created: async function () {
     await this.loadMarketModules()
@@ -3381,7 +3381,7 @@ export default {
       } finally {
         this.addingStock = false
       }
-    },
+    }
 
   },
   watch: {

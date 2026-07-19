@@ -62,7 +62,35 @@ module.exports = {
   parserOptions: {
     parser: 'babel-eslint'
   },
+  globals: {
+    APP_VERSION: 'readonly'
+  },
   overrides: [
+    {
+      files: [
+        'src/locales/**/*.js'
+      ],
+      rules: {
+        quotes: 'off',
+        'quote-props': 'off',
+        'key-spacing': 'off',
+        'comma-spacing': 'off',
+        'comma-style': 'off',
+        'comma-dangle': 'off',
+        'object-property-newline': 'off',
+        'object-curly-spacing': 'off',
+        'computed-property-spacing': 'off',
+        'padded-blocks': 'off'
+      }
+    },
+    {
+      files: [
+        'src/services/pyodide/pyodideService.js'
+      ],
+      rules: {
+        'node/no-callback-literal': 'off'
+      }
+    },
     {
       files: [
         '**/__tests__/*.{j,t}s?(x)',

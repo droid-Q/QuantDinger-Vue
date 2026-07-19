@@ -215,9 +215,9 @@ request.interceptors.request.use(config => {
   config.headers['Accept-Language'] = lang
 
   if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`
+    config.headers.Authorization = `Bearer ${token}`
     config.headers[ACCESS_TOKEN] = token
-    config.headers['token'] = token
+    config.headers.token = token
   } else {
     if (config.url && config.url.includes('/api/auth/info')) {
       const rawToken = storage.get(ACCESS_TOKEN)
@@ -229,7 +229,7 @@ request.interceptors.request.use(config => {
   }
 
   config.headers['Cache-Control'] = 'no-cache'
-  config.headers['Pragma'] = 'no-cache'
+  config.headers.Pragma = 'no-cache'
   config.headers['If-Modified-Since'] = '0'
 
   if ((config.method || 'get').toLowerCase() === 'get') {

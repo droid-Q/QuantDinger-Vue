@@ -1,29 +1,29 @@
 <template>
   <span v-if="currentUser && currentUser.name" class="ant-pro-account-avatar qd-account-trigger">
-      <a-dropdown placement="bottomRight" overlayClassName="qd-account-dropdown">
+    <a-dropdown placement="bottomRight" overlayClassName="qd-account-dropdown">
       <span class="account-identity" @click.stop="handleProfile">
         <a-avatar :size="28" :src="currentUser.avatar" class="antd-pro-global-header-index-avatar" />
         <span class="account-name">{{ currentUser.name }}</span>
       </span>
-        <a-menu slot="overlay" mode="vertical" class="qd-account-menu" :selected-keys="[]">
-          <a-menu-item key="profile" @click="handleProfile">
-            <a-icon type="user" />
-            {{ $t('menu.myProfile') || $t('menu.profile') || 'Profile' }}
-          </a-menu-item>
-          <a-menu-item key="logout" @click="handleLogout">
-            <a-icon type="logout" />
-            {{ $t('menu.account.logout') }}
-          </a-menu-item>
-        </a-menu>
-      </a-dropdown>
-      <span class="account-credits" @click.stop="handleCredits">
-        <a-icon type="wallet" />
-        <strong>{{ formattedCredits }}</strong>
-      </span>
-      <a-button size="small" type="primary" class="account-recharge" @click.stop="handleBilling">
-        <span>{{ $t('profile.credits.rechargeShort') || '充值' }}</span>
-      </a-button>
+      <a-menu slot="overlay" mode="vertical" class="qd-account-menu" :selected-keys="[]">
+        <a-menu-item key="profile" @click="handleProfile">
+          <a-icon type="user" />
+          {{ $t('menu.myProfile') || $t('menu.profile') || 'Profile' }}
+        </a-menu-item>
+        <a-menu-item key="logout" @click="handleLogout">
+          <a-icon type="logout" />
+          {{ $t('menu.account.logout') }}
+        </a-menu-item>
+      </a-menu>
+    </a-dropdown>
+    <span class="account-credits" @click.stop="handleCredits">
+      <a-icon type="wallet" />
+      <strong>{{ formattedCredits }}</strong>
     </span>
+    <a-button size="small" type="primary" class="account-recharge" @click.stop="handleBilling">
+      <span>{{ $t('profile.credits.rechargeShort') || '充值' }}</span>
+    </a-button>
+  </span>
   <span v-else>
     <a-spin size="small" :style="{ marginLeft: 8, marginRight: 8 }" />
   </span>

@@ -15,3 +15,11 @@ test('live strategy creation validates with the current compiler', () => {
   assert.doesNotMatch(source, /strategyManifest\.apiVersion/)
   assert.doesNotMatch(source, /Number\(config\.api_version/)
 })
+
+test('live strategy direction is contract-driven with a legacy fallback', () => {
+  assert.match(source, /manifestDirectionMode/)
+  assert.match(source, /directionModeDetectedHint/)
+  assert.match(source, /requiresDirectionFallback/)
+  assert.match(source, /directionMode: this\.requiresDirectionMode \? this\.effectiveDirectionMode/)
+  assert.doesNotMatch(source, /v-model="model\.positionSide"/)
+})

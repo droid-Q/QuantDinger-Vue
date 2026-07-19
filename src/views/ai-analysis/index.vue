@@ -1822,12 +1822,12 @@ export default {
     },
     getMarketColor (market) {
       const colors = {
-        'USStock': 'green',
-        'CNStock': 'blue',
-        'HKStock': 'geekblue',
-        'Crypto': 'purple',
-        'Forex': 'gold',
-        'Futures': 'cyan'
+        USStock: 'green',
+        CNStock: 'blue',
+        HKStock: 'geekblue',
+        Crypto: 'purple',
+        Forex: 'gold',
+        Futures: 'cyan'
       }
       return colors[market] || 'default'
     },
@@ -2078,19 +2078,19 @@ export default {
     },
     getStatusColor (status) {
       const colors = {
-        'pending': 'orange',
-        'processing': 'blue',
-        'completed': 'green',
-        'failed': 'red'
+        pending: 'orange',
+        processing: 'blue',
+        completed: 'green',
+        failed: 'red'
       }
       return colors[status] || 'default'
     },
     getStatusText (status) {
       const statusMap = {
-        'pending': 'dashboard.analysis.status.pending',
-        'processing': 'dashboard.analysis.status.processing',
-        'completed': 'dashboard.analysis.status.completed',
-        'failed': 'dashboard.analysis.status.failed'
+        pending: 'dashboard.analysis.status.pending',
+        processing: 'dashboard.analysis.status.processing',
+        completed: 'dashboard.analysis.status.completed',
+        failed: 'dashboard.analysis.status.failed'
       }
       const key = statusMap[status]
       return key ? this.$t(key) : status
