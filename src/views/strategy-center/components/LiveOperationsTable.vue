@@ -78,7 +78,7 @@
               <span class="execution-pill" :class="executionMode(selectedStrategy)">{{ executionLabel(selectedStrategy) }}</span>
             </div>
             <p>
-              {{ $t('strategyCenter.console.startedAt') }} · {{ formatTime(selectedStrategy.started_at || selectedStrategy.created_at) }}
+              {{ $t('strategyCenter.console.startedAt') }} · {{ formatTime(health(selectedStrategy).started_at || selectedStrategy.started_at || selectedStrategy.created_at) }}
               <span>·</span> {{ $t('liveMonitor.heartbeat') }} · {{ formatTime(lastActivity(selectedStrategy)) }}
             </p>
           </div>
@@ -223,6 +223,7 @@ import TradingRecords from './TradingRecords.vue'
 import StrategyReviewReport from './StrategyReviewReport.vue'
 import StrategyLogs from './StrategyLogs.vue'
 import {
+  normalizeTimestampMilliseconds,
   strategyExecutionMode,
   strategyLastActivity,
   strategySymbol,
@@ -424,7 +425,7 @@ export default {
       const date = new Date(normalized)
       return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
     },
-    shortTime (value) { if (!value) return ''; const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }
+    shortTime (value) { if (!value) return ''; const date = new Date(normalizeTimestampMilliseconds(value)); return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }
   }
 }
 </script>

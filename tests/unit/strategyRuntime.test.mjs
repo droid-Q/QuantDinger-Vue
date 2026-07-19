@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   filterAndSortStrategies,
+  normalizeTimestampMilliseconds,
   strategyExecutionMode,
   strategyLastActivityTimestamp,
   strategyRuntimeSummary,
@@ -47,6 +48,13 @@ test('normalizes strategy runtime fields', () => {
   assert.equal(strategyExecutionMode(rows[1]), 'live')
   assert.equal(strategySymbol(rows[2]), 'SOL/USDT')
   assert.equal(strategyLastActivityTimestamp(rows[1]), 1783677600000)
+})
+
+test('normalizes Unix seconds and milliseconds for runtime charts', () => {
+  assert.equal(normalizeTimestampMilliseconds(1784434455), 1784434455000)
+  assert.equal(normalizeTimestampMilliseconds('1784434455'), 1784434455000)
+  assert.equal(normalizeTimestampMilliseconds(1784434455000), 1784434455000)
+  assert.equal(normalizeTimestampMilliseconds('2026-07-19T04:14:15Z'), 1784434455000)
 })
 
 test('summarizes live operations without excluding strategies that have no trades', () => {

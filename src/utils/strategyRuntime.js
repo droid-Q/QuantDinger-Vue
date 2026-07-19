@@ -9,7 +9,7 @@ const asObject = value => {
   }
 }
 
-const timestampValue = value => {
+export const normalizeTimestampMilliseconds = value => {
   if (value === null || value === undefined || value === '') return 0
   if (typeof value === 'number' || /^\d+(?:\.\d+)?$/.test(String(value).trim())) {
     const numeric = Number(value)
@@ -40,7 +40,7 @@ export const strategyLastActivity = strategy => {
   return config.last_execution_time || config.last_signal_time || (strategy && strategy.updated_at) || (strategy && strategy.created_at) || ''
 }
 
-export const strategyLastActivityTimestamp = strategy => timestampValue(strategyLastActivity(strategy))
+export const strategyLastActivityTimestamp = strategy => normalizeTimestampMilliseconds(strategyLastActivity(strategy))
 
 export const strategyRuntimeSummary = strategies => {
   const list = Array.isArray(strategies) ? strategies : []
