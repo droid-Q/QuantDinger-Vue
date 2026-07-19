@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request, { AI_GENERATE_TIMEOUT } from '@/utils/request'
 
 const api = {
   // Local Python backend
@@ -215,7 +215,8 @@ export function aiGenerateStrategy (data) {
   return request({
     url: api.aiGenerate,
     method: 'post',
-    data
+    data,
+    timeout: AI_GENERATE_TIMEOUT
   })
 }
 

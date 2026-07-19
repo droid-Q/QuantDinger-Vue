@@ -6554,6 +6554,7 @@ const locale = {
   "authorDashboard.unpublish": "Unpublish",
   "authorDashboard.totalCount": "Total: {total}",
   "authorDashboard.filteredBy": "Filtered by",
+  "authorDashboard.loadPublishedFailed": "Published details could not be loaded. Please refresh and try again.",
   "authorDashboard.clearFilter": "Clear filter",
   "authorDashboard.anonymousBuyer": "Anonymous buyer",
   "profile.agentTokens.tab": "My Agent Token",

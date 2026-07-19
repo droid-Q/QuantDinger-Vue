@@ -930,6 +930,7 @@ const locale = {
   "authorDashboard.col.status": "状态",
   "authorDashboard.col.time": "时间",
   "authorDashboard.filteredBy": "已过滤",
+  "authorDashboard.loadPublishedFailed": "發布詳情載入失敗，請重新整理後再試。",
   "authorDashboard.stat.approved": "已通过",
   "authorDashboard.stat.avgRating": "平均评分",
   "authorDashboard.stat.pending": "审核中",

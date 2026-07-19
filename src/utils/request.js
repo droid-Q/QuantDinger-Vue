@@ -195,7 +195,7 @@ request.interceptors.request.use(config => {
   if (config.url && isDefaultTimeout) {
     if (config.url.includes('/backtest/aiAnalyze')) {
       config.timeout = ANALYSIS_TIMEOUT
-    } else if (config.url.includes('/strategies/ai-generate') || config.url.includes('/indicator/aiGenerate')) {
+    } else if (config.url.includes('/strategies/generate') || config.url.includes('/strategies/ai-generate') || config.url.includes('/indicator/aiGenerate')) {
       config.timeout = AI_GENERATE_TIMEOUT
     } else if (config.url.includes('/api/ai/chat/message')) {
       config.timeout = AI_CHAT_TIMEOUT

@@ -55,11 +55,26 @@
       </a-col>
     </a-row>
 
-    <a-tabs v-model="subTab" class="ad-tabs" type="card" @change="onSubTabChange">
-      <a-tab-pane key="published">
-        <template #tab>
-          <span><a-icon type="appstore" /> {{ $t('authorDashboard.tab.published') }}</span>
-        </template>
+    <div class="ad-tabs">
+      <div class="ad-detail-toolbar">
+        <a-radio-group v-model="subTab" button-style="solid" @change="onSubTabChange">
+          <a-radio-button value="published">
+            <a-icon type="appstore" /> {{ $t('authorDashboard.tab.published') }}
+          </a-radio-button>
+          <a-radio-button value="sales">
+            <a-icon type="dollar" /> {{ $t('authorDashboard.tab.sales') }}
+          </a-radio-button>
+        </a-radio-group>
+      </div>
+
+      <div v-show="subTab === 'published'">
+        <a-alert
+          v-if="publishedError"
+          class="ad-load-error"
+          type="error"
+          show-icon
+          :message="$t('authorDashboard.loadPublishedFailed')"
+        />
 
         <a-table
           :columns="publishedColumns"
@@ -134,12 +149,9 @@
             </a-button>
           </template>
         </a-table>
-      </a-tab-pane>
+      </div>
 
-      <a-tab-pane key="sales">
-        <template #tab>
-          <span><a-icon type="dollar" /> {{ $t('authorDashboard.tab.sales') }}</span>
-        </template>
+      <div v-show="subTab === 'sales'">
 
         <div v-if="salesIndicatorFilter" class="ad-filter-banner">
           <a-icon type="filter" />
@@ -177,8 +189,8 @@
             <span v-else class="ad-free">{{ $t('community.free') }}</span>
           </template>
         </a-table>
-      </a-tab-pane>
-    </a-tabs>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -234,6 +246,7 @@ export default {
       subTab: 'published',
       summaryLoading: false,
       publishedLoading: false,
+      publishedError: false,
       salesLoading: false,
       summary: {
         published_total: 0,
@@ -259,8 +272,9 @@ export default {
       this.loadPublished()
       if (this.subTab === 'sales') this.loadSales()
     },
-    onSubTabChange (key) {
-      if (key === 'sales' && this.sales.items.length === 0) {
+    onSubTabChange (event) {
+      const selected = event && event.target ? event.target.value : this.subTab
+      if (selected === 'sales' && this.sales.items.length === 0) {
         this.loadSales()
       }
     },
@@ -279,6 +293,7 @@ export default {
     },
     async loadPublished (page = 1) {
       this.publishedLoading = true
+      this.publishedError = false
       try {
         const res = await request({
           url: '/api/community/author/published',
@@ -289,6 +304,7 @@ export default {
           this.published = res.data
         }
       } catch (e) {
+        this.publishedError = true
         console.error('loadPublished failed', e)
       } finally {
         this.publishedLoading = false
@@ -457,6 +473,14 @@ export default {
   background: #fff;
   padding: 12px 16px 4px;
   border-radius: 8px;
+}
+
+.ad-detail-toolbar {
+  margin-bottom: 12px;
+}
+
+.ad-load-error {
+  margin-bottom: 12px;
 }
 
 .ad-table {

@@ -6346,6 +6346,7 @@ const locale = {
   "authorDashboard.unpublishFailed": "下架失败",
   "authorDashboard.totalCount": "共 {total} 条",
   "authorDashboard.filteredBy": "已过滤",
+  "authorDashboard.loadPublishedFailed": "发布详情加载失败，请刷新后重试。",
   "authorDashboard.clearFilter": "清除过滤",
   "authorDashboard.anonymousBuyer": "匿名用户",
   "profile.agentTokens.tab": "我的 Agent Token",
