@@ -13,13 +13,10 @@ const DEFAULT_POLICY = {
     bybit: { Crypto: ['spot', 'swap'] },
     bitget: { Crypto: ['spot', 'swap'] },
     gate: { Crypto: ['spot', 'swap'] },
-    mexc: { Crypto: ['spot', 'swap'] },
-    kraken: { Crypto: ['spot'] },
-    coinbase: { Crypto: ['spot'] },
-    huobi: { Crypto: ['spot'] },
-    bingx: { Crypto: ['spot'] },
+    htx: { Crypto: ['spot', 'swap'] },
+    huobi: { Crypto: ['spot', 'swap'] },
     ibkr: { USStock: ['spot'] },
-    alpaca: { USStock: ['spot'], Crypto: ['spot'] },
+    alpaca: { USStock: ['spot'] },
     mt5: { Forex: ['spot'] },
     cptmarkets: { Forex: ['spot'] },
     cpt_markets: { Forex: ['spot'] }
@@ -58,17 +55,11 @@ function normalizePolicy (payload) {
   })
   Object.keys(next.bot_type_markets || {}).forEach(bot => {
     const markets = new Set(next.bot_type_markets[bot] || [])
-    if (markets.has('MT5')) {
-      markets.delete('MT5')
-      markets.add('Forex')
-    }
+    if (markets.delete('MT5')) markets.add('Forex')
     next.bot_type_markets[bot] = Array.from(markets)
   })
   const live = new Set(next.live_market_categories || DEFAULT_POLICY.live_market_categories)
-  if (live.has('MT5')) {
-    live.delete('MT5')
-    live.add('Forex')
-  }
+  if (live.delete('MT5')) live.add('Forex')
   next.live_market_categories = Array.from(live)
   return next
 }

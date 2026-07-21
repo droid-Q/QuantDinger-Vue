@@ -14,6 +14,13 @@ export function getSettingsValues () {
   })
 }
 
+export function getPublicSettingsConfig () {
+  return request({
+    url: '/api/settings/public-config',
+    method: 'get'
+  })
+}
+
 export function saveSettings (data) {
   return request({
     url: '/api/settings/save',
@@ -34,5 +41,19 @@ export function getOpenRouterBalance () {
   return request({
     url: '/api/settings/openrouter-balance',
     method: 'get'
+  })
+}
+
+export function getMarketCatalogOverview () {
+  return request({
+    url: '/api/settings/market-catalog',
+    method: 'get'
+  })
+}
+
+export function syncMarketCatalog () {
+  return request({
+    url: '/api/settings/market-catalog/sync',
+    method: 'post'
   })
 }

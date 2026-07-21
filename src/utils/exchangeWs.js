@@ -197,17 +197,10 @@ function resolveExchangeId (id) {
     bitget: 'bitget',
     bybit: 'bybit',
     gate: 'gate',
-    gateio: 'gate',
-    coinbase: 'binance',
-    htx: 'binance',
-    huobi: 'binance',
-    kraken: 'binance',
-    kucoin: 'binance'
+    gateio: 'gate'
   }
-  return aliases[lower] || 'binance'
+  return aliases[lower] || ''
 }
-
-const FALLBACK_EXCHANGE = 'binance'
 
 // ── Main class ──────────────────────────────────────────────
 
@@ -259,6 +252,11 @@ export default class ExchangeKlineWs {
 
     this._exchangeId = resolveExchangeId(exchangeId)
     this._exchangeConf = EXCHANGE_WS[this._exchangeId]
+    if (!this._exchangeConf) {
+      this._closed = true
+      if (this._onError) this._onError()
+      return
+    }
     this._buildUrl()
     this._open()
   }
@@ -306,7 +304,7 @@ export default class ExchangeKlineWs {
     this._connectTimeout = setTimeout(() => {
       if (myGen !== this._openGen) return
       if (this._ws && this._ws.readyState !== WebSocket.OPEN) {
-        console.warn(`[ExchangeWs] ${this._exchangeId} connect timeout (8s), falling back`)
+        console.warn(`[ExchangeWs] ${this._exchangeId} connect timeout (8s)`)
         this._ws.onclose = null
         this._ws.onerror = null
         try { this._ws.close() } catch (_) {}
@@ -338,11 +336,11 @@ export default class ExchangeKlineWs {
 
       // For non-Binance exchanges: if no data arrives within 12s after open,
       // the subscription likely failed silently — fall back.
-      if (this._exchangeId !== FALLBACK_EXCHANGE && !this._fallbackUsed) {
+      if (!this._fallbackUsed) {
         this._dataTimeout = setTimeout(() => {
           if (myGen !== this._openGen) return
           if (!this._gotData && !this._closed) {
-            console.warn(`[ExchangeWs] ${this._exchangeId} connected but no data received, falling back`)
+            console.warn(`[ExchangeWs] ${this._exchangeId} connected but no data received`)
             this._ws.onclose = null
             try { this._ws.close() } catch (_) {}
             this._ws = null
@@ -384,29 +382,9 @@ export default class ExchangeKlineWs {
   }
 
   _tryFallback () {
-    if (this._closed || this._fallbackUsed) {
-      if (this._onError) this._onError()
-      return
-    }
-    if (this._exchangeId === FALLBACK_EXCHANGE) {
-      if (this._onError) this._onError()
-      return
-    }
-    console.warn(`[ExchangeWs] ${this._exchangeId} failed, falling back to ${FALLBACK_EXCHANGE}`)
     this._fallbackUsed = true
-    this._everConnected = false
-    this._exchangeId = FALLBACK_EXCHANGE
-    this._exchangeConf = EXCHANGE_WS[FALLBACK_EXCHANGE]
-    this._buildUrl()
-    if (this._ws) {
-      this._ws.onclose = null
-      this._ws.onmessage = null
-      this._ws.onerror = null
-      this._ws.onopen = null
-      try { this._ws.close() } catch (_) {}
-      this._ws = null
-    }
-    this._open()
+    this._closed = true
+    if (this._onError) this._onError()
   }
 
   _handleMessage (evt) {

@@ -4,104 +4,205 @@
       <div class="ba-header-text">
         <div class="ba-title">
           <a-icon type="bank" />
-          <span>{{ $t('brokerAccounts.title') }}</span>
+          <span>{{ $t('brokerAccounts.commandCenterTitle') }}</span>
         </div>
-        <div class="ba-subtitle">{{ $t('brokerAccounts.subtitle') }}</div>
+        <div class="ba-subtitle">{{ $t('brokerAccounts.commandCenterSubtitle') }}</div>
       </div>
       <div class="ba-header-actions">
+        <div class="ba-health">
+          <span class="ba-health-label">{{ $t('brokerAccounts.connectionHealth') }}</span>
+          <span class="ba-health-state">
+            <i class="ba-health-dot" />
+            {{ connectedCount > 0 ? $t('brokerAccounts.allHealthy') : $t('brokerAccounts.notConnected') }}
+          </span>
+        </div>
         <a-button :loading="refreshing" @click="refreshAll">
           <a-icon type="reload" /> {{ $t('brokerAccounts.refreshAll') }}
         </a-button>
+        <a-button @click="signupModalVisible = true">
+          <a-icon type="rocket" /> {{ $t('profile.exchange.openAccount') }}
+        </a-button>
+        <a-dropdown :trigger="['click']">
+          <a-button type="primary">
+            <a-icon type="plus" /> {{ $t('brokerAccounts.addAccount') }}
+          </a-button>
+          <a-menu slot="overlay" @click="handleAddAccountMenu">
+            <a-menu-item key="crypto"><a-icon type="api" /> {{ $t('brokerAccounts.cryptoAccounts') }}</a-menu-item>
+            <a-menu-item v-for="brokerItem in availableBrokers" :key="brokerItem.id">
+              <provider-logo class="ba-menu-provider-logo" :provider="brokerItem.id" :size="15" />
+              {{ $t('brokerAccounts.' + brokerItem.id + '.name') }}
+            </a-menu-item>
+          </a-menu>
+        </a-dropdown>
       </div>
     </div>
 
-    <crypto-exchange-accounts-card
-      ref="credentialCard"
-      :is-dark-theme="isDarkTheme"
-      @select-mt5-credential="handleMt5CredentialSelect"
-    />
+    <div class="ba-workbench">
+      <aside class="ba-rail">
+        <div class="ba-rail-heading">
+          <span>{{ $t('brokerAccounts.connections') }}</span>
+          <a-icon type="up" />
+        </div>
 
-    <div class="ba-section-divider">
-      <span class="ba-section-divider-label">
-        <a-icon type="api" />
-        {{ $t('brokerAccounts.restSection.title') }}
-      </span>
-      <span class="ba-section-divider-hint">{{ $t('brokerAccounts.restSection.hint') }}</span>
+        <div class="ba-rail-group">
+          <div class="ba-rail-label">
+            <span>{{ $t('brokerAccounts.tradingAccounts') }}</span>
+            <strong>{{ availableBrokers.length }}</strong>
+          </div>
+          <button
+            v-for="b in availableBrokers"
+            :key="b.id"
+            type="button"
+            class="ba-provider-row"
+            :class="{ active: activeProvider === b.id }"
+            @click="selectProvider(b.id)"
+          >
+            <span class="ba-provider-icon ba-provider-icon--broker" :style="{ '--brand-color': b.color }">
+              <provider-logo :provider="b.id" :size="24" />
+            </span>
+            <span class="ba-provider-copy">
+              <strong>{{ $t('brokerAccounts.' + b.id + '.name') }}</strong>
+              <small>
+                <i :class="{ connected: isBrokerConnected(b.id) }" />
+                {{ isBrokerConnected(b.id) ? $t('brokerAccounts.connected') : $t('brokerAccounts.notConnected') }}
+              </small>
+            </span>
+          </button>
+        </div>
+
+        <div class="ba-rail-group ba-rail-group--crypto">
+          <div class="ba-rail-label">
+            <span>{{ $t('brokerAccounts.cryptoAccounts') }}</span>
+            <strong>{{ cryptoProviders.length }}</strong>
+          </div>
+          <button
+            v-for="exchange in cryptoProviders"
+            :key="exchange.id"
+            type="button"
+            class="ba-provider-row ba-provider-row--crypto"
+            :class="{ active: activeProvider === 'crypto:' + exchange.id }"
+            @click="selectProvider('crypto:' + exchange.id)"
+          >
+            <span class="ba-provider-icon" :style="{ '--brand-color': exchange.color }">
+              <provider-logo :provider="exchange.id" :size="22" />
+            </span>
+            <span class="ba-provider-copy">
+              <strong>{{ exchange.name }}</strong>
+              <small>
+                <i :class="{ connected: hasCryptoCredential(exchange.id) }" />
+                {{ hasCryptoCredential(exchange.id) ? $t('brokerAccounts.connected') : $t('brokerAccounts.notConnected') }}
+              </small>
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="ba-detail" :class="{ 'ba-detail--crypto': !selectedBroker }">
+        <a-alert
+          v-if="selectedBroker && !desktopBrokersAllowedLoading && isBrokerBlocked(selectedBroker.id)"
+          type="info"
+          show-icon
+          class="ba-cloud-alert"
+          :message="$t('brokerAccounts.cloudOnlyAlert')"
+        />
+        <crypto-exchange-accounts-card
+          v-if="selectedBroker && selectedBroker.id === 'mt5'"
+          ref="credentialCard"
+          :is-dark-theme="isDarkTheme"
+          exchange-id="mt5"
+          @summary-change="handleCryptoSummary"
+          @select-mt5-credential="handleMt5CredentialSelect"
+        />
+        <broker-panel
+          v-if="selectedBroker"
+          :key="selectedBroker.id"
+          :broker="selectedBroker"
+          :status="connectionMap[selectedBroker.id]"
+          :loading="loadingMap[selectedBroker.id]"
+          :refresh-key="panelRefreshKeyMap[selectedBroker.id] || 0"
+          :is-dark-theme="isDarkTheme"
+          :cloud-blocked="isBrokerBlocked(selectedBroker.id)"
+          @connect="payload => handleConnect(selectedBroker.id, payload)"
+          @disconnect="() => handleDisconnect(selectedBroker.id)"
+          @refresh="() => loadOne(selectedBroker.id)"
+          @place-order="payload => handlePlaceOrder(selectedBroker.id, payload)"
+          @cancel-order="orderId => handleCancelOrder(selectedBroker.id, orderId)"
+        />
+        <crypto-exchange-accounts-card
+          v-else
+          ref="cryptoCard"
+          :is-dark-theme="isDarkTheme"
+          :exchange-id="selectedCryptoExchangeId"
+          @summary-change="handleCryptoSummary"
+        />
+      </main>
     </div>
 
-    <a-alert
-      v-if="!desktopBrokersAllowedLoading && !desktopBrokersAllowed"
-      type="info"
-      show-icon
-      class="ba-cloud-alert"
-      :message="$t('brokerAccounts.cloudOnlyAlert')"
+    <exchange-signup-modal
+      :visible.sync="signupModalVisible"
+      :is-dark-theme="isDarkTheme"
     />
-
-    <a-tabs v-model="activeBroker" class="ba-tabs" type="card" @change="onBrokerChange">
-      <a-tab-pane v-for="b in availableBrokers" :key="b.id">
-        <template #tab>
-          <span class="ba-tab-label">
-            <a-icon :type="b.icon" />
-            <span>{{ $t('brokerAccounts.' + b.id + '.name') }}</span>
-            <a-badge
-              v-if="connectionMap[b.id] && connectionMap[b.id].connected"
-              status="success"
-              class="ba-tab-badge"
-            />
-            <a-badge
-              v-else
-              status="default"
-              class="ba-tab-badge"
-            />
-          </span>
-        </template>
-
-        <broker-panel
-          :broker="b"
-          :status="connectionMap[b.id]"
-          :loading="loadingMap[b.id]"
-          :refresh-key="panelRefreshKeyMap[b.id] || 0"
-          :is-dark-theme="isDarkTheme"
-          :cloud-blocked="isBrokerBlocked(b.id)"
-          @connect="payload => handleConnect(b.id, payload)"
-          @disconnect="() => handleDisconnect(b.id)"
-          @refresh="() => loadOne(b.id)"
-          @place-order="payload => handlePlaceOrder(b.id, payload)"
-          @cancel-order="orderId => handleCancelOrder(b.id, orderId)"
-        />
-      </a-tab-pane>
-    </a-tabs>
   </div>
 </template>
 
 <script>
 import { broker, BROKER_IDS, BROKER_META } from '@/api/broker'
-import { getDesktopBrokersPolicy } from '@/api/credentials'
+import { getDesktopBrokersPolicy, listExchangeCredentials } from '@/api/credentials'
 import BrokerPanel from './components/BrokerPanel.vue'
 import CryptoExchangeAccountsCard from './components/CryptoExchangeAccountsCard.vue'
+import ExchangeSignupModal from '@/components/ExchangeSignupModal/ExchangeSignupModal.vue'
+import ProviderLogo from '@/components/ProviderLogo/ProviderLogo.vue'
 import { baseMixin } from '@/store/app-mixin'
+
+const CRYPTO_PROVIDERS = [
+  { id: 'binance', name: 'Binance', color: '#f0b90b' },
+  { id: 'okx', name: 'OKX', color: '#7c8798' },
+  { id: 'bybit', name: 'Bybit', color: '#f7a600' },
+  { id: 'bitget', name: 'Bitget', color: '#00a6c8' },
+  { id: 'gate', name: 'Gate.io', color: '#2354e6' },
+  { id: 'htx', name: 'HTX', color: '#2e64fe' }
+]
 
 export default {
   name: 'BrokerAccounts',
-  components: { BrokerPanel, CryptoExchangeAccountsCard },
+  components: { BrokerPanel, CryptoExchangeAccountsCard, ExchangeSignupModal, ProviderLogo },
   mixins: [baseMixin],
   data () {
     return {
       activeBroker: 'alpaca',
+      activeProvider: 'alpaca',
       connectionMap: {},
       loadingMap: {},
+      cryptoCredentialItems: [],
       panelRefreshKeyMap: {},
       refreshing: false,
+      signupModalVisible: false,
       desktopBrokersAllowed: true,
       desktopBrokersAllowedLoading: true
     }
   },
   computed: {
     isDarkTheme () {
-      return this.theme === 'dark' || (this.$store && this.$store.getters && this.$store.getters.theme === 'dark')
+      const theme = this.navTheme || (this.$store && this.$store.getters && this.$store.getters.theme)
+      return theme === 'dark' || theme === 'realdark'
     },
     availableBrokers () {
       return BROKER_IDS.map(id => BROKER_META[id])
+    },
+    cryptoProviders () {
+      return CRYPTO_PROVIDERS
+    },
+    selectedBroker () {
+      return BROKER_META[this.activeProvider] || null
+    },
+    selectedCryptoExchangeId () {
+      const prefix = 'crypto:'
+      return this.activeProvider.startsWith(prefix)
+        ? this.activeProvider.slice(prefix.length).trim().toLowerCase()
+        : ''
+    },
+    connectedCount () {
+      return BROKER_IDS.filter(id => this.isBrokerConnected(id)).length + this.cryptoCredentialItems.length
     }
   },
   async mounted () {
@@ -113,6 +214,45 @@ export default {
     this.refreshAll()
   },
   methods: {
+    isBrokerConnected (id) {
+      return !!(this.connectionMap[id] && this.connectionMap[id].connected)
+    },
+    hasCryptoCredential (exchangeId) {
+      return this.cryptoCredentialItems.some(item => String(item.exchange_id || '').toLowerCase() === exchangeId)
+    },
+    selectProvider (provider) {
+      this.activeProvider = provider
+      if (BROKER_META[provider]) {
+        this.activeBroker = provider
+        this.onBrokerChange(provider)
+      }
+    },
+    handleAddAccountMenu ({ key }) {
+      if (key === 'crypto') {
+        this.openCryptoAdd()
+        return
+      }
+      this.selectProvider(key)
+    },
+    openCryptoAdd () {
+      this.activeProvider = 'crypto:binance'
+      this.$nextTick(() => {
+        if (this.$refs.cryptoCard) this.$refs.cryptoCard.openAddModal()
+      })
+    },
+    handleCryptoSummary (payload) {
+      this.cryptoCredentialItems = payload && Array.isArray(payload.items) ? payload.items : []
+    },
+    async loadCryptoSummary () {
+      try {
+        const res = await listExchangeCredentials()
+        this.cryptoCredentialItems = res && res.code === 1 && res.data && Array.isArray(res.data.items)
+          ? res.data.items
+          : []
+      } catch (_) {
+        this.cryptoCredentialItems = []
+      }
+    },
     async loadDesktopPolicy () {
       try {
         const res = await getDesktopBrokersPolicy()
@@ -146,7 +286,7 @@ export default {
     async refreshAll () {
       this.refreshing = true
       try {
-        await Promise.all(BROKER_IDS.map(id => this.loadOne(id)))
+        await Promise.all([...BROKER_IDS.map(id => this.loadOne(id)), this.loadCryptoSummary()])
       } finally {
         this.refreshing = false
       }
@@ -220,6 +360,7 @@ export default {
         return
       }
       this.activeBroker = 'mt5'
+      this.activeProvider = 'mt5'
       await this.handleConnect('mt5', { credential_id: item.id })
     },
     async handleDisconnect (id) {
@@ -264,164 +405,379 @@ export default {
 
 <style lang="less" scoped>
 .broker-accounts {
-  padding: 16px !important;
-  min-height: calc(100vh - 64px);
-  background: #f5f7fa;
-  &.theme-dark {
-    background: #0f0f10;
-  }
+  height: calc(100vh - 64px);
+  min-height: 660px;
+  padding: 24px 28px 28px !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f7f9fc;
 }
+
 .ba-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 24px;
+  margin-bottom: 20px;
 }
+
 .ba-header-text {
   max-width: 720px;
 }
+
 .ba-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e3a5f;
+  font-size: 26px;
+  font-weight: 750;
+  color: #182338;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  letter-spacing: -0.02em;
 
   .anticon {
-    font-size: 28px;
+    font-size: 24px;
     color: var(--primary-color, #1890ff);
   }
 }
+
 .ba-subtitle {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 14px;
   line-height: 1.6;
   color: #64748b;
 }
-.broker-accounts.theme-dark {
-  .ba-title { color: rgba(255, 255, 255, 0.92); }
-  .ba-subtitle { color: rgba(255, 255, 255, 0.55); }
+
+.ba-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
+
+.ba-health {
+  padding-right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-right: 1px solid #e6eaf0;
+  white-space: nowrap;
+}
+
+.ba-health-label {
+  font-size: 12px;
+  color: #8490a3;
+}
+
+.ba-health-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--primary-color-active, #389e0d);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ba-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color, #52c41a);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color, #52c41a) 12%, transparent);
+}
+
+.ba-workbench {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 294px minmax(0, 1fr);
+  background: #fff;
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.055);
+  overflow: hidden;
+}
+
+.ba-rail {
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid #e9edf3;
+  background: #fbfcfe;
+  scrollbar-width: thin;
+}
+
+.ba-rail-heading {
+  height: 54px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e9edf3;
+  color: #253147;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ba-rail-group {
+  padding: 18px 10px 10px;
+}
+
+.ba-rail-group--crypto {
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid #e9edf3;
+}
+
+.ba-rail-label {
+  margin-bottom: 8px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #7b8799;
+  font-size: 12px;
+  font-weight: 600;
+
+  strong {
+    color: var(--primary-color-active, #389e0d);
+    font-size: 12px;
+  }
+}
+
+.ba-provider-row {
+  width: 100%;
+  min-height: 58px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #344158;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+
+  &:hover {
+    background: #f1f5f9;
+  }
+
+  &.active {
+    background: color-mix(in srgb, var(--primary-color, #52c41a) 10%, #fff);
+    color: var(--primary-color-active, #389e0d);
+    box-shadow: inset 3px 0 0 var(--primary-color, #52c41a);
+  }
+}
+
+.ba-provider-row--crypto {
+  min-height: 52px;
+}
+
+.ba-menu-provider-logo {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+
+.ba-provider-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e6eaf0;
+  border-radius: 9px;
+  border-color: color-mix(in srgb, var(--brand-color, #7c8798) 26%, #e6eaf0);
+  background: color-mix(in srgb, var(--brand-color, #7c8798) 12%, #fff);
+  color: var(--brand-color, #7c8798);
+  font-size: 17px;
+}
+
+.ba-provider-icon--broker {
+  color: #2563eb;
+}
+
+.ba-provider-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  strong {
+    overflow: hidden;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #929cad;
+    font-size: 11px;
+  }
+
+  i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #c3cad4;
+
+    &.connected {
+      background: var(--primary-color, #52c41a);
+    }
+  }
+}
+
+.ba-detail {
+  min-width: 0;
+  min-height: 0;
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+  background: #fff;
+  scrollbar-width: thin;
+}
+
+.ba-detail--crypto {
+  padding: 0;
+
+  ::v-deep .crypto-card {
+    min-height: 100%;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 .ba-cloud-alert {
   margin-bottom: 16px;
 }
-.ba-section-divider {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin: 8px 4px 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed #e8e8e8;
-}
-.ba-section-divider-label {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1f1f1f;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  i { color: #722ed1; }
-}
-.ba-section-divider-hint {
-  font-size: 12px;
-  color: #8c8c8c;
-}
+
 .broker-accounts.theme-dark {
-  .ba-section-divider { border-bottom-color: #303030; }
-  .ba-section-divider-label { color: rgba(255, 255, 255, 0.92); }
-  .ba-section-divider-hint { color: rgba(255, 255, 255, 0.55); }
-}
-.ba-tabs {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px 16px 18px;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  background: #080808;
 
-  ::v-deep .ant-tabs-card-bar .ant-tabs-tab {
-    color: #475569 !important;
-    background: #f8fafc !important;
-    border-color: #e5e7eb !important;
+  .ba-title {
+    color: rgba(255, 255, 255, 0.93);
   }
 
-  ::v-deep .ant-tabs-card-bar .ant-tabs-tab:hover {
-    color: var(--primary-color-active, #0958d9) !important;
-    border-color: color-mix(in srgb, var(--primary-color, #1677ff) 34%, #e5e7eb) !important;
-    background: color-mix(in srgb, var(--primary-color, #1677ff) 5%, #ffffff) !important;
+  .ba-subtitle,
+  .ba-health-label {
+    color: rgba(255, 255, 255, 0.48);
   }
 
-  ::v-deep .ant-tabs-tab-active {
-    border-color: color-mix(in srgb, var(--primary-color, #1677ff) 36%, transparent) !important;
-    background: #ffffff !important;
-    color: var(--primary-color-active, #0958d9) !important;
+  .ba-health {
+    border-right-color: #2c3036;
   }
 
-  ::v-deep .ant-tabs-tab-active .ba-tab-label,
-  ::v-deep .ant-tabs-tab-active .ba-tab-label span,
-  ::v-deep .ant-tabs-tab-active .ba-tab-label .anticon {
-    color: var(--primary-color-active, #0958d9);
+  .ba-workbench {
+    background: #111;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
   }
 
-  ::v-deep .ba-tab-label,
-  ::v-deep .ba-tab-label span,
-  ::v-deep .ba-tab-label .anticon {
-    color: inherit;
-  }
-}
-.broker-accounts.theme-dark .ba-tabs {
-  background: #181818;
-  border: 1px solid #2a2a2a;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-
-  ::v-deep .ant-tabs-bar {
-    border-bottom-color: #303030;
+  .ba-rail {
+    background: #0d0d0d;
+    border-right-color: rgba(255, 255, 255, 0.1);
   }
 
-  ::v-deep .ant-tabs-nav-container {
-    color: rgba(255, 255, 255, 0.68);
+  .ba-rail-heading,
+  .ba-rail-group--crypto {
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
-  ::v-deep .ant-tabs-card-bar .ant-tabs-tab {
-    background: #111214 !important;
-    border-color: #303030 !important;
-    color: rgba(255, 255, 255, 0.58) !important;
+  .ba-rail-heading {
+    color: rgba(255, 255, 255, 0.86);
   }
 
-  ::v-deep .ant-tabs-card-bar .ant-tabs-tab:hover {
-    background: #171b20 !important;
-    border-color: color-mix(in srgb, var(--primary-color, #1890ff) 36%, #303030) !important;
-    color: var(--primary-color, #1890ff) !important;
+  .ba-rail-label {
+    color: rgba(255, 255, 255, 0.42);
   }
 
-  ::v-deep .ant-tabs-card-bar .ant-tabs-tab-active {
-    background: #16181b !important;
-    border-color: color-mix(in srgb, var(--primary-color, #1890ff) 55%, transparent) !important;
-    color: var(--primary-color, #1890ff) !important;
+  .ba-provider-row {
+    color: rgba(255, 255, 255, 0.72);
+
+    &:hover {
+      background: #181818;
+    }
+
+    &.active {
+      background: color-mix(in srgb, var(--primary-color, #52c41a) 13%, #111);
+      color: var(--primary-color, #73d13d);
+    }
   }
 
-  ::v-deep .ant-tabs-tab-disabled {
-    background: #101010 !important;
-    color: rgba(255, 255, 255, 0.25) !important;
+  .ba-provider-icon {
+    background: #181818;
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
-  ::v-deep .ba-tab-label,
-  ::v-deep .ba-tab-label span,
-  ::v-deep .ba-tab-label .anticon {
-    color: inherit;
+  .ba-provider-copy small {
+    color: rgba(255, 255, 255, 0.4);
   }
 
-  ::v-deep .ant-badge-status-default {
-    background-color: rgba(255, 255, 255, 0.3);
+  .ba-detail {
+    background: #111;
   }
 }
-.ba-tab-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  i { font-size: 16px; }
+
+@media (max-width: 1080px) {
+  .broker-accounts {
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+  }
+
+  .ba-header {
+    align-items: flex-start;
+  }
+
+  .ba-health {
+    display: none;
+  }
+
+  .ba-workbench {
+    min-height: 760px;
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
 }
-.ba-tab-badge {
-  margin-left: 2px;
+
+@media (max-width: 760px) {
+  .broker-accounts {
+    padding: 16px !important;
+  }
+
+  .ba-header {
+    flex-direction: column;
+  }
+
+  .ba-header-actions {
+    width: 100%;
+
+    > .ant-btn,
+    > .ant-dropdown-trigger {
+      flex: 1;
+    }
+  }
+
+  .ba-workbench {
+    display: block;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .ba-rail {
+    max-height: 360px;
+    border-right: 0;
+    border-bottom: 1px solid #e9edf3;
+  }
+
+  .ba-detail {
+    overflow: visible;
+  }
 }
 </style>

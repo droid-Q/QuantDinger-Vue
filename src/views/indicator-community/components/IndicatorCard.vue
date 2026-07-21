@@ -16,11 +16,27 @@
         <span class="cover-title">{{ indicatorInitials }}</span>
         <span class="cover-subtitle">{{ indicator.name }}</span>
       </div>
-      <div class="price-tag" :class="isPaid ? 'paid' : 'free'">
-        {{ isPaid ? `${indicator.price} ${$t('community.credits')}` : $t('community.free') }}
-      </div>
-      <div v-if="indicator.vip_free" class="vip-free-tag">
-        {{ $t('community.vipFree') }}
+      <div class="cover-badges">
+        <div class="cover-badges__left">
+          <a-tooltip v-if="isStrategyAsset && hasScore" :title="scoreTooltip">
+            <div class="score-badge" :class="scoreBadgeClass">
+              <a-icon type="trophy" theme="filled" />
+              <span class="score-num">{{ scoreLabel }}</span>
+            </div>
+          </a-tooltip>
+          <div v-else class="asset-type-badge">
+            <a-icon :type="isStrategyAsset ? 'code-sandbox' : 'line-chart'" />
+            <span>{{ isStrategyAsset ? $t('community.tabScriptTemplates') : $t('community.chartIndicator') }}</span>
+          </div>
+        </div>
+        <div class="cover-badges__right">
+          <div v-if="indicator.vip_free" class="vip-free-tag">
+            {{ $t('community.vipFree') }}
+          </div>
+          <div class="price-tag" :class="isPaid ? 'paid' : 'free'">
+            {{ isPaid ? `${indicator.price} ${$t('community.credits')}` : $t('community.free') }}
+          </div>
+        </div>
       </div>
       <div v-if="indicator.is_own" class="own-tag">
         {{ $t('community.myIndicator') }}
@@ -28,28 +44,28 @@
       <div v-else-if="indicator.is_purchased" class="purchased-tag">
         <a-icon type="check-circle" /> {{ $t('community.purchased') }}
       </div>
-
-      <a-tooltip v-if="hasScore" :title="scoreTooltip">
-        <div class="score-badge" :class="scoreBadgeClass">
-          <a-icon type="trophy" theme="filled" />
-          <span class="score-num">{{ scoreLabel }}</span>
-        </div>
-      </a-tooltip>
     </div>
 
     <div class="card-content">
       <h3 class="card-title" :title="indicator.name">{{ indicator.name }}</h3>
       <p class="card-desc">{{ indicator.description || $t('community.noDescription') }}</p>
-
-      <!--
-        Backtest KPI strip: return / sharpe / drawdown. Numbers come from
-        the median across all this indicator's successful backtests, so
-        a single lucky run can't game the card. ``hasKpi`` (any of the
-        three is non-zero OR sample_size > 0) gates the whole strip — we
-        don't want to show "+0.00% / 0.00 / -0.00%" on indicators that
-        nobody's backtested yet, that just looks broken.
-      -->
-      <div v-if="hasKpi" class="card-kpi">
+      <div v-if="!isStrategyAsset" class="visual-summary">
+        <div class="visual-summary__head">
+          <span><a-icon type="eye" /> {{ $t('community.visualProfile') }}</span>
+          <strong>{{ visibilityLabel }}</strong>
+        </div>
+        <div class="visual-meter" aria-hidden="true">
+          <span class="visual-meter__bar visual-meter__bar--trend"></span>
+          <span class="visual-meter__bar visual-meter__bar--signal"></span>
+          <span class="visual-meter__bar visual-meter__bar--zone"></span>
+        </div>
+        <div class="visual-chips">
+          <span><a-icon type="sliders" /> {{ parameterChipLabel }}</span>
+          <span><a-icon type="environment" /> {{ $t('community.chartMarkers') }}</span>
+          <span><a-icon type="block" /> {{ $t('community.overlayLayers') }}</span>
+        </div>
+      </div>
+      <div v-else-if="hasKpi" class="card-kpi">
         <div class="kpi-cell">
           <div class="kpi-label">{{ $t('community.totalReturn') }}</div>
           <div class="kpi-value" :class="returnToneClass">{{ formatPercent(indicator.total_return) }}</div>
@@ -63,15 +79,7 @@
           <div class="kpi-value kpi-dd">{{ formatPercent(indicator.max_drawdown) }}</div>
         </div>
       </div>
-
-      <overfit-risk-gauge v-if="hasKpi" :indicator="indicator" />
-
-      <!--
-        "Applicable" range tags: distilled from the symbols/timeframes
-        the author has successfully backtested. We cap at 2 visible
-        entries each and roll the rest into a "+N" indicator to keep
-        cards from blowing up vertically.
-      -->
+      <overfit-risk-gauge v-if="isStrategyAsset && hasKpi" :indicator="indicator" />
       <div v-if="hasApplicable" class="card-tags">
         <a-tag v-for="sym in visibleSymbols" :key="`s-${sym}`" class="tag-symbol">{{ sym }}</a-tag>
         <a-tag v-if="extraSymbolCount > 0" class="tag-extra">+{{ extraSymbolCount }}</a-tag>
@@ -138,6 +146,10 @@ export default {
     isPaid () {
       return this.indicator.pricing_type !== 'free' && this.indicator.price > 0
     },
+    isStrategyAsset () {
+      const assetType = String(this.indicator.asset_type || '').toLowerCase()
+      return assetType === 'script_template' || assetType === 'script' || assetType === 'strategy'
+    },
     coverGradient () {
       const index = (this.indicator.id || 0) % GRADIENT_PRESETS.length
       return GRADIENT_PRESETS[index]
@@ -158,24 +170,17 @@ export default {
         background: (!this.indicator.preview_image || this.imageError) ? this.coverGradient : '#f5f5f5'
       }
     },
-    // === Score badge ===
     scoreNumber () {
       const v = parseFloat(this.indicator.score)
       return isNaN(v) ? 0 : v
     },
     hasScore () {
-      // Hide the trophy entirely on indicators with no scoring evidence.
-      // sample_size also gates this because score=0 can happen with
-      // sample_size>0 too (a truly bad indicator) — that case still
-      // deserves the badge, it's just a low score.
       return (this.indicator.sample_size || 0) > 0
     },
     scoreLabel () {
       return this.scoreNumber.toFixed(0)
     },
     scoreBadgeClass () {
-      // Thresholds match StrategyScoringService's scoring band roughly:
-      // 80+ excellent, 60-80 solid, 40-60 mediocre, <40 weak.
       const s = this.scoreNumber
       if (s >= 80) return 'score-badge--top'
       if (s >= 60) return 'score-badge--good'
@@ -184,16 +189,26 @@ export default {
     },
     scoreTooltip () {
       const n = this.indicator.sample_size || 0
-      const base = this.$t('community.scoreTooltipBase')
-      const sample = this.$t('community.scoreTooltipSample', { n })
-      return `${base} ${sample}`
+      return `${this.$t('community.scoreTooltipBase')} ${this.$t('community.scoreTooltipSample', { n })}`
     },
-    // === KPI strip ===
+    codeHidden () {
+      return !!(this.indicator.code_hidden || this.indicator.codeHidden || this.indicator.is_encrypted)
+    },
+    visibilityLabel () {
+      return this.codeHidden ? this.$t('community.codeHidden') : this.$t('community.codeVisible')
+    },
+    parameterCount () {
+      const raw = this.indicator.param_count || this.indicator.parameter_count || this.indicator.params_count || 0
+      const n = Number(raw)
+      return Number.isFinite(n) && n > 0 ? n : 0
+    },
+    parameterChipLabel () {
+      return this.parameterCount > 0
+        ? this.$t('community.paramCount', { n: this.parameterCount })
+        : this.$t('community.adjustableParams')
+    },
     hasKpi () {
       const i = this.indicator
-      // We show the strip if there's at least one signal of real backtest
-      // evidence. ``sample_size`` is the cleanest gate; the value
-      // fallback covers older API responses that don't return it yet.
       return (i.sample_size || 0) > 0 ||
         parseFloat(i.total_return || 0) !== 0 ||
         parseFloat(i.sharpe || 0) !== 0 ||
@@ -236,15 +251,12 @@ export default {
     },
     formatNumber (val, digits) {
       const v = parseFloat(val)
-      if (isNaN(v)) return '—'
+      if (isNaN(v)) return '-'
       return v.toFixed(digits == null ? 2 : digits)
     },
-    // Percent values arrive from the backend already in 0..100 scale (e.g.
-    // 12.5 means +12.5%). max_drawdown is negative by convention so we
-    // don't need to flip it.
     formatPercent (val) {
       const v = parseFloat(val)
-      if (isNaN(v)) return '—'
+      if (isNaN(v)) return '-'
       const sign = v > 0 ? '+' : ''
       return `${sign}${v.toFixed(2)}%`
     },
@@ -335,15 +347,48 @@ export default {
       }
     }
 
-    .price-tag {
+    .cover-badges {
       position: absolute;
       top: 8px;
+      left: 8px;
       right: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 3;
+
+      &__left,
+      &__right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      &__right {
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+    }
+
+    .price-tag {
+      display: inline-flex;
+      align-items: center;
+      max-width: 96px;
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
       font-weight: 600;
-      z-index: 2;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: auto;
 
       &.free {
         background: #52c41a;
@@ -373,14 +418,30 @@ export default {
       background: rgba(82, 196, 26, 0.85);
     }
 
-    // Composite-score trophy badge (top-left of cover).
-    // Position next to vip-free-tag (which also sits top-left); when both
-    // exist the vip-free tag wins the corner and the score badge slides
-    // down. Use a tiered colour so the eye can scan the leaderboard.
+    .asset-type-badge {
+      padding: 4px 8px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 118px;
+      background: rgba(0, 0, 0, 0.48);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(4px);
+      pointer-events: auto;
+
+      .anticon { font-size: 12px; }
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
     .score-badge {
-      position: absolute;
-      top: 8px;
-      left: 8px;
       padding: 3px 8px 3px 6px;
       border-radius: 12px;
       font-size: 12px;
@@ -389,9 +450,9 @@ export default {
       display: flex;
       align-items: center;
       gap: 4px;
-      z-index: 3;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
       backdrop-filter: blur(4px);
+      pointer-events: auto;
 
       .anticon { font-size: 12px; }
       .score-num { letter-spacing: 0.5px; }
@@ -404,15 +465,20 @@ export default {
   }
 
   .vip-free-tag {
-    position: absolute;
-    top: 8px;
-    left: 8px;
+    display: inline-flex;
+    align-items: center;
+    max-width: 82px;
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 12px;
     font-weight: 600;
+    line-height: 1;
     background: rgba(250, 173, 20, 0.92);
     color: #1f1f1f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: auto;
   }
 
   .card-content {
@@ -444,9 +510,71 @@ export default {
       min-height: 36px;
     }
 
-    // KPI strip (return / sharpe / drawdown). Three equal-width columns
-    // with light background so it visually reads as one chunk rather
-    // than three loose numbers next to the description.
+    .visual-summary {
+      padding: 8px;
+      margin: 4px 0 8px;
+      background: linear-gradient(135deg, rgba(24, 144, 255, 0.08), rgba(82, 196, 26, 0.08));
+      border-radius: 6px;
+      border: 1px solid rgba(24, 144, 255, 0.12);
+    }
+
+    .visual-summary__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: rgba(0, 0, 0, 0.48);
+
+      span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      strong {
+        font-weight: 600;
+        color: rgba(0, 0, 0, 0.78);
+        white-space: nowrap;
+      }
+    }
+
+    .visual-meter {
+      display: grid;
+      grid-template-columns: 1.25fr 0.9fr 0.7fr;
+      gap: 3px;
+      height: 6px;
+      margin: 7px 0;
+
+      &__bar {
+        border-radius: 999px;
+        opacity: 0.95;
+        &--trend { background: #1890ff; }
+        &--signal { background: #52c41a; }
+        &--zone { background: #faad14; }
+      }
+    }
+
+    .visual-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+
+      span {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        max-width: 100%;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.62);
+        color: rgba(0, 0, 0, 0.58);
+        font-size: 10px;
+        line-height: 16px;
+      }
+    }
+
     .card-kpi {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -460,11 +588,13 @@ export default {
         text-align: center;
         min-width: 0;
       }
+
       .kpi-label {
         font-size: 10px;
         color: rgba(0, 0, 0, 0.4);
         line-height: 1.4;
       }
+
       .kpi-value {
         font-size: 12px;
         font-weight: 600;
@@ -475,7 +605,8 @@ export default {
         text-overflow: ellipsis;
 
         &.kpi-pos { color: #389e0d; }
-        &.kpi-neg, &.kpi-dd { color: #cf1322; }
+        &.kpi-neg,
+        &.kpi-dd { color: #cf1322; }
       }
     }
 
@@ -559,13 +690,38 @@ export default {
       color: rgba(255, 255, 255, 0.45);
     }
 
-    .card-kpi {
-      background: rgba(255, 255, 255, 0.04);
-      .kpi-label { color: rgba(255, 255, 255, 0.4); }
-      .kpi-value {
+    .visual-summary {
+      background: linear-gradient(135deg, rgba(24, 144, 255, 0.14), rgba(82, 196, 26, 0.12));
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .visual-summary__head {
+      color: rgba(255, 255, 255, 0.46);
+
+      strong {
         color: rgba(255, 255, 255, 0.78);
-        &.kpi-pos { color: #95de64; }
-        &.kpi-neg, &.kpi-dd { color: #ff7875; }
+      }
+    }
+
+    .visual-chips span {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.56);
+    }
+
+    .card-kpi {
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+
+      .kpi-label {
+        color: rgba(255, 255, 255, 0.48);
+      }
+
+      .kpi-value {
+        color: rgba(255, 255, 255, 0.82);
+
+        &.kpi-pos { color: #52c41a; }
+        &.kpi-neg,
+        &.kpi-dd { color: #ff4d4f; }
       }
     }
 

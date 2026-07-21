@@ -121,7 +121,7 @@
                           v-decorator="[entry.item.key, { initialValue: getFieldValue(entry.groupKey, entry.item.key) }]"
                           type="text"
                           :class="{ 'secret-masked-input': !passwordVisible[entry.item.key] }"
-                          :placeholder="$t('settings.inputApiKey')"
+                          :placeholder="getSecretPlaceholder(entry.groupKey, entry.item)"
                           :name="getSafeInputName(entry.item)"
                           :autocomplete="getAutocomplete(entry.item)"
                           spellcheck="false"
@@ -224,6 +224,78 @@
               </h3>
             </div>
 
+            <div v-if="activeGroupKey === 'market_catalog'" class="market-catalog-panel">
+              <div class="catalog-action-row">
+                <div>
+                  <h4>{{ $t('settings.marketCatalog.overviewTitle') }}</h4>
+                  <p>{{ $t('settings.marketCatalog.description') }}</p>
+                </div>
+                <a-button type="primary" :loading="catalogSyncing" @click="handleCatalogSync">
+                  <a-icon type="sync" />
+                  {{ catalogRunning ? $t('settings.marketCatalog.syncing') : $t('settings.marketCatalog.syncNow') }}
+                </a-button>
+              </div>
+              <a-alert v-if="catalogLatest" showIcon :type="catalogStatusType" :message="catalogStatusLabel" :description="catalogStatusDescription" />
+              <a-spin :spinning="catalogLoading">
+                <a-row :gutter="16" class="catalog-stats">
+                  <a-col :xs="12" :md="6"><a-statistic :title="$t('settings.marketCatalog.activeRecords')" :value="catalogMetric('active')" /></a-col>
+                  <a-col :xs="12" :md="6"><a-statistic :title="$t('settings.marketCatalog.uniqueSymbols')" :value="catalogMetric('symbols')" /></a-col>
+                  <a-col :xs="12" :md="6"><a-statistic :title="$t('settings.marketCatalog.equityContracts')" :value="catalogMetric('equities')" /></a-col>
+                  <a-col :xs="12" :md="6"><a-statistic :title="$t('settings.marketCatalog.rwaContracts')" :value="catalogMetric('rwa')" /></a-col>
+                </a-row>
+                <div class="catalog-section-title">{{ $t('settings.marketCatalog.venueCoverage') }}</div>
+                <div class="catalog-table-wrap">
+                  <table class="catalog-table">
+                    <thead><tr><th>{{ $t('settings.marketCatalog.exchange') }}</th><th>{{ $t('settings.marketCatalog.spot') }}</th><th>{{ $t('settings.marketCatalog.swap') }}</th><th>{{ $t('settings.marketCatalog.syncResult') }}</th></tr></thead>
+                    <tbody>
+                      <tr v-for="venue in catalogVenueRows" :key="venue.exchange">
+                        <td>{{ venue.label }}</td><td>{{ venue.spot }}</td><td>{{ venue.swap }}</td>
+                        <td><a-tag :color="venue.statusColor">{{ venue.statusLabel }}</a-tag></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <a-collapse v-if="catalogFailures.length" class="catalog-failures">
+                  <a-collapse-panel key="failures" :header="$t('settings.marketCatalog.failureDetails')">
+                    <div v-for="item in catalogFailures" :key="`${item.exchange}-${item.market_type}`" class="catalog-failure-item">
+                      <strong>{{ item.exchange }} · {{ item.market_type === 'spot' ? $t('settings.marketCatalog.spot') : $t('settings.marketCatalog.swap') }}</strong>
+                      <span>{{ cleanCatalogError(item.error) }}</span>
+                    </div>
+                  </a-collapse-panel>
+                </a-collapse>
+                <div class="catalog-section-title">{{ $t('settings.marketCatalog.marketOverview') }}</div>
+                <div class="catalog-market-grid">
+                  <div v-for="market in catalogMarkets" :key="market.market" class="catalog-market-item">
+                    <span>{{ market.market }}</span><strong>{{ Number(market.active || 0).toLocaleString() }}</strong>
+                  </div>
+                </div>
+                <a-divider />
+                <div class="catalog-action-row universe-sync-header">
+                  <div>
+                    <h4>{{ $t('settings.universeSync.title') }}</h4>
+                    <p>{{ $t('settings.universeSync.description') }}</p>
+                  </div>
+                  <a-button type="primary" :loading="universeSyncing" @click="handleUniverseSync">
+                    <a-icon type="sync" />
+                    {{ universeSyncing ? $t('settings.universeSync.syncing') : $t('settings.universeSync.sync') }}
+                  </a-button>
+                </div>
+                <a-spin :spinning="universeLoading">
+                  <a-checkbox-group v-model="selectedUniverseCodes" class="universe-sync-list">
+                    <div v-for="item in systemUniverseRows" :key="item.id" class="universe-sync-row">
+                      <a-checkbox v-if="syncableUniverseCodes.includes(item.code)" :value="item.code" />
+                      <span v-else class="universe-checkbox-spacer" />
+                      <div class="universe-sync-name"><strong>{{ universeAdminLabel(item) }}</strong><span>{{ item.market }}</span></div>
+                      <div><span>{{ $t('settings.universeSync.members') }}</span><strong>{{ Number(item.member_count || 0).toLocaleString() }}</strong></div>
+                      <div><span>{{ $t('settings.universeSync.version') }}</span><strong>{{ item.source_version || universeSnapshotDate(item) }}</strong></div>
+                      <div><span>{{ $t('settings.universeSync.historyFrom') }}</span><strong>{{ item.history_from || '-' }}</strong></div>
+                      <a-tag :color="item.status === 'active' ? 'green' : 'orange'">{{ item.status }}</a-tag>
+                    </div>
+                  </a-checkbox-group>
+                </a-spin>
+              </a-spin>
+            </div>
+
             <div v-if="activeGroupKey === 'ai' && currentLlmProvider === 'openrouter'" class="openrouter-balance-card">
               <a-card size="small" :bordered="false">
                 <div class="balance-header">
@@ -276,7 +348,7 @@
               </a-card>
             </div>
 
-            <a-form :form="form" layout="vertical" class="settings-form" autocomplete="off">
+            <a-form v-if="activeGroupKey !== 'market_catalog'" :form="form" layout="vertical" class="settings-form" autocomplete="off">
               <div v-if="activeGroupKey === 'ai'" class="ai-settings-panel">
                 <a-alert
                   class="ai-provider-alert"
@@ -356,7 +428,7 @@
                               v-decorator="[entry.item.key, { initialValue: getFieldValue(activeGroupKey, entry.item.key) }]"
                               type="text"
                               :class="{ 'secret-masked-input': !passwordVisible[entry.item.key] }"
-                              :placeholder="$t('settings.inputApiKey')"
+                              :placeholder="getSecretPlaceholder(activeGroupKey, entry.item)"
                               :name="getSafeInputName(entry.item)"
                               :autocomplete="getAutocomplete(entry.item)"
                               spellcheck="false"
@@ -507,7 +579,7 @@
                           v-decorator="[entry.item.key, { initialValue: getFieldValue(activeGroupKey, entry.item.key) }]"
                           type="text"
                           :class="{ 'secret-masked-input': !passwordVisible[entry.item.key] }"
-                          :placeholder="$t('settings.inputApiKey')"
+                          :placeholder="getSecretPlaceholder(activeGroupKey, entry.item)"
                           :name="getSafeInputName(entry.item)"
                           :autocomplete="getAutocomplete(entry.item)"
                           spellcheck="false"
@@ -631,7 +703,7 @@
       </div>
     </a-spin>
 
-    <div class="settings-footer">
+    <div v-if="activeGroupKey !== 'market_catalog'" class="settings-footer">
       <a-button @click="handleReset" :disabled="saving">
         <a-icon type="undo" />
         {{ $t('settings.reset') }}
@@ -645,8 +717,9 @@
 </template>
 
 <script>
-import { getSettingsSchema, getSettingsValues, saveSettings, getOpenRouterBalance } from '@/api/settings'
+import { getSettingsSchema, getSettingsValues, saveSettings, getOpenRouterBalance, getMarketCatalogOverview, syncMarketCatalog } from '@/api/settings'
 import { getMarketModules } from '@/api/marketModules'
+import { getSystemUniverseOverview, syncSystemUniverses } from '@/api/universe'
 import { baseMixin } from '@/store/app-mixin'
 
 export default {
@@ -669,6 +742,14 @@ export default {
       showRestartTip: false,
       balanceLoading: false,
       openrouterBalance: null,
+      catalogLoading: false,
+      catalogSyncing: false,
+      catalogOverview: null,
+      catalogPollTimer: null,
+      universeLoading: false,
+      universeSyncing: false,
+      universeOverview: null,
+      selectedUniverseCodes: [],
       selectedLlmProvider: '',
       settingsInputNonce: Math.random().toString(36).slice(2, 10)
     }
@@ -678,7 +759,15 @@ export default {
       return this.navTheme === 'dark' || this.navTheme === 'realdark'
     },
     sortedSchema () {
-      const entries = Object.entries(this.schema)
+      const entries = Object.entries({
+        ...this.schema,
+        market_catalog: {
+          title: this.$t('settings.group.market_catalog'),
+          icon: 'database',
+          order: 4,
+          items: []
+        }
+      })
       entries.sort((a, b) => {
         const orderA = a[1].order || 999
         const orderB = b[1].order || 999
@@ -748,6 +837,75 @@ export default {
       const option = this.getSelectOptions(providerItem).find(opt => opt.value === this.currentLlmProvider)
       return option ? option.label : this.currentLlmProvider
     },
+    catalogLatest () {
+      return this.catalogOverview && this.catalogOverview.latest_sync
+    },
+    catalogRunning () {
+      return Boolean(this.catalogLatest && this.catalogLatest.status === 'running')
+    },
+    catalogMarkets () {
+      return (this.catalogOverview && this.catalogOverview.markets) || []
+    },
+    systemUniverseRows () {
+      return (this.universeOverview && this.universeOverview.universes) || []
+    },
+    syncableUniverseCodes () {
+      return (this.universeOverview && this.universeOverview.syncable_codes) || []
+    },
+    catalogStatusType () {
+      const status = this.catalogLatest && this.catalogLatest.status
+      if (status === 'success') return 'success'
+      if (status === 'running') return 'info'
+      if (status === 'partial') return 'warning'
+      return 'error'
+    },
+    catalogStatusLabel () {
+      const status = (this.catalogLatest && this.catalogLatest.status) || 'never'
+      return this.$t(`settings.marketCatalog.status.${status}`)
+    },
+    catalogStatusDescription () {
+      if (!this.catalogLatest) return ''
+      const result = this.catalogLatest.result || {}
+      if (this.catalogLatest.status === 'running') return this.$t('settings.marketCatalog.runningDescription')
+      return this.formatMessage('settings.marketCatalog.resultDescription', '', {
+        success: String(result.contexts_succeeded || 0),
+        total: String(result.contexts_total || 0),
+        rows: Number(result.upserted || 0).toLocaleString(),
+        time: this.formatCatalogTime(this.catalogLatest.finished_at)
+      })
+    },
+    catalogVenueRows () {
+      const labels = { binance: 'Binance', bitget: 'Bitget', bybit: 'Bybit', okx: 'OKX', gate: 'Gate.io', htx: 'HTX' }
+      const coverage = {}
+      for (const row of ((this.catalogOverview && this.catalogOverview.venues) || [])) {
+        const key = String(row.exchange || '').toLowerCase()
+        if (!coverage[key]) coverage[key] = { spot: 0, swap: 0 }
+        coverage[key][row.market_type] = Number(row.active || 0)
+      }
+      const contexts = ((this.catalogLatest && this.catalogLatest.result && this.catalogLatest.result.contexts) || [])
+      return Object.keys(labels).map(exchange => {
+        const attempts = contexts.filter(item => item.exchange === exchange)
+        const successCount = attempts.filter(item => item.ok).length
+        let status = 'never'
+        if (this.catalogRunning) status = 'running'
+        else if (attempts.length && successCount === attempts.length) status = 'success'
+        else if (successCount > 0) status = 'partial'
+        else if (attempts.length) status = 'failed'
+        const colors = { success: 'green', partial: 'orange', failed: 'red', running: 'blue', never: 'default' }
+        return {
+          exchange,
+          label: labels[exchange],
+          spot: Number((coverage[exchange] && coverage[exchange].spot) || 0).toLocaleString(),
+          swap: Number((coverage[exchange] && coverage[exchange].swap) || 0).toLocaleString(),
+          statusColor: colors[status],
+          statusLabel: this.$t(`settings.marketCatalog.status.${status}`)
+        }
+      })
+    },
+    catalogFailures () {
+      const contexts = ((this.catalogLatest && this.catalogLatest.result && this.catalogLatest.result.contexts) || [])
+      return contexts.filter(item => !item.ok)
+    },
     aiProviderAlertTitle () {
       return this.tOr('settings.llm.currentProviderTitle', 'Current provider: {provider}')
         .replace('{provider}', this.currentLlmProviderLabel)
@@ -799,6 +957,11 @@ export default {
   },
   mounted () {
     this.loadSettings()
+    this.refreshCatalogOverview()
+    this.refreshUniverseOverview()
+  },
+  beforeDestroy () {
+    this.stopCatalogPolling()
   },
   watch: {
     '$route.query.section' () {
@@ -809,6 +972,119 @@ export default {
     }
   },
   methods: {
+    universeAdminLabel (item) {
+      const key = item && item.name_i18n_key
+      const translated = key ? this.$t(key) : ''
+      return translated && translated !== key ? translated : (item.name || item.code)
+    },
+    universeSnapshotDate (item) {
+      return (item.metadata && item.metadata.snapshot_as_of) || (item.updated_at ? String(item.updated_at).slice(0, 10) : '-')
+    },
+    async refreshUniverseOverview () {
+      this.universeLoading = !this.universeOverview
+      try {
+        const res = await getSystemUniverseOverview()
+        if (res.code === 1) {
+          this.universeOverview = res.data
+          if (!this.selectedUniverseCodes.length) this.selectedUniverseCodes = [...(res.data.syncable_codes || [])]
+        }
+      } finally {
+        this.universeLoading = false
+      }
+    },
+    async handleUniverseSync () {
+      if (!this.selectedUniverseCodes.length) {
+        this.$message.warning(this.$t('settings.universeSync.selectionRequired'))
+        return
+      }
+      this.universeSyncing = true
+      try {
+        const res = await syncSystemUniverses({ codes: this.selectedUniverseCodes })
+        if (res.code === 1) {
+          this.$message.success(this.$t('settings.universeSync.started'))
+          await this.refreshUniverseOverview()
+        }
+      } catch (error) {
+        const envelope = error && error.response && error.response.data
+        const details = envelope && envelope.data
+        const failures = details && Array.isArray(details.errors) ? details.errors : []
+        if (failures.length) {
+          const codes = failures.map(item => {
+            const row = this.systemUniverseRows.find(universe => universe.code === item.code)
+            return row ? this.universeAdminLabel(row) : item.code
+          }).join(', ')
+          const partial = Array.isArray(details.results) && details.results.length > 0
+          const key = partial
+            ? 'settings.universeSync.partialWithCodes'
+            : 'settings.universeSync.failedWithCodes'
+          this.$message[partial ? 'warning' : 'error'](this.$t(key, { codes }))
+          if (partial) await this.refreshUniverseOverview()
+        } else {
+          this.$message.error((error && error.backendMessage) || this.$t('settings.universeSync.failed'))
+        }
+      } finally {
+        this.universeSyncing = false
+      }
+    },
+    catalogMetric (key) {
+      const crypto = (this.catalogOverview && this.catalogOverview.crypto) || {}
+      return Number(crypto[key] || 0)
+    },
+    formatCatalogTime (value) {
+      if (!value) return '-'
+      const date = new Date(value)
+      return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+    },
+    cleanCatalogError (value) {
+      const text = String(value || '').replace(/\s+/g, ' ').trim()
+      return text.length > 180 ? `${text.slice(0, 180)}…` : text
+    },
+    async refreshCatalogOverview () {
+      this.catalogLoading = !this.catalogOverview
+      try {
+        const res = await getMarketCatalogOverview()
+        if (res.code === 1) {
+          this.catalogOverview = res.data
+          if (this.catalogRunning) this.startCatalogPolling()
+          else this.stopCatalogPolling()
+        }
+      } finally {
+        this.catalogLoading = false
+      }
+    },
+    async handleCatalogSync () {
+      if (this.catalogRunning || this.catalogSyncing) return
+      this.catalogSyncing = true
+      try {
+        const res = await syncMarketCatalog()
+        if (res.code === 1) {
+          this.$message.success(this.$t('settings.marketCatalog.started'))
+          await this.refreshCatalogOverview()
+          this.startCatalogPolling()
+        } else {
+          this.$message.warning(this.$t('settings.marketCatalog.alreadyRunning'))
+        }
+      } catch (error) {
+        const status = error && error.response && error.response.status
+        if (status === 409) {
+          this.$message.warning(this.$t('settings.marketCatalog.alreadyRunning'))
+          this.startCatalogPolling()
+        } else {
+          this.$message.error(this.$t('settings.marketCatalog.startFailed'))
+        }
+      } finally {
+        this.catalogSyncing = false
+      }
+    },
+    startCatalogPolling () {
+      if (this.catalogPollTimer) return
+      this.catalogPollTimer = window.setInterval(() => this.refreshCatalogOverview(), 2500)
+    },
+    stopCatalogPolling () {
+      if (!this.catalogPollTimer) return
+      window.clearInterval(this.catalogPollTimer)
+      this.catalogPollTimer = null
+    },
     // Left-nav click: switch the currently displayed group.  Clearing the
     // search keyword on group change matches user intent ("I navigated, I'm
     // not in search-mode anymore").
@@ -1035,7 +1311,8 @@ export default {
         search: 'search',
         agent: 'experiment',
         security: 'safety',
-        billing: 'dollar'
+        billing: 'dollar',
+        market_catalog: 'database'
       }
       return icons[groupKey] || 'setting'
     },
@@ -1073,6 +1350,18 @@ export default {
     getFieldValue (groupKey, key) {
       const groupValues = this.values[groupKey] || {}
       return groupValues[key] || ''
+    },
+
+    isSecretConfigured (groupKey, key) {
+      const groupValues = this.values[groupKey] || {}
+      return !!groupValues[`${key}_configured`]
+    },
+
+    getSecretPlaceholder (groupKey, item) {
+      if (item && this.isSecretConfigured(groupKey, item.key)) {
+        return this.$t('settings.secretConfiguredPlaceholder')
+      }
+      return this.$t('settings.inputApiKey')
     },
 
     getCsvListValue (groupKey, key, defaultVal) {
@@ -1227,6 +1516,9 @@ export default {
             for (const item of group.items) {
               if (item.key in formValues) {
                 let value = formValues[item.key]
+                if (item.type === 'password' && !value && this.isSecretConfigured(groupKey, item.key)) {
+                  continue
+                }
                 if (item.type === 'boolean') {
                   value = value ? 'True' : 'False'
                 } else if (item.type === 'market_multiselect') {
@@ -2046,6 +2338,162 @@ export default {
       left: 0;
       padding: 12px 16px;
     }
+  }
+}
+
+.market-catalog-panel {
+  color: #1f2937;
+
+  .catalog-action-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 16px;
+
+    h4 { margin: 0 0 6px; font-size: 16px; color: #1f2937; }
+    p { margin: 0; color: #8c8c8c; }
+  }
+
+  .catalog-stats {
+    margin: 20px 0 24px;
+
+    ::v-deep .ant-statistic {
+      min-height: 96px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+  }
+  .catalog-section-title { margin: 22px 0 10px; font-weight: 600; }
+  .catalog-table-wrap { overflow-x: auto; }
+  .catalog-table {
+    width: 100%;
+    border-collapse: collapse;
+    th, td { padding: 11px 14px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+    th { color: #8c8c8c; font-weight: 500; background: #fafafa; }
+  }
+  .catalog-market-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .catalog-market-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    background: #fff;
+  }
+  .catalog-failures { margin-top: 12px; }
+  .catalog-failure-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 0;
+    span { color: #8c8c8c; word-break: break-word; }
+  }
+  .universe-sync-list { display: flex; width: 100%; flex-direction: column; gap: 8px; }
+  .universe-sync-row {
+    display: grid;
+    grid-template-columns: 24px minmax(150px, 1.5fr) repeat(3, minmax(105px, 1fr)) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #f0f0f0;
+    border-radius: 7px;
+    background: #fff;
+  }
+  .universe-checkbox-spacer { width: 16px; }
+  .universe-sync-name,
+  .universe-sync-row > div { display: flex; min-width: 0; flex-direction: column; }
+  .universe-sync-row span { color: #8c8c8c; font-size: 11px; }
+  .universe-sync-row strong { overflow: hidden; color: #1f2937; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.theme-dark .market-catalog-panel {
+  color: #e6edf3;
+
+  .catalog-action-row h4,
+  .catalog-section-title,
+  .catalog-table td,
+  .catalog-market-item,
+  .catalog-market-item strong,
+  .catalog-failure-item strong {
+    color: #e6edf3;
+  }
+
+  .catalog-table th {
+    color: #9da7b3;
+    background: #20242a;
+  }
+  .catalog-table td { background: #171a1f; }
+  .catalog-table th,
+  .catalog-table td,
+  .catalog-market-item { border-color: rgba(255, 255, 255, 0.1); }
+  .catalog-market-item { background: #171a1f; }
+  .catalog-action-row p { color: #8b949e; }
+  .catalog-failure-item span { color: #9da7b3; }
+  .universe-sync-row { border-color: rgba(255, 255, 255, 0.1); background: #171a1f; }
+  .universe-sync-row strong { color: #e6edf3; }
+  .universe-sync-row span { color: #8b949e; }
+
+  ::v-deep .catalog-stats .ant-statistic {
+    background: #171a1f;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  ::v-deep .catalog-stats .ant-statistic-title { color: #9da7b3; }
+  ::v-deep .catalog-stats .ant-statistic-content { color: #f0f3f6; }
+
+  ::v-deep .ant-alert-warning {
+    background: #2b2517;
+    border-color: #66501d;
+  }
+  ::v-deep .ant-alert-warning .ant-alert-icon { color: #f0b429; }
+  ::v-deep .ant-alert-warning .ant-alert-message { color: #f6d675; }
+  ::v-deep .ant-alert-warning .ant-alert-description { color: #c9bd98; }
+  ::v-deep .ant-alert-success {
+    background: #132a20;
+    border-color: #245c3c;
+  }
+  ::v-deep .ant-alert-success .ant-alert-message { color: #7ee2a8; }
+  ::v-deep .ant-alert-success .ant-alert-description { color: #a9cdb8; }
+  ::v-deep .ant-alert-error {
+    background: #301a1c;
+    border-color: #713339;
+  }
+  ::v-deep .ant-alert-error .ant-alert-message { color: #ff9aa2; }
+  ::v-deep .ant-alert-error .ant-alert-description { color: #d8a4a8; }
+  ::v-deep .ant-alert-info {
+    background: #142536;
+    border-color: #28547a;
+  }
+  ::v-deep .ant-alert-info .ant-alert-message { color: #79c0ff; }
+  ::v-deep .ant-alert-info .ant-alert-description { color: #a9c7df; }
+
+  ::v-deep .catalog-failures.ant-collapse {
+    color: #e6edf3;
+    background: #171a1f;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  ::v-deep .catalog-failures .ant-collapse-item { border-color: rgba(255, 255, 255, 0.1); }
+  ::v-deep .catalog-failures .ant-collapse-header { color: #d8dee4; }
+  ::v-deep .catalog-failures .ant-collapse-content {
+    color: #d8dee4;
+    background: #12151a;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+@media (max-width: 768px) {
+  .market-catalog-panel {
+    .catalog-action-row { flex-direction: column; }
+    .catalog-action-row .ant-btn { width: 100%; }
+    .catalog-stats ::v-deep .ant-statistic { margin-bottom: 12px; }
+    .universe-sync-row { grid-template-columns: 24px minmax(0, 1fr) auto; }
+    .universe-sync-row > div:not(.universe-sync-name) { display: none; }
   }
 }
 </style>

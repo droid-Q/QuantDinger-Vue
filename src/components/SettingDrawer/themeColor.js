@@ -308,6 +308,26 @@ body.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-select
   background-color: transparent !important;
 }
 
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected,
+.basic-layout-wrapper .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected,
+.basic-layout-wrapper .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected {
+  background: ${soft} !important;
+  background-color: ${soft} !important;
+}
+
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item:hover,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item-active,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu:hover,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-active,
+.basic-layout-wrapper .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item:hover,
+.basic-layout-wrapper .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-active,
+.basic-layout-wrapper .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu:hover,
+.basic-layout-wrapper .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-active {
+  background: ${softStrong} !important;
+  background-color: ${softStrong} !important;
+}
+
 .ant-menu-light .ant-menu-item-selected,
 .ant-menu-light .ant-menu-submenu-selected,
 .ant-menu-light .ant-menu-item:hover,

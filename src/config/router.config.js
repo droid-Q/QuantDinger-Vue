@@ -43,56 +43,23 @@ export const asyncRouterMap = [
         meta: { title: 'menu.dashboard.strategyIde', keepAlive: true, icon: 'code', permission: ['dashboard'] }
       },
       {
+        path: '/backtest-center',
+        name: 'BacktestCenter',
+        component: () => import('@/views/backtest-center'),
+        meta: { title: 'menu.dashboard.backtestCenter', keepAlive: true, icon: 'bar-chart', permission: ['dashboard'] }
+      },
+      {
         path: '/indicator-ide',
         name: 'IndicatorIDE',
         component: () => import('@/views/indicator-ide'),
+        meta: { title: 'menu.dashboard.indicatorIde', keepAlive: true, icon: 'line-chart', permission: ['dashboard'] }
+      },
+      {
+        path: '/universe-manager',
+        name: 'UniverseManager',
+        component: () => import('@/views/universe-manager'),
         hidden: true,
-        meta: { title: 'menu.dashboard.indicatorIde', keepAlive: true, icon: 'code', permission: ['dashboard'] }
-      },
-      // Indicator live strategy management.
-      {
-        path: '/strategy-live',
-        name: 'StrategyLive',
-        component: () => import('@/views/trading-assistant'),
-        meta: {
-          title: 'menu.dashboard.tradingAssistant',
-          keepAlive: true,
-          icon: 'deployment-unit',
-          permission: ['dashboard'],
-          indicatorSignalOnly: true
-        },
-        beforeEnter: (to, from, next) => {
-          if (to.query.tab === 'overview') {
-            next({ path: '/strategy-center', query: { tab: 'overview' }, replace: true })
-          } else {
-            next()
-          }
-        }
-      },
-      // Python ScriptStrategy management.
-      {
-        path: '/strategy-script',
-        name: 'StrategyScript',
-        component: () => import('@/views/trading-assistant'),
-        meta: {
-          title: 'menu.dashboard.scriptStrategies',
-          keepAlive: true,
-          icon: 'code-sandbox',
-          permission: ['dashboard'],
-          scriptStrategiesOnly: true
-        }
-      },
-      {
-        path: '/strategy-scripts',
-        redirect: '/strategy-live',
-        hidden: true
-      },
-      // Template bot strategies.
-      {
-        path: '/trading-bot',
-        name: 'TradingBot',
-        component: () => import('@/views/trading-bot'),
-        meta: { title: 'menu.dashboard.tradingBot', keepAlive: true, icon: 'robot', permission: ['dashboard'] }
+        meta: { title: 'menu.dashboard.universeManager', keepAlive: true, icon: 'database', permission: ['dashboard'] }
       },
       // Broker accounts.
       {
@@ -109,19 +76,11 @@ export const asyncRouterMap = [
         hidden: true,
         meta: { title: 'menu.dashboard.indicator', keepAlive: false, icon: 'line-chart', permission: ['dashboard'] }
       },
-      // Legacy trading assistant route.
-      {
-        path: '/trading-assistant',
-        name: 'TradingAssistant',
-        redirect: '/strategy-live',
-        hidden: true,
-        meta: { title: 'menu.dashboard.tradingAssistant', keepAlive: false, icon: 'deployment-unit', permission: ['dashboard'] }
-      },
       // Legacy dashboard route.
       {
         path: '/dashboard',
         name: 'Dashboard',
-        redirect: '/trading-bot',
+        redirect: '/strategy-center',
         hidden: true,
         meta: { title: 'menu.dashboard', keepAlive: false, icon: 'dashboard', permission: ['dashboard'] }
       },
@@ -133,13 +92,13 @@ export const asyncRouterMap = [
         hidden: true,
         meta: { title: 'menu.dashboard.analysis', keepAlive: false, icon: 'thunderbolt', permission: ['dashboard'] }
       },
-      // Hidden portfolio route.
+      // Legacy portfolio bookmarks now open the unified live workspace.
       {
         path: '/portfolio',
         name: 'Portfolio',
-        component: () => import('@/views/portfolio'),
+        redirect: '/strategy-center',
         hidden: true,
-        meta: { title: 'menu.dashboard.portfolio', keepAlive: true, icon: 'fund', permission: ['dashboard'] }
+        meta: { title: 'menu.dashboard.portfolio', keepAlive: false, icon: 'fund', permission: ['dashboard'] }
       },
       // Billing.
       {
@@ -197,6 +156,14 @@ export const asyncRouterMap = [
  */
 export const constantRouterMap = [
   {
+    path: '/strategy-runtime',
+    hidden: true,
+    redirect: to => ({
+      path: '/strategy-center',
+      query: to.query && to.query.strategy_id ? { strategy_id: to.query.strategy_id } : {}
+    })
+  },
+  {
     path: '/user',
     component: UserLayout,
     redirect: '/user/login',
@@ -212,6 +179,7 @@ export const constantRouterMap = [
 
   {
     path: '/404',
+    meta: { title: 'menu.exception.not-find' },
     component: () => import(/* webpackChunkName: "fail" */ '@/views/exception/404')
   }
 ]

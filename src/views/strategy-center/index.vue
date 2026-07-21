@@ -1,446 +1,286 @@
 <template>
   <div class="strategy-center" :class="{ 'theme-dark': isDarkTheme }">
     <header class="sc-header">
-      <div class="sc-header-main">
-        <div
-          class="sc-header-badge"
-          role="button"
-          tabindex="0"
-          @click="go('/broker-accounts')"
-          @keydown.enter.prevent="go('/broker-accounts')"
-          @keydown.space.prevent="go('/broker-accounts')"
-        >
-          <a-icon type="cluster" />
-          {{ $t('strategyCenter.header.badge') }}
+      <div>
+        <div class="sc-title-row">
+          <h1>{{ $t('strategyCenter.console.title') }}</h1>
+          <span class="system-health" :class="{ 'is-warning': loadError }">
+            <i></i>{{ loadError ? $t('strategyCenter.console.systemDegraded') : $t('strategyCenter.console.systemHealthy') }}
+          </span>
         </div>
-        <h1 class="sc-header-title">{{ $t('strategyCenter.title') }}</h1>
-        <p class="sc-header-sub">{{ $t('strategyCenter.subtitle') }}</p>
+        <p>{{ $t('strategyCenter.console.subtitle') }}</p>
       </div>
-      <div class="sc-header-actions">
-        <a-button type="primary" class="sc-action-btn sc-action-btn--primary" @click="go('/strategy-ide')">
-          <a-icon type="code" /> {{ $t('strategyCenter.header.openIde') }}
-        </a-button>
-        <a-button class="sc-action-btn" @click="go('/trading-bot')">
-          <a-icon type="robot" /> {{ $t('strategyCenter.header.createBot') }}
-        </a-button>
+      <div class="sc-refresh">
+        <span v-if="refreshedAt">{{ $t('systemOverview.colUpdatedAt') }} · {{ formatTime(refreshedAt) }}</span>
+        <a-button type="primary" icon="plus" @click="openCreateLive">{{ $t('strategyCenter.stats.createLive') }}</a-button>
+        <a-button icon="reload" :loading="loading" @click="loadStrategies">{{ $t('common.refresh') }}</a-button>
       </div>
     </header>
 
-    <div class="sc-mini-stats">
-      <div v-for="item in miniStatItems" :key="item.key" class="sc-mini-stat" @click="item.path && go(item.path)">
-        <span class="sc-mini-stat-icon" :class="`sc-mini-stat-icon--${item.key}`">
-          <a-icon :type="item.icon" />
-        </span>
-        <div class="sc-mini-stat-body">
-          <span class="sc-mini-stat-num">{{ item.value }}</span>
-          <span class="sc-mini-stat-label">{{ item.label }}</span>
-          <span v-if="item.meta" class="sc-mini-stat-meta">{{ item.meta }}</span>
-        </div>
-        <button
-          v-if="item.createPath"
-          type="button"
-          class="sc-mini-stat-create"
-          @click.stop="go(item.createPath)"
-        >
-          <a-icon type="plus-circle" />
-          <span>{{ $t('strategyCenter.stats.createLive') }}</span>
-        </button>
-        <a-icon v-if="item.path" type="right" class="sc-mini-stat-arrow" />
-      </div>
-    </div>
+    <live-operations-table
+      :strategies="strategies"
+      :loading="loading"
+      :load-error="loadError"
+      :dark="isDarkTheme"
+      :initial-strategy-id="initialStrategyId"
+      :control-loading-id="controlLoadingId"
+      @start="handleStart"
+      @stop="handleStop"
+      @edit="openEditLive"
+      @delete="handleDelete"
+      @open-workspace="openStrategyWorkspace"
+    />
 
-    <div class="sc-dashboard-wrap">
-      <dashboard-overview hide-setup-guide embedded />
-    </div>
+    <live-strategy-editor
+      v-if="editorOpen"
+      :visible="editorOpen"
+      :mode="editorMode"
+      :strategy-id="editorStrategyId"
+      :initial-config="$route.query"
+      @close="closeLiveEditor"
+      @saved="handleEditorSaved"
+    />
   </div>
 </template>
 
 <script>
 import { mapState } from 'vuex'
-import request from '@/utils/request'
-import { getScriptSourceList, getStrategyList } from '@/api/strategy'
-import DashboardOverview from '@/views/dashboard/index.vue'
+import { deleteStrategy, getStrategyList, startStrategy, stopStrategy } from '@/api/strategy'
+import LiveOperationsTable from './components/LiveOperationsTable.vue'
+import LiveStrategyEditor from './components/LiveStrategyEditor.vue'
 
 export default {
   name: 'StrategyCenter',
-  components: { DashboardOverview },
+  components: { LiveOperationsTable, LiveStrategyEditor },
   data () {
     return {
-      loadingStats: false,
-      stats: {
-        indicator: 0,
-        strategySource: 0,
-        signal: 0,
-        signalRunning: 0,
-        script: 0,
-        scriptRunning: 0,
-        bot: 0,
-        botRunning: 0
-      }
+      strategies: [],
+      loading: false,
+      loadError: false,
+      refreshedAt: '',
+      refreshTimer: null,
+      controlLoadingId: null,
+      editorOpen: false,
+      editorMode: '',
+      editorStrategyId: null
     }
   },
   computed: {
-    ...mapState({
-      navTheme: state => state.app.theme
-    }),
+    ...mapState({ navTheme: state => state.app.theme }),
     isDarkTheme () {
       return this.navTheme === 'dark' || this.navTheme === 'realdark'
     },
-    miniStatItems () {
-      return [
-        {
-          key: 'signal',
-          icon: 'deployment-unit',
-          value: this.stats.signal,
-          label: this.$t('strategyCenter.stats.indicatorStrategy'),
-          meta: this.runningTotalText(this.stats.signalRunning, this.stats.signal),
-          path: '/strategy-live?tab=strategy',
-          createPath: '/strategy-live?mode=create'
-        },
-        {
-          key: 'script',
-          icon: 'code-sandbox',
-          value: this.stats.script,
-          label: this.$t('strategyCenter.stats.script'),
-          meta: this.runningTotalText(this.stats.scriptRunning, this.stats.script),
-          path: '/strategy-script?tab=strategy',
-          createPath: '/strategy-script?mode=create'
-        },
-        {
-          key: 'bot',
-          icon: 'robot',
-          value: this.stats.bot,
-          label: this.$t('strategyCenter.stats.bot'),
-          meta: this.runningTotalText(this.stats.botRunning, this.stats.bot),
-          path: '/trading-bot',
-          createPath: '/trading-bot'
-        },
-        { key: 'indicator', icon: 'line-chart', value: this.stats.indicator, label: this.$t('strategyCenter.stats.ownIndicators'), path: '/strategy-ide' },
-        { key: 'strategySource', icon: 'code', value: this.stats.strategySource, label: this.$t('strategyCenter.stats.ownStrategies'), path: '/strategy-ide?tab=script' }
-      ]
-    },
-    isZh () {
-      return String(this.$i18n && this.$i18n.locale || '').toLowerCase().startsWith('zh')
-    }
-  },
-  watch: {
-    '$route.query.tab' (tab) {
-      this.syncTabFromRoute(tab)
+    initialStrategyId () {
+      const value = Number(this.$route.query.strategyId || 0)
+      return Number.isFinite(value) ? value : 0
     }
   },
   mounted () {
-    this.syncTabFromRoute(this.$route.query.tab)
-    this.loadStats()
+    this.loadStrategies()
+    this.startRefreshTimer()
+    this.openEditorFromRoute()
+  },
+  activated () {
+    this.startRefreshTimer()
+  },
+  deactivated () {
+    this.stopRefreshTimer()
+  },
+  beforeDestroy () {
+    this.stopRefreshTimer()
   },
   methods: {
-    syncTabFromRoute (tab) {
-      const t = String(tab || '').toLowerCase()
-      if (t === 'history' || t === 'workspace' || t === 'library') {
-        this.$router.replace({ path: '/strategy-center', query: { tab: 'overview' } }).catch(() => {})
-      }
-    },
-    go (path) {
-      if (!path) return
-      const qIdx = path.indexOf('?')
-      if (qIdx > -1) {
-        const routePath = path.slice(0, qIdx)
-        const qs = new URLSearchParams(path.slice(qIdx + 1))
-        const query = {}
-        qs.forEach((v, k) => { query[k] = v })
-        this.$router.push({ path: routePath, query }).catch(() => {})
-      } else {
-        this.$router.push(path).catch(() => {})
-      }
-    },
-    strategyModeBucket (s) {
-      const mode = String((s && s.strategy_mode) || '').trim().toLowerCase()
-      if (mode === 'bot') return 'bot'
-      if (mode === 'script') return 'script'
-      return 'signal'
-    },
-    isRunningStrategy (s) {
-      return String((s && s.status) || '').trim().toLowerCase() === 'running'
-    },
-    runningTotalText (running, total) {
-      return this.$t('strategyCenter.stats.runningTotal', { running, total })
-    },
-    parseStrategyList (res) {
+    parseList (res) {
       if (!res || res.code !== 1 || !res.data) return []
       if (Array.isArray(res.data)) return res.data
-      if (Array.isArray(res.data.strategies)) return res.data.strategies
       return []
     },
-    parseScriptSourceList (res) {
-      if (!res || res.code !== 1 || !res.data) return []
-      if (Array.isArray(res.data)) return res.data
-      if (Array.isArray(res.data.sources)) return res.data.sources
-      if (Array.isArray(res.data.strategies)) return res.data.strategies
-      if (Array.isArray(res.data.items)) return res.data.items
-      return []
-    },
-    async loadStats () {
-      this.loadingStats = true
+    async loadStrategies () {
+      if (this.loading) return
+      this.loading = true
+      this.loadError = false
       try {
-        const [strRes, indRes, scriptSourceRes] = await Promise.all([
-          getStrategyList(),
-          request({ url: '/api/indicator/getIndicators', method: 'get' }).catch(() => ({ code: 0, data: [] })),
-          getScriptSourceList().catch(() => ({ code: 0, data: [] }))
-        ])
-        const list = this.parseStrategyList(strRes)
-        const signal = list.filter(s => this.strategyModeBucket(s) === 'signal')
-        const script = list.filter(s => this.strategyModeBucket(s) === 'script')
-        const bot = list.filter(s => this.strategyModeBucket(s) === 'bot')
-        this.stats.signal = signal.length
-        this.stats.signalRunning = signal.filter(this.isRunningStrategy).length
-        this.stats.script = script.length
-        this.stats.scriptRunning = script.filter(this.isRunningStrategy).length
-        this.stats.bot = bot.length
-        this.stats.botRunning = bot.filter(this.isRunningStrategy).length
-        const inds = (indRes.code === 1 && Array.isArray(indRes.data)) ? indRes.data : []
-        this.stats.indicator = inds.filter(i => Number(i.is_buy || 0) !== 1).length
-        this.stats.strategySource = this.parseScriptSourceList(scriptSourceRes).length
+        const res = await getStrategyList()
+        if (!res || res.code !== 1) throw new Error('STRATEGY_LIST_LOAD_FAILED')
+        this.strategies = this.parseList(res)
+        this.refreshedAt = new Date()
+      } catch (error) {
+        this.loadError = true
       } finally {
-        this.loadingStats = false
+        this.loading = false
       }
+    },
+    async handleStart (strategy) {
+      if (!strategy || !strategy.id || this.controlLoadingId) return
+      this.controlLoadingId = strategy.id
+      try {
+        const res = await startStrategy(strategy.id)
+        if (res && res.code === 1) {
+          const status = String((res.data && res.data.status) || '')
+          if (status === 'starting') {
+            this.$message.info(this.$t('strategyV2.startQueued'))
+          } else {
+            this.$message.success(this.$t('trading-assistant.messages.startSuccess'))
+          }
+          await this.loadStrategies()
+        } else {
+          this.$message.error((res && res.msg) || this.$t('trading-assistant.messages.startFailed'))
+        }
+      } catch (error) {
+        this.$message.error(error.backendMessage || error.message || this.$t('trading-assistant.messages.startFailed'))
+      } finally {
+        this.controlLoadingId = null
+      }
+    },
+    async handleStop (strategy, options = {}) {
+      if (!strategy || !strategy.id || this.controlLoadingId) return
+      this.controlLoadingId = strategy.id
+      try {
+        const closePositions = Boolean(options && options.closePositions)
+        const res = await stopStrategy(strategy.id, closePositions)
+        if (res && res.code === 1) {
+          this.$message.success(this.$t(closePositions
+            ? 'strategyCenter.console.stopAndCloseQueued'
+            : 'strategyCenter.console.pauseSuccess'))
+          await this.loadStrategies()
+        } else {
+          this.$message.error((res && res.msg) || this.$t('trading-assistant.messages.stopFailed'))
+        }
+      } catch (error) {
+        this.$message.error(error.backendMessage || error.message || this.$t('trading-assistant.messages.stopFailed'))
+      } finally {
+        this.controlLoadingId = null
+      }
+    },
+    openCreateLive () {
+      this.editorMode = 'create'
+      this.editorStrategyId = null
+      this.editorOpen = true
+    },
+    openEditLive (strategy) {
+      if (!strategy || !strategy.id) return
+      this.editorMode = 'edit'
+      this.editorStrategyId = Number(strategy.id)
+      this.editorOpen = true
+    },
+    openEditorFromRoute () {
+      const mode = String(this.$route.query.mode || '')
+      if (mode === 'create') {
+        this.openCreateLive()
+        return
+      }
+      if (mode === 'edit' && this.$route.query.strategyId) {
+        this.editorMode = 'edit'
+        this.editorStrategyId = Number(this.$route.query.strategyId)
+        this.editorOpen = true
+      }
+    },
+    closeLiveEditor () {
+      this.editorOpen = false
+      this.editorMode = ''
+      this.editorStrategyId = null
+      this.clearEditorRouteState()
+    },
+    async handleEditorSaved () {
+      this.closeLiveEditor()
+      await this.loadStrategies()
+    },
+    clearEditorRouteState () {
+      if (!this.$route.query.mode) return
+      const query = { ...this.$route.query }
+      delete query.mode
+      delete query.sourceId
+      delete query.strategyId
+      delete query.leverage
+      this.$router.replace({ path: '/strategy-center', query }).catch(() => {})
+    },
+    async handleDelete (strategy) {
+      if (!strategy || !strategy.id || this.controlLoadingId) return
+      this.controlLoadingId = strategy.id
+      try {
+        const res = await deleteStrategy(strategy.id)
+        if (res && res.code === 1) {
+          this.$message.success(this.$t('trading-assistant.messages.deleteSuccess'))
+          await this.loadStrategies()
+        } else {
+          this.$message.error((res && res.msg) || this.$t('trading-assistant.messages.deleteFailed'))
+        }
+      } catch (error) {
+        this.$message.error((error && (error.backendMessage || error.message)) || this.$t('trading-assistant.messages.deleteFailed'))
+      } finally {
+        this.controlLoadingId = null
+      }
+    },
+    openStrategyWorkspace () {
+      this.openCreateLive()
+    },
+    startRefreshTimer () {
+      if (this.refreshTimer) return
+      this.refreshTimer = window.setInterval(() => {
+        if (!document.hidden) this.loadStrategies()
+      }, 30000)
+    },
+    stopRefreshTimer () {
+      if (this.refreshTimer) window.clearInterval(this.refreshTimer)
+      this.refreshTimer = null
+    },
+    formatTime (value) {
+      if (!value) return '-'
+      const date = value instanceof Date ? value : new Date(value)
+      return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
     }
   }
 }
 </script>
 
 <style lang="less" scoped>
-@sc-blue: var(--primary-color, #1677ff);
-@sc-purple: #722ed1;
-@sc-teal: #13c2c2;
-@sc-radius: 14px;
-@sc-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
-
 .strategy-center {
-  min-height: calc(100vh - 120px);
-  padding: 16px !important;
-  background: linear-gradient(180deg, #f0f5ff 0%, #f5f7fa 38%, #f8fafc 100%);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px 20px 24px !important;
+  background: #f6f7f9;
+  color: #18202c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-
+.strategy-center > .operations-workspace { flex: 1 1 auto; min-height: 0; }
 .sc-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 16px;
+  h1 { margin: 0; font-size: 27px; font-weight: 700; line-height: 1.25; letter-spacing: -.02em; color: #111827; }
+  p { margin: 7px 0 0; color: #667085; font-size: 14px; line-height: 1.55; }
 }
-
-.sc-header-badge {
+.sc-title-row { display: flex; align-items: center; gap: 14px; }
+.system-health {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: @sc-blue;
-  background: var(--primary-color-soft, rgba(22, 119, 255, 0.1));
-  border: 1px solid color-mix(in srgb, var(--primary-color, #1677ff) 18%, transparent);
-  margin-bottom: 10px;
-  cursor: pointer;
-  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
-
-  &:hover,
-  &:focus-visible {
-    background: var(--primary-color-soft-strong, rgba(22, 119, 255, 0.16));
-    border-color: color-mix(in srgb, var(--primary-color, #1677ff) 38%, transparent);
-    box-shadow: 0 6px 18px color-mix(in srgb, var(--primary-color, #1677ff) 12%, transparent);
-    outline: none;
-  }
-}
-
-.sc-header-title {
-  margin: 0 0 6px;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #0f172a;
-}
-
-.sc-header-sub {
-  margin: 0;
-  max-width: 560px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #64748b;
-}
-
-.sc-header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.sc-action-btn {
-  height: 38px;
-  border-radius: 10px;
+  gap: 7px;
+  color: #3f7c57;
+  font-size: 13px;
   font-weight: 500;
-  box-shadow: @sc-shadow;
-
-  &--primary {
-    background: linear-gradient(135deg, var(--primary-color, #1677ff) 0%, var(--primary-color-hover, #4096ff) 100%);
-    border: none;
-  }
+  i { width: 7px; height: 7px; border-radius: 50%; background: #22a95a; box-shadow: 0 0 0 4px rgba(34, 169, 90, 0.12); }
+  &.is-warning { color: #b06b18; i { background: #d68a24; box-shadow: 0 0 0 4px rgba(214, 138, 36, 0.12); } }
 }
-
-.sc-mini-stats {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-
-  @media (max-width: 1100px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  @media (max-width: 640px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.sc-mini-stat {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 18px 42px 16px 16px;
-  background: #fff;
-  border-radius: @sc-radius;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: @sc-shadow;
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
-    border-color: color-mix(in srgb, var(--primary-color, #1677ff) 25%, transparent);
-  }
-}
-
-.sc-mini-stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-
-  &--running { background: rgba(82, 196, 26, 0.12); color: #52c41a; }
-  &--signal { background: rgba(22, 119, 255, 0.12); color: @sc-blue; }
-  &--script { background: rgba(114, 46, 209, 0.12); color: @sc-purple; }
-  &--bot { background: rgba(19, 194, 194, 0.12); color: @sc-teal; }
-  &--indicator { background: rgba(250, 173, 20, 0.12); color: #fa8c16; }
-  &--strategySource { background: rgba(47, 84, 235, 0.12); color: #2f54eb; }
-}
-
-.sc-mini-stat-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.sc-mini-stat-num {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: #0f172a;
-}
-
-.sc-mini-stat-label {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
-
-.sc-mini-stat-meta {
-  margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.3;
-  color: #64748b;
-}
-
-.sc-mini-stat-create {
-  position: absolute;
-  top: 10px;
-  right: 34px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: calc(100% - 92px);
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--primary-color, #1677ff) 16%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary-color, #1677ff) 6%, transparent);
-  color: @sc-blue;
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-  white-space: nowrap;
-
-  span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--primary-color, #1677ff) 34%, transparent);
-    background: var(--primary-color-soft, rgba(22, 119, 255, 0.1));
-    color: var(--primary-color-active, #0958d9);
-  }
-}
-
-.sc-mini-stat-arrow {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  color: #cbd5e1;
-  font-size: 12px;
-}
-
-.sc-dashboard-wrap {
-  margin: 0 -8px;
-  border-radius: @sc-radius;
-  overflow: hidden;
-
-  ::v-deep .dashboard-pro.dashboard-pro--embedded {
-    min-height: auto;
-    padding: 0 8px 8px;
-    background: transparent;
-  }
-}
-
+.sc-refresh { display: flex; align-items: center; gap: 12px; color: #667085; font-size: 13px; font-variant-numeric: tabular-nums; }
 .theme-dark {
-  background: linear-gradient(180deg, #141414 0%, #1a1a1a 100%);
-
-  .sc-header-title { color: rgba(255, 255, 255, 0.92); }
-  .sc-header-sub { color: rgba(255, 255, 255, 0.45); }
-  .sc-mini-stat {
-    background: #1f1f1f;
-    border-color: #303030;
-  }
-  .sc-mini-stat-num { color: rgba(255, 255, 255, 0.92); }
-  .sc-mini-stat-label { color: rgba(255, 255, 255, 0.45); }
-  .sc-mini-stat-meta { color: rgba(255, 255, 255, 0.55); }
-  .sc-mini-stat-create {
-    border-color: color-mix(in srgb, var(--primary-color, #1890ff) 24%, transparent);
-    background: color-mix(in srgb, var(--primary-color, #1890ff) 8%, transparent);
-    color: var(--primary-color, #1890ff);
-
-    &:hover {
-      border-color: color-mix(in srgb, var(--primary-color, #1890ff) 42%, transparent);
-      background: color-mix(in srgb, var(--primary-color, #1890ff) 14%, transparent);
-      color: var(--primary-color-hover, #91caff);
-    }
-  }
+  background: #080808;
+  color: #e7e9ed;
+  .sc-header h1 { color: #f3f4f6; }
+  .sc-header p, .sc-refresh { color: #7f8793; }
+  .system-health { color: #61c885; }
+}
+@media (max-width: 720px) {
+  .strategy-center { height: auto; min-height: calc(100vh - 64px); overflow: visible; padding: 12px !important; }
+  .sc-header { flex-direction: column; }
+  .sc-refresh { width: 100%; justify-content: space-between; }
 }
 </style>

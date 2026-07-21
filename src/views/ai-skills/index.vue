@@ -127,7 +127,7 @@
       <div v-if="detailSkill" class="detail-content">
         <p>{{ detailSkill.description }}</p>
         <a-descriptions :column="2" bordered size="small">
-          <a-descriptions-item label="ID">{{ detailSkill.id }}</a-descriptions-item>
+          <a-descriptions-item :label="text.id">{{ detailSkill.id }}</a-descriptions-item>
           <a-descriptions-item :label="text.category">{{ detailSkill.category }}</a-descriptions-item>
           <a-descriptions-item :label="text.source">{{ detailSkill.source }}</a-descriptions-item>
           <a-descriptions-item :label="text.risk">{{ detailSkill.risk_level }}</a-descriptions-item>
@@ -164,73 +164,45 @@ export default {
       return String(this.$i18n?.locale || navigator.language || 'zh-CN').toLowerCase().startsWith('zh')
     },
     text () {
-      if (!this.isZh) {
-        return {
-          heroEyebrow: 'Agent capability registry',
-          title: 'AI Skill Center',
-          subtitle: 'Manage prompt skills, inspect system tools, and keep every AI workflow aligned with QuantDinger boundaries.',
-          refresh: 'Refresh',
-          install: 'Install skill',
-          skills: 'Skills',
-          tools: 'Tools',
-          allCategories: 'All categories',
-          searchSkills: 'Search skills...',
-          showDisabled: 'Show disabled',
-          builtin: 'Built-in',
-          installed: 'Installed',
-          detail: 'Detail',
-          delete: 'Delete',
-          deleteConfirm: 'Delete this installed skill?',
-          readOnly: 'Read-only',
-          writeTool: 'Write workflow',
-          installTitle: 'Install prompt skill manifest',
-          installHint: 'Paste a JSON manifest. This version only allows prompt skills, not executable code.',
-          example: 'Use example',
-          safetyTitle: 'Safety boundary',
-          rulePromptOnly: 'Only prompt skills can be installed.',
-          ruleNoCode: 'Executable fields such as shell, Python, webhook, and commands are rejected.',
-          ruleBoundary: 'AI may create draft or stopped strategies only.',
-          ruleUserControl: 'Live execution must be started manually by the user.',
-          category: 'Category',
-          source: 'Source',
-          risk: 'Risk',
-          requires: 'Requires',
-          produces: 'Produces',
-          promptTemplate: 'Prompt template'
-        }
-      }
+      const t = key => this.$t(`aiSkills.${key}`)
       return {
-        heroEyebrow: 'Agent 能力注册中心',
-        title: 'AI 技能中心',
-        subtitle: '统一管理提示词技能、查看系统工具边界，让 AI 工作流真正贴合 QuantDinger。',
-        refresh: '刷新',
-        install: '安装技能',
-        skills: '技能',
-        tools: '工具',
-        allCategories: '全部分类',
-        searchSkills: '搜索技能...',
-        showDisabled: '显示已停用',
-        builtin: '内置',
-        installed: '已安装',
-        detail: '详情',
-        delete: '删除',
-        deleteConfirm: '确定删除这个已安装技能？',
-        readOnly: '只读',
-        writeTool: '写入工作流',
-        installTitle: '安装 Prompt Skill Manifest',
-        installHint: '粘贴 JSON manifest。当前版本只允许提示词技能，不允许执行代码。',
-        example: '填入示例',
-        safetyTitle: '安全边界',
-        rulePromptOnly: '只允许安装 prompt 类型技能。',
-        ruleNoCode: 'shell、Python、webhook、commands 等可执行字段会被拒绝。',
-        ruleBoundary: 'AI 只能创建草稿或停止状态策略。',
-        ruleUserControl: '实盘启动必须由用户手动点击。',
-        category: '分类',
-        source: '来源',
-        risk: '风险',
-        requires: '需要',
-        produces: '产出',
-        promptTemplate: '提示词模板'
+        heroEyebrow: t('heroEyebrow'),
+        title: t('title'),
+        subtitle: t('subtitle'),
+        refresh: t('refresh'),
+        install: t('install'),
+        skills: t('skills'),
+        tools: t('tools'),
+        allCategories: t('allCategories'),
+        searchSkills: t('searchSkills'),
+        showDisabled: t('showDisabled'),
+        builtin: t('builtin'),
+        installed: t('installed'),
+        detail: t('detail'),
+        delete: t('delete'),
+        deleteConfirm: t('deleteConfirm'),
+        readOnly: t('readOnly'),
+        writeTool: t('writeTool'),
+        installTitle: t('installTitle'),
+        installHint: t('installHint'),
+        example: t('example'),
+        safetyTitle: t('safetyTitle'),
+        rulePromptOnly: t('rulePromptOnly'),
+        ruleNoCode: t('ruleNoCode'),
+        ruleBoundary: t('ruleBoundary'),
+        ruleUserControl: t('ruleUserControl'),
+        category: t('category'),
+        source: t('source'),
+        risk: t('risk'),
+        requires: t('requires'),
+        produces: t('produces'),
+        promptTemplate: t('promptTemplate'),
+        enabled: t('enabled'),
+        availableToAgent: t('availableToAgent'),
+        userExtensions: t('userExtensions'),
+        skill: t('skill'),
+        actions: t('actions'),
+        id: t('id')
       }
     },
     skills () {
@@ -252,19 +224,19 @@ export default {
       const writeTools = this.tools.filter(item => !item.read_only).length
       return [
         { key: 'skills', label: this.text.skills, value: this.skills.length, help: this.text.builtin + ' / ' + this.text.installed },
-        { key: 'enabled', label: this.isZh ? '启用中' : 'Enabled', value: enabled, help: this.isZh ? '可被 Agent 使用' : 'Available to Agent' },
-        { key: 'installed', label: this.text.installed, value: installed, help: this.isZh ? '用户扩展技能' : 'User extensions' },
+        { key: 'enabled', label: this.text.enabled, value: enabled, help: this.text.availableToAgent },
+        { key: 'installed', label: this.text.installed, value: installed, help: this.text.userExtensions },
         { key: 'tools', label: this.text.tools, value: this.tools.length, help: `${writeTools} ${this.text.writeTool}` }
       ]
     },
     skillColumns () {
       return [
-        { title: this.isZh ? '技能' : 'Skill', dataIndex: 'label', scopedSlots: { customRender: 'label' } },
+        { title: this.text.skill, dataIndex: 'label', scopedSlots: { customRender: 'label' } },
         { title: this.text.category, dataIndex: 'category', width: 140 },
         { title: this.text.source, dataIndex: 'source', width: 120, scopedSlots: { customRender: 'source' } },
         { title: this.text.risk, dataIndex: 'risk_level', width: 130, scopedSlots: { customRender: 'risk' } },
-        { title: this.isZh ? '启用' : 'Enabled', dataIndex: 'enabled', width: 90, scopedSlots: { customRender: 'enabled' } },
-        { title: this.isZh ? '操作' : 'Actions', dataIndex: 'actions', width: 140, scopedSlots: { customRender: 'actions' } }
+        { title: this.text.enabled, dataIndex: 'enabled', width: 90, scopedSlots: { customRender: 'enabled' } },
+        { title: this.text.actions, dataIndex: 'actions', width: 140, scopedSlots: { customRender: 'actions' } }
       ]
     }
   },
@@ -301,19 +273,19 @@ export default {
     async toggleSkill (record, checked) {
       try {
         await updateAiSkill(record.id, { enabled: checked, language: this.isZh ? 'zh-CN' : 'en-US' })
-        this.$message.success(this.isZh ? '已更新技能状态' : 'Skill updated')
+        this.$message.success(this.$t('aiSkills.updated'))
         await this.loadSkills()
       } catch (e) {
-        this.$message.error(e.message || (this.isZh ? '更新失败' : 'Update failed'))
+        this.$message.error(e.message || this.$t('aiSkills.updateFailed'))
       }
     },
     async removeSkill (record) {
       try {
         await deleteAiSkill(record.id)
-        this.$message.success(this.isZh ? '已删除技能' : 'Skill deleted')
+        this.$message.success(this.$t('aiSkills.deleted'))
         await this.loadSkills()
       } catch (e) {
-        this.$message.error(e.message || (this.isZh ? '删除失败' : 'Delete failed'))
+        this.$message.error(e.message || this.$t('aiSkills.deleteFailed'))
       }
     },
     fillExample () {
@@ -322,14 +294,14 @@ export default {
         kind: 'prompt',
         category: 'research',
         icon: 'line-chart',
-        label: { zh: 'BTC 突破教练', en: 'BTC Breakout Coach' },
-        description: { zh: '专门检查 BTC 突破、假突破和回踩确认。', en: 'Check BTC breakouts, fakeouts, and retest confirmation.' },
+        label: { zh: this.$t('aiSkills.exampleManifest.labelZh'), en: this.$t('aiSkills.exampleManifest.labelEn') },
+        description: { zh: this.$t('aiSkills.exampleManifest.descriptionZh'), en: this.$t('aiSkills.exampleManifest.descriptionEn') },
         prompt_template: {
-          zh: '请基于 {symbol_label} 检查当前是否接近有效突破。重点输出：关键阻力、放量确认、回踩确认、假突破风险、失效条件。',
-          en: 'Check whether {symbol_label} is near a valid breakout. Cover resistance, volume confirmation, retest confirmation, fakeout risk, and invalidation.'
+          zh: this.$t('aiSkills.exampleManifest.promptZh'),
+          en: this.$t('aiSkills.exampleManifest.promptEn')
         },
-        system_instruction: 'Focus on breakout validation. Do not invent missing volume or derivatives data.',
-        keywords: ['breakout', 'BTC', '突破', '假突破'],
+        system_instruction: this.$t('aiSkills.exampleManifest.systemInstruction'),
+        keywords: ['breakout', 'BTC', this.$t('aiSkills.exampleManifest.keywordBreakout'), this.$t('aiSkills.exampleManifest.keywordFakeout')],
         requires: ['market_data'],
         produces: ['breakout_plan'],
         risk_level: 'read',
@@ -341,17 +313,17 @@ export default {
       try {
         payload = JSON.parse(this.manifestText)
       } catch (e) {
-        this.$message.error(this.isZh ? 'JSON 格式不正确' : 'Invalid JSON')
+        this.$message.error(this.$t('aiSkills.invalidJson'))
         return
       }
       this.installing = true
       try {
         await installAiSkill({ skill: payload, language: this.isZh ? 'zh-CN' : 'en-US' })
-        this.$message.success(this.isZh ? '技能已安装' : 'Skill installed')
+        this.$message.success(this.$t('aiSkills.installedSuccess'))
         this.activeTab = 'skills'
         await this.loadSkills()
       } catch (e) {
-        this.$message.error(e.message || (this.isZh ? '安装失败' : 'Install failed'))
+        this.$message.error(e.message || this.$t('aiSkills.installFailed'))
       } finally {
         this.installing = false
       }

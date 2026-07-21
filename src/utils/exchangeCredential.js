@@ -4,11 +4,7 @@ export const CRYPTO_EXCHANGE_DISPLAY_NAMES = {
   okx: 'OKX',
   bitget: 'Bitget',
   bybit: 'Bybit',
-  coinbaseexchange: 'Coinbase',
-  kraken: 'Kraken',
-  kucoin: 'KuCoin',
   gate: 'Gate.io',
-  bitfinex: 'Bitfinex',
   htx: 'HTX',
   alpaca: 'Alpaca',
   ibkr: 'IBKR',
@@ -17,21 +13,15 @@ export const CRYPTO_EXCHANGE_DISPLAY_NAMES = {
   cpt_markets: 'CPT Markets'
 }
 
+const MT5_EXCHANGE_IDS = new Set(['mt5', 'cptmarkets', 'cpt_markets'])
+
 export const CRYPTO_EXCHANGE_IDS = new Set([
   'binance',
   'okx',
   'bitget',
   'bybit',
-  'coinbaseexchange',
-  'coinbase_exchange',
-  'kraken',
-  'kucoin',
   'gate',
-  'bitfinex',
-  'htx',
-  'mt5',
-  'cptmarkets',
-  'cpt_markets'
+  'htx'
 ])
 
 export const QUICK_TRADE_EXCHANGE_IDS = new Set([
@@ -39,18 +29,24 @@ export const QUICK_TRADE_EXCHANGE_IDS = new Set([
   'okx',
   'bitget',
   'bybit',
-  'coinbaseexchange',
-  'coinbase_exchange',
-  'kraken',
   'gate',
   'htx',
-  'mt5',
-  'cptmarkets',
-  'cpt_markets'
+  ...MT5_EXCHANGE_IDS
 ])
 
 export function isCryptoExchangeCredential (cred) {
   return CRYPTO_EXCHANGE_IDS.has(String(cred?.exchange_id || '').trim().toLowerCase())
+}
+
+export function filterCryptoExchangeCredentials (credentials, exchangeId) {
+  const selectedExchangeId = String(exchangeId || '').trim().toLowerCase()
+  const selectedMt5 = MT5_EXCHANGE_IDS.has(selectedExchangeId)
+  return (Array.isArray(credentials) ? credentials : []).filter(cred => {
+    const credentialExchangeId = String(cred?.exchange_id || '').trim().toLowerCase()
+    if (selectedMt5) return MT5_EXCHANGE_IDS.has(credentialExchangeId)
+    return CRYPTO_EXCHANGE_IDS.has(credentialExchangeId) &&
+      (!selectedExchangeId || credentialExchangeId === selectedExchangeId)
+  })
 }
 
 export function isQuickTradeExchangeCredential (cred) {

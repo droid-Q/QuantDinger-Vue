@@ -69,15 +69,6 @@
                 </a-input-password>
               </a-form-item>
 
-              <!-- Turnstile for Login -->
-              <Turnstile
-                ref="loginTurnstile"
-                :siteKey="securityConfig.turnstile_site_key"
-                :enabled="securityConfig.turnstile_enabled && activeTab === 'login' && loginMethod === 'password'"
-                @success="(t) => loginTurnstileToken = t"
-                @error="() => loginTurnstileToken = null"
-              />
-
               <a-form-item style="margin-top:24px">
                 <a-button
                   size="large"
@@ -85,7 +76,7 @@
                   htmlType="submit"
                   class="submit-button"
                   :loading="loginLoading"
-                  :disabled="loginLoading || (securityConfig.turnstile_enabled && !loginTurnstileToken)"
+                  :disabled="loginLoading"
                   block
                 >{{ $t('user.login.submit') || 'Login' }}</a-button>
               </a-form-item>
@@ -150,7 +141,7 @@
                       size="large"
                       block
                       :loading="codeLoginSendingCode"
-                      :disabled="codeLoginSendingCode || codeLoginCountdown > 0 || (securityConfig.turnstile_enabled && !codeLoginTurnstileToken)"
+                      :disabled="codeLoginSendingCode || codeLoginCountdown > 0"
                       @click="handleCodeLoginSendCode"
                     >
                       {{ codeLoginCountdown > 0 ? `${codeLoginCountdown}s` : ($t('user.login.sendCode') || 'Send') }}
@@ -158,15 +149,6 @@
                   </a-col>
                 </a-row>
               </a-form-item>
-
-              <Turnstile
-                v-if="showCodeLoginTurnstile"
-                ref="codeLoginTurnstile"
-                :siteKey="securityConfig.turnstile_site_key"
-                :enabled="securityConfig.turnstile_enabled"
-                @success="(t) => codeLoginTurnstileToken = t"
-                @error="() => codeLoginTurnstileToken = null"
-              />
 
               <a-form-item style="margin-top:24px">
                 <a-button
@@ -270,7 +252,7 @@
                       size="large"
                       block
                       :loading="registerSendingCode"
-                      :disabled="registerSendingCode || registerCountdown > 0 || (securityConfig.turnstile_enabled && !registerTurnstileToken)"
+                      :disabled="registerSendingCode || registerCountdown > 0"
                       @click="handleRegisterSendCode"
                     >
                       {{ registerCountdown > 0 ? `${registerCountdown}s` : ($t('user.register.sendCode') || 'Send') }}
@@ -368,16 +350,6 @@
                   <a-icon slot="prefix" type="lock" :style="{ color: 'rgba(0,0,0,.25)' }"/>
                 </a-input-password>
               </a-form-item>
-
-              <!-- Turnstile for Register -->
-              <Turnstile
-                v-if="showRegisterTurnstile"
-                ref="registerTurnstile"
-                :siteKey="securityConfig.turnstile_site_key"
-                :enabled="securityConfig.turnstile_enabled"
-                @success="(t) => registerTurnstileToken = t"
-                @error="() => registerTurnstileToken = null"
-              />
 
               <a-form-item style="margin-top:24px">
                 <a-button
@@ -507,7 +479,7 @@
                 size="large"
                 block
                 :loading="resetSendingCode"
-                :disabled="resetSendingCode || resetCountdown > 0 || (securityConfig.turnstile_enabled && !resetTurnstileToken)"
+                :disabled="resetSendingCode || resetCountdown > 0"
                 @click="handleResetSendCode"
               >
                 {{ resetCountdown > 0 ? `${resetCountdown}s` : ($t('user.resetPassword.sendCode') || 'Send') }}
@@ -515,15 +487,6 @@
             </a-col>
           </a-row>
         </a-form-item>
-
-        <Turnstile
-          v-if="showResetTurnstile"
-          ref="resetTurnstile"
-          :siteKey="securityConfig.turnstile_site_key"
-          :enabled="securityConfig.turnstile_enabled"
-          @success="(t) => resetTurnstileToken = t"
-          @error="() => resetTurnstileToken = null"
-        />
 
         <a-form-item style="margin-top:24px">
           <a-button
@@ -651,13 +614,50 @@
         </a-result>
       </div>
     </a-modal>
+
+    <a-modal
+      v-model="turnstileModalVisible"
+      :footer="null"
+      :maskClosable="false"
+      :maskStyle="{ backgroundColor: 'rgba(15, 23, 42, 0.42)', backdropFilter: 'blur(3px)' }"
+      :width="420"
+      class="turnstile-modal"
+      wrapClassName="turnstile-modal-wrap"
+      centered
+      @cancel="cancelTurnstileChallenge"
+    >
+      <template slot="title">
+        <span class="turnstile-modal-title">
+          <a-icon type="safety-certificate" />
+          <span>{{ $t('user.security.verifyTitle') }}</span>
+        </span>
+      </template>
+      <div class="turnstile-modal-content">
+        <p class="turnstile-modal-desc">
+          {{ $t('user.security.verifyDesc') }}
+        </p>
+        <div class="turnstile-widget-shell">
+          <Turnstile
+            v-if="turnstileModalVisible"
+            ref="authTurnstile"
+            class="auth-turnstile"
+            :siteKey="securityConfig.turnstile_site_key"
+            :enabled="securityConfig.turnstile_enabled"
+            appearance="always"
+            execution="render"
+            @error="handleSharedTurnstileError"
+            @expired="resetSharedTurnstile"
+          />
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script>
 import { mapActions } from 'vuex'
 import { timeFix } from '@/utils/util'
-import { getSecurityConfig, sendVerificationCode, register, resetPassword, loginWithCode, getGoogleOAuthUrl, getGitHubOAuthUrl, verifyLoginMfa } from '@/api/auth'
+import { getSecurityConfig, issueTurnstileClearance, sendVerificationCode, register, resetPassword, loginWithCode, getGoogleOAuthUrl, getGitHubOAuthUrl, verifyLoginMfa } from '@/api/auth'
 import Turnstile from '@/components/Turnstile/index.vue'
 import storage from 'store'
 import { ACCESS_TOKEN, USER_INFO, USER_ROLES } from '@/store/mutation-types'
@@ -683,6 +683,10 @@ export default {
         oauth_google_enabled: false,
         oauth_github_enabled: false
       },
+      turnstileClearance: '',
+      turnstileClearanceExpiresAt: 0,
+      turnstileClearancePromise: null,
+      turnstileModalVisible: false,
 
       // OAuth
       oauthProcessing: false,
@@ -698,7 +702,6 @@ export default {
       loginForm: this.$form.createForm(this, { name: 'loginForm' }),
       loginError: '',
       loginLoading: false,
-      loginTurnstileToken: null,
       mfaLoginVisible: false,
       mfaLoginLoading: false,
       mfaLoginCode: '',
@@ -709,7 +712,6 @@ export default {
       codeLoginForm: this.$form.createForm(this, { name: 'codeLoginForm' }),
       codeLoginError: '',
       codeLoginLoading: false,
-      codeLoginTurnstileToken: null,
       codeLoginSendingCode: false,
       codeLoginCountdown: 0,
       codeLoginCountdownTimer: null,
@@ -718,7 +720,6 @@ export default {
       registerForm: this.$form.createForm(this, { name: 'registerForm' }),
       registerError: '',
       registerLoading: false,
-      registerTurnstileToken: null,
       registerSendingCode: false,
       registerCountdown: 0,
       registerCountdownTimer: null,
@@ -735,7 +736,6 @@ export default {
       resetPwdForm: this.$form.createForm(this, { name: 'resetPwdForm' }),
       resetError: '',
       resetLoading: false,
-      resetTurnstileToken: null,
       resetSendingCode: false,
       resetCountdown: 0,
       resetCountdownTimer: null,
@@ -751,23 +751,6 @@ export default {
   computed: {
     hasOAuth () {
       return this.securityConfig.oauth_google_enabled || this.securityConfig.oauth_github_enabled
-    },
-    showCodeLoginTurnstile () {
-      return this.securityConfig.turnstile_enabled &&
-        this.activeTab === 'login' &&
-        this.loginMethod === 'code' &&
-        this.codeLoginCountdown <= 0
-    },
-    showRegisterTurnstile () {
-      return this.securityConfig.turnstile_enabled &&
-        this.activeTab === 'register' &&
-        this.registerCountdown <= 0
-    },
-    showResetTurnstile () {
-      return this.securityConfig.turnstile_enabled &&
-        this.showResetModal &&
-        this.resetStep === 1 &&
-        this.resetCountdown <= 0
     },
     regPwdValid () {
       return this.regHasMinLength && this.regHasUppercase && this.regHasLowercase && this.regHasNumber
@@ -788,12 +771,6 @@ export default {
     '$route.query' () {
       // Re-extract referral code when route query changes
       this.extractReferralCode()
-    },
-    activeTab () {
-      this.resetLoginTurnstiles()
-    },
-    loginMethod () {
-      this.resetLoginTurnstiles()
     }
   },
   beforeDestroy () {
@@ -804,19 +781,65 @@ export default {
   methods: {
     ...mapActions(['Login', 'Logout']),
 
-    resetLoginTurnstiles () {
-      this.loginTurnstileToken = null
-      this.codeLoginTurnstileToken = null
-      this.registerTurnstileToken = null
+    hasValidTurnstileClearance () {
+      return this.turnstileClearance && Date.now() < this.turnstileClearanceExpiresAt - 5000
+    },
 
-      this.$nextTick(() => {
-        const refNames = ['loginTurnstile', 'codeLoginTurnstile', 'registerTurnstile']
-        refNames.forEach(refName => {
-          if (this.$refs[refName]) {
-            this.$refs[refName].reset()
+    async getTurnstileClearance () {
+      if (!this.securityConfig.turnstile_enabled) {
+        return undefined
+      }
+      if (this.hasValidTurnstileClearance()) {
+        return this.turnstileClearance
+      }
+      if (this.turnstileClearancePromise) {
+        return this.turnstileClearancePromise
+      }
+      this.turnstileModalVisible = true
+      await this.$nextTick()
+      const widget = this.$refs.authTurnstile
+      if (!widget || typeof widget.execute !== 'function') {
+        throw new Error(this.$t('user.security.verificationFailed'))
+      }
+      this.turnstileClearancePromise = widget.execute()
+        .then(token => issueTurnstileClearance({ turnstile_token: token }))
+        .then(res => {
+          if (res.code !== 1 || !res.data?.turnstile_clearance) {
+            throw new Error(this.$t('user.security.verificationFailed'))
           }
+          this.turnstileClearance = res.data.turnstile_clearance
+          const ttlMs = Math.max(30, Number(res.data.expires_in || 600)) * 1000
+          this.turnstileClearanceExpiresAt = Date.now() + ttlMs
+          this.turnstileModalVisible = false
+          return this.turnstileClearance
         })
-      })
+        .finally(() => {
+          this.turnstileClearancePromise = null
+        })
+      return this.turnstileClearancePromise
+    },
+
+    resetSharedTurnstile () {
+      this.turnstileClearance = ''
+      this.turnstileClearanceExpiresAt = 0
+      if (this.$refs.authTurnstile) {
+        this.$refs.authTurnstile.reset()
+      }
+    },
+
+    cancelTurnstileChallenge () {
+      if (this.$refs.authTurnstile) {
+        this.$refs.authTurnstile.reset()
+      }
+      this.turnstileModalVisible = false
+    },
+
+    handleSharedTurnstileError () {
+      this.resetSharedTurnstile()
+    },
+
+    isTurnstileErrorMessage (message) {
+      return /turnstile|clearance|verification/i.test(String(message || ''))
     },
 
     async loadSecurityConfig () {
@@ -900,13 +923,22 @@ export default {
         return
       }
 
-      this.loginForm.validateFields(['username', 'password'], (err, values) => {
+      this.loginForm.validateFields(['username', 'password'], async (err, values) => {
         if (err) return
 
         this.loginLoading = true
         this.loginError = ''
 
-        this.Login({ ...values, turnstile_token: this.loginTurnstileToken })
+        let turnstileClearance
+        try {
+          turnstileClearance = await this.getTurnstileClearance()
+        } catch (e) {
+          this.loginLoading = false
+          this.loginError = this.$t('user.security.verificationFailed')
+          return
+        }
+
+        this.Login({ ...values, turnstile_clearance: turnstileClearance })
           .then((res) => {
             if (res && res.data && res.data.mfa_required) {
               this.mfaChallengeId = res.data.challenge_id
@@ -921,8 +953,9 @@ export default {
             const response = err.response || {}
             const data = response.data || {}
             this.loginError = data.msg || err.message || 'Login failed'
-            if (this.$refs.loginTurnstile) this.$refs.loginTurnstile.reset()
-            this.loginTurnstileToken = null
+            if (this.isTurnstileErrorMessage(this.loginError)) {
+              this.resetSharedTurnstile()
+            }
           })
           .finally(() => {
             this.loginLoading = false
@@ -1011,30 +1044,31 @@ export default {
       this.codeLoginForm.validateFields(['email'], async (err, values) => {
         if (err) return
 
-        if (this.securityConfig.turnstile_enabled && !this.codeLoginTurnstileToken) {
-          this.codeLoginError = this.$t('user.security.verificationFailed') || 'Please complete security verification'
-          return
-        }
-
         this.codeLoginSendingCode = true
         this.codeLoginError = ''
 
         try {
+          const turnstileClearance = await this.getTurnstileClearance()
           const res = await sendVerificationCode({
             email: values.email,
             type: 'login',
-            turnstile_token: this.codeLoginTurnstileToken
+            turnstile_clearance: turnstileClearance
           })
 
           if (res.code === 1) {
             this.$message.success(this.$t('user.login.codeSent') || 'Verification code sent')
             this.startCodeLoginCountdown()
-            this.codeLoginTurnstileToken = null
           } else {
             this.codeLoginError = res.msg || 'Failed to send code'
+            if (this.isTurnstileErrorMessage(this.codeLoginError)) {
+              this.resetSharedTurnstile()
+            }
           }
         } catch (e) {
-          this.codeLoginError = e.response?.data?.msg || 'Failed to send code'
+          this.codeLoginError = e.response?.data?.msg || this.$t('user.security.verificationFailed') || 'Failed to send code'
+          if (this.isTurnstileErrorMessage(this.codeLoginError)) {
+            this.resetSharedTurnstile()
+          }
         } finally {
           this.codeLoginSendingCode = false
         }
@@ -1149,13 +1183,9 @@ export default {
             })
           } else {
             this.codeLoginError = res.msg || 'Login failed'
-            if (this.$refs.codeLoginTurnstile) this.$refs.codeLoginTurnstile.reset()
-            this.codeLoginTurnstileToken = null
           }
         } catch (e) {
           this.codeLoginError = e.response?.data?.msg || 'Login failed'
-          if (this.$refs.codeLoginTurnstile) this.$refs.codeLoginTurnstile.reset()
-          this.codeLoginTurnstileToken = null
         } finally {
           this.codeLoginLoading = false
         }
@@ -1193,30 +1223,31 @@ export default {
       this.registerForm.validateFields(['email'], async (err, values) => {
         if (err) return
 
-        if (this.securityConfig.turnstile_enabled && !this.registerTurnstileToken) {
-          this.registerError = this.$t('user.security.verificationFailed') || 'Please complete security verification'
-          return
-        }
-
         this.registerSendingCode = true
         this.registerError = ''
 
         try {
+          const turnstileClearance = await this.getTurnstileClearance()
           const res = await sendVerificationCode({
             email: values.email,
             type: 'register',
-            turnstile_token: this.registerTurnstileToken
+            turnstile_clearance: turnstileClearance
           })
 
           if (res.code === 1) {
             this.$message.success(this.$t('user.register.codeSent') || 'Verification code sent')
             this.startRegisterCountdown()
-            this.registerTurnstileToken = null
           } else {
             this.registerError = res.msg || 'Failed to send code'
+            if (this.isTurnstileErrorMessage(this.registerError)) {
+              this.resetSharedTurnstile()
+            }
           }
         } catch (e) {
-          this.registerError = e.response?.data?.msg || 'Failed to send code'
+          this.registerError = e.response?.data?.msg || this.$t('user.security.verificationFailed') || 'Failed to send code'
+          if (this.isTurnstileErrorMessage(this.registerError)) {
+            this.resetSharedTurnstile()
+          }
         } finally {
           this.registerSendingCode = false
         }
@@ -1335,13 +1366,9 @@ export default {
             }
           } else {
             this.registerError = res.msg || 'Registration failed'
-            if (this.$refs.registerTurnstile) this.$refs.registerTurnstile.reset()
-            this.registerTurnstileToken = null
           }
         } catch (e) {
           this.registerError = e.response?.data?.msg || 'Registration failed'
-          if (this.$refs.registerTurnstile) this.$refs.registerTurnstile.reset()
-          this.registerTurnstileToken = null
         } finally {
           this.registerLoading = false
         }
@@ -1354,7 +1381,6 @@ export default {
       this.resetError = ''
       this.resetEmail = ''
       this.resetCode = ''
-      this.resetTurnstileToken = null
       this.resetCountdown = 0
       if (this.resetCountdownTimer) {
         clearInterval(this.resetCountdownTimer)
@@ -1366,30 +1392,31 @@ export default {
       this.resetForm.validateFields(['email'], async (err, values) => {
         if (err) return
 
-        if (this.securityConfig.turnstile_enabled && !this.resetTurnstileToken) {
-          this.resetError = this.$t('user.security.verificationFailed') || 'Please complete security verification'
-          return
-        }
-
         this.resetSendingCode = true
         this.resetError = ''
 
         try {
+          const turnstileClearance = await this.getTurnstileClearance()
           const res = await sendVerificationCode({
             email: values.email,
             type: 'reset_password',
-            turnstile_token: this.resetTurnstileToken
+            turnstile_clearance: turnstileClearance
           })
 
           if (res.code === 1) {
             this.$message.success(this.$t('user.resetPassword.codeSent') || 'Verification code sent')
             this.startResetCountdown()
-            this.resetTurnstileToken = null
           } else {
             this.resetError = res.msg || 'Failed to send code'
+            if (this.isTurnstileErrorMessage(this.resetError)) {
+              this.resetSharedTurnstile()
+            }
           }
         } catch (e) {
-          this.resetError = e.response?.data?.msg || 'Failed to send code'
+          this.resetError = e.response?.data?.msg || this.$t('user.security.verificationFailed') || 'Failed to send code'
+          if (this.isTurnstileErrorMessage(this.resetError)) {
+            this.resetSharedTurnstile()
+          }
         } finally {
           this.resetSendingCode = false
         }
@@ -1786,6 +1813,186 @@ export default {
     .anticon {
       font-size: 14px;
     }
+  }
+}
+
+::v-deep .turnstile-modal-wrap {
+  .ant-modal {
+    max-width: calc(100vw - 32px);
+  }
+
+  .ant-modal-mask {
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(3px);
+  }
+
+  .ant-modal-content {
+    overflow: hidden;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+  }
+
+  .ant-modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid #edf2f7;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .ant-modal-title {
+    color: #111827;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .ant-modal-close {
+    color: #64748b;
+
+    &:hover {
+      color: #111827;
+    }
+  }
+
+  .ant-modal-body {
+    padding: 24px 24px 26px;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(82, 196, 26, 0.08), transparent 34%),
+      #ffffff;
+  }
+}
+
+.turnstile-modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  .anticon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: #2f8f14;
+    background: rgba(82, 196, 26, 0.12);
+  }
+}
+
+.turnstile-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.turnstile-modal-desc {
+  max-width: 320px;
+  margin: 0 0 18px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.65;
+  text-align: center;
+}
+
+.turnstile-widget-shell {
+  width: 100%;
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.turnstile-modal-content ::v-deep .turnstile-container {
+  margin: 0;
+  min-height: 72px;
+  justify-content: center;
+}
+
+.turnstile-modal-content ::v-deep .turnstile-error {
+  max-width: 320px;
+  text-align: center;
+}
+</style>
+
+<style lang="less">
+.turnstile-modal-wrap {
+  .ant-modal {
+    max-width: calc(100vw - 32px);
+  }
+
+  .ant-modal-content {
+    overflow: hidden;
+    border-radius: 14px;
+    background: #ffffff !important;
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+  }
+
+  .ant-modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid #edf2f7;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  }
+
+  .ant-modal-title,
+  .turnstile-modal-title {
+    color: #111827 !important;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .turnstile-modal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .turnstile-modal-title .anticon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: #2f8f14;
+    background: rgba(82, 196, 26, 0.12);
+  }
+
+  .ant-modal-close {
+    color: #64748b;
+  }
+
+  .ant-modal-close:hover {
+    color: #111827;
+  }
+
+  .ant-modal-body {
+    padding: 24px 24px 26px;
+    color: #111827 !important;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(82, 196, 26, 0.08), transparent 34%),
+      #ffffff !important;
+  }
+}
+
+html body .ant-modal-wrap.turnstile-modal-wrap {
+  .ant-modal-content {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .ant-modal-header {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+    border-bottom-color: #edf2f7 !important;
+  }
+
+  .ant-modal-body {
+    background:
+      radial-gradient(circle at 18% 0%, rgba(82, 196, 26, 0.08), transparent 34%),
+      #ffffff !important;
+    color: #111827 !important;
   }
 }
 </style>

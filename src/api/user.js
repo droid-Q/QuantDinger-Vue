@@ -301,7 +301,7 @@ export function getUserCreditsLog (params) {
 
 /**
  * Get system-wide strategy overview (admin only)
- * @param {Object} params - { page, page_size, status, execution_mode, search, sort_by, sort_order }
+ * @param {Object} params - { page, page_size, status, execution_mode, strategy_class, search, sort_by, sort_order }
  */
 export function getSystemStrategies (params) {
   return request({

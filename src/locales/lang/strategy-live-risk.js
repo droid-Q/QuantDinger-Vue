@@ -1,0 +1,222 @@
+const locale = {
+  'strategyCenter.console.pauseOnly': 'Pause only',
+  'strategyCenter.console.pauseConfirm': 'Pause strategy execution and keep its current positions?',
+  'strategyCenter.console.stopAndClose': 'Pause and close',
+  'strategyCenter.console.stopAndCloseConfirm': 'Pause the strategy and queue reduce-only orders for all positions owned by it?',
+  'strategyCenter.console.stopAndCloseQueued': 'Strategy paused and its close orders were queued',
+  'strategyCenter.console.pauseSuccess': 'Strategy paused; positions remain open',
+  'strategyCenter.editor.positionSide': 'Position direction',
+  'strategyCenter.editor.positionSideHint': 'Live swap strategies must own exactly one hedge-mode leg.',
+  'strategyCenter.editor.positionSideLong': 'Long leg',
+  'strategyCenter.editor.positionSideShort': 'Short leg',
+  'strategyCenter.editor.positionSideRequired': 'Select the position direction before enabling live execution.',
+  'strategyCenter.editor.directionMode': 'Strategy trading capability',
+  'strategyCenter.editor.directionLongOnly': 'Long only',
+  'strategyCenter.editor.directionShortOnly': 'Short only',
+  'strategyCenter.editor.directionBoth': 'Long & short',
+  'strategyCenter.editor.directionNeutral': 'Neutral',
+  'strategyCenter.editor.directionMode.long_only': 'Long only',
+  'strategyCenter.editor.directionMode.short_only': 'Short only',
+  'strategyCenter.editor.directionMode.both': 'Long and short',
+  'strategyCenter.editor.directionMode.neutral': 'Neutral dual-leg',
+  'strategyCenter.editor.directionMode.unknown': 'Not declared',
+  'strategyCenter.editor.directionModeDetectedHint': 'Detected from the strategy contract. Strategy signals still decide each order direction.',
+  'strategyCenter.editor.directionModeLegacyHint': 'This legacy strategy does not declare its capability. Select a compatibility mode; new strategies should declare direction_mode in metadata.',
+  'strategyCenter.editor.directionModeRequired': 'Select a compatibility mode for this legacy swap strategy.',
+  'strategyCenter.editor.accountRiskTitle': 'Account-level risk limits',
+  'strategyCenter.editor.accountRiskHint': 'Limits apply across all live strategies that share this exchange account.',
+  'strategyCenter.editor.accountRiskAutoHint': 'Set a limit to 0 to derive it from strategy capital and leverage.',
+  'strategyCenter.editor.maxGrossNotional': 'Maximum gross notional',
+  'strategyCenter.editor.maxSymbolGrossNotional': 'Maximum symbol gross notional',
+  'strategyCenter.editor.maxMarginEstimate': 'Maximum estimated margin',
+  'strategyCenter.editor.maxGrossLeverage': 'Maximum gross leverage',
+  'strategyCenter.editor.maxRoundTripFee': 'Maximum round-trip fee estimate',
+  'strategyCenter.editor.maxFundingPerInterval': 'Maximum funding per interval',
+  'strategyV2.positionSideRequired': 'Select a long or short position direction for this live swap strategy.',
+  'strategyV2.positionSideInvalid': 'The selected position direction is invalid.',
+  'strategyV2.directionModeRequired': 'This live swap strategy must declare a trading-direction capability.',
+  'strategyV2.directionModeInvalid': 'The strategy trading-direction capability is invalid.',
+  'strategyV2.directionModeMismatch': 'The selected trading capability conflicts with the strategy contract.',
+  'strategyV2.directionModeViolation': 'The order direction exceeds the strategy\'s declared trading capability.',
+  'strategyV2.dualDirectionHedgeModeRequired': 'Long-and-short or neutral strategies require hedge mode on the exchange account.',
+  'strategyV2.accountRiskInvalid': 'The account risk configuration is invalid.',
+  'strategyV2.hedgeModeRequired': 'The exchange account is in one-way mode. Switch it to hedge mode before starting.',
+  'strategyV2.hedgeModeUnknown': 'The exchange position mode could not be verified, so live execution was blocked.',
+  'strategyV2.liveLegConflict': 'Another live strategy already owns this account, symbol, and direction.',
+  'strategyV2.stopClosePartialFailure': 'The strategy was paused, but one or more close orders could not be queued.',
+  'strategyV2.paused': 'Strategy paused',
+  'strategyV2.stoppedAndCloseQueued': 'Strategy paused and close orders queued',
+  'strategyV2.startQueued': 'Strategy start queued; waiting for the execution worker to confirm.',
+  'accountRisk.grossNotionalExceeded': 'Account gross notional limit exceeded.',
+  'accountRisk.symbolGrossNotionalExceeded': 'Symbol gross notional limit exceeded.',
+  'accountRisk.marginEstimateExceeded': 'Estimated account margin limit exceeded.',
+  'accountRisk.feeBudgetExceeded': 'Estimated round-trip fee budget exceeded.',
+  'accountRisk.fundingBudgetExceeded': 'Estimated funding budget exceeded.',
+  'accountRisk.grossLeverageExceeded': 'Account gross leverage limit exceeded.',
+  'accountRisk.positionPriceMissing': 'A current position could not be valued, so the opening order was blocked.',
+  'accountRisk.proposedPriceMissing': 'The opening order has no usable reference price, so it was blocked.'
+}
+
+const enUSFallback = locale
+
+const zhCN = {
+  'strategyCenter.console.pauseOnly': '仅暂停',
+  'strategyCenter.console.pauseConfirm': '暂停策略运行并保留当前持仓吗？',
+  'strategyCenter.console.stopAndClose': '暂停并平仓',
+  'strategyCenter.console.stopAndCloseConfirm': '暂停策略，并为该策略持有的全部仓位提交只减仓订单吗？',
+  'strategyCenter.console.stopAndCloseQueued': '策略已暂停，平仓订单已提交队列',
+  'strategyCenter.console.pauseSuccess': '策略已暂停，当前持仓继续保留',
+  'strategyCenter.editor.positionSide': '持仓方向',
+  'strategyCenter.editor.positionSideHint': '合约实盘策略必须固定归属一个双向持仓腿。',
+  'strategyCenter.editor.positionSideLong': '做多腿',
+  'strategyCenter.editor.positionSideShort': '做空腿',
+  'strategyCenter.editor.positionSideRequired': '开启实盘前请选择持仓方向。',
+  'strategyCenter.editor.directionMode': '策略交易方向能力',
+  'strategyCenter.editor.directionLongOnly': '仅做多',
+  'strategyCenter.editor.directionShortOnly': '仅做空',
+  'strategyCenter.editor.directionBoth': '多空双向',
+  'strategyCenter.editor.directionNeutral': '中性双腿',
+  'strategyCenter.editor.directionMode.long_only': '仅做多',
+  'strategyCenter.editor.directionMode.short_only': '仅做空',
+  'strategyCenter.editor.directionMode.both': '多空双向',
+  'strategyCenter.editor.directionMode.neutral': '中性双腿',
+  'strategyCenter.editor.directionMode.unknown': '未声明',
+  'strategyCenter.editor.directionModeDetectedHint': '已从策略契约自动识别；每笔订单的实际方向仍由策略信号决定。',
+  'strategyCenter.editor.directionModeLegacyHint': '该旧策略未声明方向能力，请选择兼容模式；新策略应在元数据中声明 direction_mode。',
+  'strategyCenter.editor.directionModeRequired': '请为该旧版合约策略选择兼容模式。',
+  'strategyCenter.editor.accountRiskTitle': '账户级风险限制',
+  'strategyCenter.editor.accountRiskHint': '限制会统计共享同一交易所账户的全部实盘策略。',
+  'strategyCenter.editor.accountRiskAutoHint': '数值设为 0 时，将根据策略资金和杠杆自动计算。',
+  'strategyCenter.editor.maxGrossNotional': '最大总名义仓位',
+  'strategyCenter.editor.maxSymbolGrossNotional': '单标的最大总名义仓位',
+  'strategyCenter.editor.maxMarginEstimate': '最大预估保证金',
+  'strategyCenter.editor.maxGrossLeverage': '最大总杠杆',
+  'strategyCenter.editor.maxRoundTripFee': '最大往返手续费预估',
+  'strategyCenter.editor.maxFundingPerInterval': '单周期最大资金费率成本',
+  'strategyV2.positionSideRequired': '该合约实盘策略必须选择做多或做空方向。',
+  'strategyV2.positionSideInvalid': '持仓方向无效。',
+  'strategyV2.directionModeRequired': '该合约实盘策略必须声明交易方向能力。',
+  'strategyV2.directionModeInvalid': '策略交易方向能力无效。',
+  'strategyV2.directionModeMismatch': '所选交易方向能力与策略契约不一致。',
+  'strategyV2.directionModeViolation': '订单方向超出了策略声明的交易方向能力。',
+  'strategyV2.dualDirectionHedgeModeRequired': '多空双向或中性策略要求交易所账户开启双向持仓模式。',
+  'strategyV2.accountRiskInvalid': '账户风险配置无效。',
+  'strategyV2.hedgeModeRequired': '交易所账户处于单向持仓模式，请切换为双向持仓后再启动。',
+  'strategyV2.hedgeModeUnknown': '无法确认交易所持仓模式，已阻止实盘启动。',
+  'strategyV2.liveLegConflict': '同一账户、标的和方向已有其他实盘策略运行。',
+  'strategyV2.stopClosePartialFailure': '策略已暂停，但部分平仓订单未能提交。',
+  'strategyV2.paused': '策略已暂停',
+  'strategyV2.stoppedAndCloseQueued': '策略已暂停，平仓订单已提交',
+  'accountRisk.grossNotionalExceeded': '账户总名义仓位超过限制。',
+  'accountRisk.symbolGrossNotionalExceeded': '该标的总名义仓位超过限制。',
+  'accountRisk.marginEstimateExceeded': '账户预估保证金超过限制。',
+  'accountRisk.feeBudgetExceeded': '预估往返手续费超过预算。',
+  'accountRisk.fundingBudgetExceeded': '预估资金费率成本超过预算。',
+  'accountRisk.grossLeverageExceeded': '账户总杠杆超过限制。',
+  'accountRisk.positionPriceMissing': '当前持仓缺少可用价格，已阻止新增开仓。',
+  'accountRisk.proposedPriceMissing': '开仓订单缺少可用参考价格，已阻止提交。'
+}
+
+const zhTW = {
+  ...zhCN,
+  'strategyCenter.console.pauseOnly': '僅暫停',
+  'strategyCenter.console.pauseConfirm': '暫停策略執行並保留目前持倉嗎？',
+  'strategyCenter.console.stopAndClose': '暫停並平倉',
+  'strategyCenter.console.stopAndCloseConfirm': '暫停策略，並為此策略持有的全部倉位提交只減倉訂單嗎？',
+  'strategyCenter.console.pauseSuccess': '策略已暫停，目前持倉繼續保留',
+  'strategyCenter.editor.positionSide': '持倉方向',
+  'strategyCenter.editor.positionSideLong': '做多腿',
+  'strategyCenter.editor.positionSideShort': '做空腿'
+}
+
+const ja = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': '一時停止のみ',
+  'strategyCenter.console.pauseConfirm': 'ポジションを維持したまま戦略を一時停止しますか？',
+  'strategyCenter.console.stopAndClose': '停止して決済',
+  'strategyCenter.console.stopAndCloseConfirm': '戦略を停止し、保有ポジションに決済注文を送信しますか？',
+  'strategyCenter.console.stopAndCloseQueued': '戦略を停止し、決済注文をキューに追加しました',
+  'strategyCenter.console.pauseSuccess': '戦略を停止しました。ポジションは維持されます',
+  'strategyCenter.editor.positionSide': 'ポジション方向',
+  'strategyCenter.editor.positionSideLong': 'ロング',
+  'strategyCenter.editor.positionSideShort': 'ショート',
+  'strategyV2.hedgeModeRequired': '取引所口座をヘッジモードに切り替えてから開始してください。'
+}
+
+const ko = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': '일시 중지만',
+  'strategyCenter.console.stopAndClose': '중지 후 청산',
+  'strategyCenter.editor.positionSide': '포지션 방향',
+  'strategyCenter.editor.positionSideLong': '롱',
+  'strategyCenter.editor.positionSideShort': '숏',
+  'strategyV2.hedgeModeRequired': '거래소 계정을 헤지 모드로 전환한 후 시작하세요.'
+}
+
+const de = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': 'Nur pausieren',
+  'strategyCenter.console.stopAndClose': 'Pausieren und schließen',
+  'strategyCenter.editor.positionSide': 'Positionsrichtung',
+  'strategyCenter.editor.positionSideLong': 'Long-Seite',
+  'strategyCenter.editor.positionSideShort': 'Short-Seite'
+}
+
+const fr = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': 'Mettre en pause',
+  'strategyCenter.console.stopAndClose': 'Pause et clôture',
+  'strategyCenter.editor.positionSide': 'Sens de position',
+  'strategyCenter.editor.positionSideLong': 'Jambe longue',
+  'strategyCenter.editor.positionSideShort': 'Jambe courte'
+}
+
+const ru = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': 'Только пауза',
+  'strategyCenter.console.stopAndClose': 'Пауза и закрытие',
+  'strategyCenter.editor.positionSide': 'Направление позиции',
+  'strategyCenter.editor.positionSideLong': 'Лонг',
+  'strategyCenter.editor.positionSideShort': 'Шорт'
+}
+
+const vi = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': 'Chỉ tạm dừng',
+  'strategyCenter.console.stopAndClose': 'Dừng và đóng vị thế',
+  'strategyCenter.editor.positionSide': 'Hướng vị thế',
+  'strategyCenter.editor.positionSideLong': 'Vị thế mua',
+  'strategyCenter.editor.positionSideShort': 'Vị thế bán'
+}
+
+const th = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': 'หยุดชั่วคราวเท่านั้น',
+  'strategyCenter.console.stopAndClose': 'หยุดและปิดสถานะ',
+  'strategyCenter.editor.positionSide': 'ทิศทางสถานะ',
+  'strategyCenter.editor.positionSideLong': 'ฝั่ง Long',
+  'strategyCenter.editor.positionSideShort': 'ฝั่ง Short'
+}
+
+const ar = {
+  ...enUSFallback,
+  'strategyCenter.console.pauseOnly': 'إيقاف مؤقت فقط',
+  'strategyCenter.console.stopAndClose': 'إيقاف وإغلاق',
+  'strategyCenter.editor.positionSide': 'اتجاه المركز',
+  'strategyCenter.editor.positionSideLong': 'مركز شراء',
+  'strategyCenter.editor.positionSideShort': 'مركز بيع'
+}
+
+export default {
+  'en-US': locale,
+  'zh-CN': zhCN,
+  'zh-TW': zhTW,
+  'ja-JP': ja,
+  'ko-KR': ko,
+  'de-DE': de,
+  'fr-FR': fr,
+  'ru-RU': ru,
+  'vi-VN': vi,
+  'th-TH': th,
+  'ar-SA': ar
+}

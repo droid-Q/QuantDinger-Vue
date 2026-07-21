@@ -118,7 +118,7 @@
               </span>
             </div>
             <div v-if="visibleMessageActions(msg).length || strategyCodeForMessage(msg)" class="message-actions">
-              <button v-for="action in visibleMessageActions(msg)" :key="action.key || action.label" type="button" @click="runMessageAction(action)">
+              <button v-for="action in visibleMessageActions(msg)" :key="action.key || action.label" type="button" @click="runMessageAction(action, msg)">
                 <a-icon :type="action.icon || 'arrow-right'" /> {{ action.label }}
               </button>
               <button v-if="strategyCodeForMessage(msg)" type="button" @click="copyStrategyCode(msg)">
@@ -138,6 +138,63 @@
       </div>
 
       <footer class="composer">
+        <div class="context-bar composer-context-bar">
+          <div class="context-status">
+            <a-icon type="search" />
+            <span>{{ text.focusSymbol }}</span>
+            <strong>{{ currentContextLabel }}</strong>
+          </div>
+          <div class="symbol-picker hero-symbol-picker">
+            <a-select
+              ref="contextSymbolSelect"
+              v-model="selectedSymbolValue"
+              show-search
+              allow-clear
+              size="large"
+              dropdown-class-name="copilot-symbol-dropdown"
+              :placeholder="text.symbolPlaceholder"
+              :filter-option="false"
+              :not-found-content="symbolSearching ? undefined : text.noSymbol"
+              @focus="seedSymbolOptions"
+              @search="handleSymbolSearch"
+              @change="handleSymbolChange"
+            >
+              <a-spin v-if="symbolSearching" slot="notFoundContent" size="small" />
+              <a-select-option
+                v-for="item in selectableSymbols"
+                :key="symbolOptionValue(item)"
+                :value="symbolOptionValue(item)"
+              >
+                <div class="symbol-option">
+                  <strong>{{ item.symbol }}</strong>
+                  <span>{{ item.name || item.market }}</span>
+                  <em :class="['symbol-market-pill', marketPillClass(item.market)]">{{ marketLabel(item.market) }}</em>
+                </div>
+              </a-select-option>
+            </a-select>
+          </div>
+        </div>
+        <div v-if="strategyComposerGuide" class="composer-coach">
+          <span class="composer-coach-icon"><a-icon :type="strategyComposerGuide.icon" /></span>
+          <div class="composer-coach-copy">
+            <div class="composer-coach-head">
+              <strong>{{ strategyComposerGuide.title }}</strong>
+              <span>{{ strategyComposerGuide.ready }}</span>
+            </div>
+            <p>{{ strategyComposerGuide.desc }}</p>
+            <div class="composer-coach-suggestions">
+              <button
+                v-for="suggestion in strategyComposerGuide.suggestions"
+                :key="suggestion.key"
+                type="button"
+                :aria-label="suggestion.label"
+                @click="appendStrategySuggestion(suggestion)"
+              >
+                <a-icon type="plus" /> {{ suggestion.label }}
+              </button>
+            </div>
+          </div>
+        </div>
         <textarea
           ref="composerInput"
           v-model="draft"
@@ -150,46 +207,14 @@
           @paste="handlePaste"
         />
         <div class="composer-foot">
-          <div class="context-bar composer-context-bar">
-            <div class="context-status">
-              <a-icon type="search" />
-              <span>{{ text.focusSymbol }}</span>
-              <strong>{{ currentContextLabel }}</strong>
-            </div>
-            <div class="symbol-picker hero-symbol-picker">
-              <a-select
-                ref="contextSymbolSelect"
-                v-model="selectedSymbolValue"
-                show-search
-                allow-clear
-                size="large"
-                dropdown-class-name="copilot-symbol-dropdown"
-                :placeholder="text.symbolPlaceholder"
-                :filter-option="false"
-                :not-found-content="symbolSearching ? undefined : text.noSymbol"
-                @focus="seedSymbolOptions"
-                @search="handleSymbolSearch"
-                @change="handleSymbolChange"
-              >
-                <a-spin v-if="symbolSearching" slot="notFoundContent" size="small" />
-                <a-select-option
-                  v-for="item in selectableSymbols"
-                  :key="symbolOptionValue(item)"
-                  :value="symbolOptionValue(item)"
-                >
-                  <div class="symbol-option">
-                    <strong>{{ item.symbol }}</strong>
-                    <span>{{ item.name || item.market }}</span>
-                    <em :class="['symbol-market-pill', marketPillClass(item.market)]">{{ marketLabel(item.market) }}</em>
-                  </div>
-                </a-select-option>
-              </a-select>
-            </div>
-          </div>
+          <p class="risk-disclaimer">
+            <a-icon type="safety-certificate" />
+            <span>{{ text.riskDisclaimer }}</span>
+          </p>
           <div class="composer-actions">
             <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple @change="handleFiles">
             <a-button v-if="messages.length" @click="quickToolsVisible = true">
-              <a-icon type="appstore" /> {{ text.quickTools || 'Quick tools' }}
+              <a-icon type="appstore" /> {{ text.quickTools }}
             </a-button>
             <a-button @click="$refs.fileInput.click()">
               <a-icon type="picture" /> {{ uploadImageLabel }}
@@ -199,10 +224,6 @@
             </a-button>
           </div>
         </div>
-        <p class="risk-disclaimer">
-          <a-icon type="safety-certificate" />
-          {{ text.riskDisclaimer }}
-        </p>
       </footer>
     </main>
 
@@ -267,7 +288,7 @@
           <div v-for="m in monitors.slice(0, 8)" :key="m.id" class="monitor-card">
             <div>
               <strong>{{ monitorSymbol(m) }}</strong>
-              <span>{{ intervalText(m) }} · {{ m.is_active ? text.running : text.paused }}</span>
+              <span>{{ intervalText(m) }} | {{ notificationText(m) }} | {{ m.is_active ? text.running : text.paused }}</span>
             </div>
             <div class="monitor-actions">
               <button type="button" @click="toggleMonitor(m)"><a-icon :type="m.is_active ? 'pause' : 'caret-right'" /></button>
@@ -289,7 +310,7 @@
         <div class="event-title-row">
           <div>
             <strong>{{ eventTitle(selectedEvent) }}</strong>
-            <span>{{ formatEventTime(selectedEvent) }} · {{ selectedEvent.country || selectedEvent.region || '--' }}</span>
+            <span>{{ formatEventTime(selectedEvent) }} {{ text.eventMetaSeparator }} {{ selectedEvent.country || selectedEvent.region || '--' }}</span>
           </div>
           <em :class="['impact-pill', impactClass(selectedEvent)]">{{ impactLabel(selectedEvent) }}</em>
         </div>
@@ -334,9 +355,10 @@
         </a-form-item>
         <a-form-item :label="text.notify">
           <a-checkbox-group v-model="taskForm.notify_channels">
-            <a-checkbox value="browser">Browser</a-checkbox>
-            <a-checkbox value="email">Email</a-checkbox>
-            <a-checkbox value="telegram">Telegram</a-checkbox>
+            <a-checkbox value="browser">{{ text.notifyBrowser }}</a-checkbox>
+            <a-checkbox value="email">{{ text.notifyEmail }}</a-checkbox>
+            <a-checkbox value="telegram">{{ text.notifyTelegram }}</a-checkbox>
+            <a-checkbox value="webhook"><a-icon type="api" /> {{ text.notifyWebhook }}</a-checkbox>
           </a-checkbox-group>
         </a-form-item>
         <a-alert :message="text.monitorTip" type="info" show-icon />
@@ -405,7 +427,7 @@
 
     <a-modal
       v-model="quickToolsVisible"
-      :title="text.quickTools || 'Quick tools'"
+      :title="text.quickTools"
       :footer="null"
       wrap-class-name="copilot-modal quick-tools-modal"
       width="760px"
@@ -432,7 +454,7 @@
       :title="text.strategyFlowTitle"
       :footer="null"
       wrap-class-name="copilot-modal"
-      width="720px"
+      width="700px"
     >
       <div class="strategy-flow">
         <div class="strategy-flow-guide">
@@ -456,17 +478,12 @@
             </span>
           </button>
         </div>
-        <div v-if="selectedStrategyTargetDetails" class="strategy-route-panel">
-          <div class="strategy-route-main">
-            <span class="strategy-route-icon"><a-icon :type="selectedStrategyTargetDetails.icon" /></span>
-            <span>
-              <strong>{{ selectedStrategyTargetDetails.routeTitle }}</strong>
-              <em>{{ selectedStrategyTargetDetails.routeDesc }}</em>
-            </span>
-          </div>
-          <a-button type="primary" @click="startStrategyFlow(selectedStrategyTarget)">
-            <a-icon type="edit" /> {{ selectedStrategyTargetDetails.startLabel }}
-          </a-button>
+        <div v-if="selectedStrategyTargetDetails" class="strategy-selected-bar">
+          <span class="strategy-selected-label">
+            <a-icon :type="selectedStrategyTargetDetails.icon" />
+            <strong>{{ selectedStrategyTargetDetails.routeTitle }}</strong>
+          </span>
+          <em>{{ selectedStrategyTargetDetails.routeDesc }}</em>
         </div>
         <div class="strategy-examples">
           <div class="strategy-examples-head">
@@ -486,6 +503,11 @@
             </span>
             <a-icon type="arrow-right" />
           </button>
+        </div>
+        <div v-if="selectedStrategyTargetDetails" class="strategy-flow-footer">
+          <a-button type="primary" class="strategy-route-action" @click="startStrategyFlow(selectedStrategyTarget)">
+            <a-icon type="edit" /> {{ selectedStrategyTargetDetails.startLabel }}
+          </a-button>
         </div>
       </div>
     </a-modal>
@@ -585,8 +607,14 @@ export default {
       composerMinHeight: 98,
       composerMaxHeight: 236,
       draftContextLock: null,
+      localizedDraft: null,
       printReportId: '',
       quickToolsVisible: false
+    }
+  },
+  watch: {
+    '$i18n.locale' () {
+      this.refreshLocalizedDraft()
     }
   },
   computed: {
@@ -641,6 +669,10 @@ export default {
         running: t('running', 'Running'),
         paused: t('paused', 'Paused'),
         eventDetail: t('eventDetail', 'Event detail'),
+        eventMetaSeparator: t('eventMetaSeparator', '·'),
+        impactHigh: t('impactHigh', 'High'),
+        impactMedium: t('impactMedium', 'Medium'),
+        impactLow: t('impactLow', 'Low'),
         actual: t('actual', 'Actual'),
         forecast: t('forecast', 'Forecast'),
         previous: t('previous', 'Previous'),
@@ -650,6 +682,10 @@ export default {
         createMonitor: t('createMonitor', 'Create scheduled analysis'),
         interval: t('interval', 'Interval'),
         notify: t('notify', 'Notify'),
+        notifyBrowser: t('notifyBrowser', 'Browser'),
+        notifyEmail: t('notifyEmail', 'Email'),
+        notifyTelegram: t('notifyTelegram', 'Telegram'),
+        notifyWebhook: t('notifyWebhook', 'Webhook'),
         monitorTip: t('monitorTip', 'AI will re-check this symbol on schedule and keep a record.'),
         save: t('save', 'Save'),
         cancel: t('cancel', 'Cancel'),
@@ -664,23 +700,24 @@ export default {
         monitorUpdated: t('monitorUpdated', 'Scheduled analysis updated'),
         monitorDeleted: t('monitorDeleted', 'Scheduled analysis deleted'),
         strategyFlowTitle: t('strategyFlowTitle', 'Choose the strategy type to create'),
-        indicatorStrategy: t('indicatorStrategy', 'Indicator Strategy'),
-        indicatorStrategyDesc: t('indicatorStrategyDesc', 'Draft strategies for research, backtesting, and publishing.'),
+        indicatorStrategy: t('indicatorStrategy', 'Strategy API V2'),
+        indicatorStrategyDesc: t('indicatorStrategyDesc', 'Generate chart-only indicator research with plots, markers, and parameters. Convert to Strategy API V2 before backtesting or live execution.'),
         scriptStrategy: t('scriptStrategy', 'Trading Script'),
-        scriptStrategyDesc: t('scriptStrategyDesc', 'Generate Python ScriptStrategy code for the Trading Script editor.'),
+        scriptStrategyDesc: t('scriptStrategyDesc', 'Generate Python Strategy API V2 code for the Trading Script editor.'),
         tradingBot: t('tradingBot', 'Strategy Template'),
         tradingBotDesc: t('tradingBotDesc', 'Recommend grid, trend, DCA, or martingale template parameters from market context.'),
-        strategyRouteIndicatorTitle: t('strategyRouteIndicatorTitle', 'Output: Indicator strategy code'),
-        strategyRouteIndicatorDesc: t('strategyRouteIndicatorDesc', 'Runs in the Indicator Strategy editor. It must use QuantDinger Python indicator contracts and four signal columns for backtest/live handoff.'),
+        strategyRouteIndicatorTitle: t('strategyRouteIndicatorTitle', 'Output: Chart indicator code'),
+        strategyRouteIndicatorDesc: t('strategyRouteIndicatorDesc', 'Indicators are chart-only. Generate visual indicator code first, then convert the visible logic to a Python Strategy API V2 when backtesting or live execution is needed.'),
         strategyRouteScriptTitle: t('strategyRouteScriptTitle', 'Output: Trading Script code'),
         strategyRouteScriptDesc: t('strategyRouteScriptDesc', 'Runs in the Trading Script editor. Use this for stateful logic, position management, API calls, logging, and automated execution.'),
         strategyRouteTemplateTitle: t('strategyRouteTemplateTitle', 'Output: Strategy Template parameters'),
         strategyRouteTemplateDesc: t('strategyRouteTemplateDesc', 'Runs as a Strategy Template. It recommends grid/trend/DCA and other preset parameters for manual review before launch.'),
-        strategyStartIndicator: t('strategyStartIndicator', 'Create indicator strategy prompt'),
+        strategyStartIndicator: t('strategyStartIndicator', 'Create chart indicator prompt'),
         strategyStartScript: t('strategyStartScript', 'Create trading script prompt'),
         strategyStartTemplate: t('strategyStartTemplate', 'Create strategy template prompt'),
         analysisRunning: t('analysisRunning', 'Analysis is running...'),
         analysisComplete: t('analysisComplete', 'Analysis complete'),
+        indicatorGenerated: t('indicatorGenerated', 'Indicator draft generated'),
         strategyGenerated: t('strategyGenerated', 'Strategy draft generated'),
         openTargetPage: t('openTargetPage', 'Open target page'),
         chatUnavailable: t('chatUnavailable', 'Chat API is not connected. Showing local fallback response first.'),
@@ -711,18 +748,38 @@ export default {
       }
     },
     uploadImageLabel () {
-      return this.text.uploadImage
+      return this.text.uploadChart
     },
     thinkingText () {
       return this.text.thinking
+    },
+    strategyComposerGuide () {
+      const task = this.pendingAgentTask
+      if (!task || task.type !== 'strategy_design') return null
+      const targetType = task.targetType === 'indicator' ? 'indicator' : 'script'
+      const guideText = (key, values = {}) => this.i18nText(`aiAssetAnalysis.copilot.composerGuide.${key}`, '', values)
+      const suggestion = key => ({
+        key,
+        label: guideText(`${targetType}.suggestions.${key}.label`),
+        prompt: guideText(`${targetType}.suggestions.${key}.prompt`)
+      })
+      return {
+        icon: targetType === 'indicator' ? 'line-chart' : 'experiment',
+        title: guideText(`${targetType}.title`),
+        desc: guideText(`${targetType}.desc`),
+        ready: guideText('ready'),
+        suggestions: targetType === 'indicator'
+          ? ['trend', 'signals', 'levels'].map(suggestion)
+          : ['entry', 'risk', 'position'].map(suggestion)
+      }
     },
     quickPrompts () {
       const symbol = this.context.symbol || this.text.currentSymbol
       const prompt = (key, fallback) => this.localizedQuickPrompt(key, fallback, { symbol })
       return [
         { key: 'diagnose', action: 'analysis', icon: 'line-chart', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.market_diagnosis.label', 'Diagnose symbol'), prompt: prompt('diagnose', 'Diagnose {symbol}: trend, momentum, support/resistance, liquidity, and risk.') },
-        { key: 'strategy', action: 'strategy', icon: 'experiment', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.indicator_strategy.label', 'Indicator Strategy'), prompt: prompt('strategy', 'Design an executable strategy workflow for {symbol}, including conditions, risk controls, and validation plan.') },
-        { key: 'logs', action: 'chat', icon: 'bug', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.debug_logs.label', 'Debug logs'), prompt: prompt('logs', 'Help me inspect recent errors and suggest the next debugging steps.') },
+        { key: 'indicator_research', action: 'strategy', icon: 'line-chart', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.indicator_research.label', 'Indicator R&D'), prompt: prompt('indicatorResearch', 'Generate chart-only QuantDinger indicator code for {symbol}, including plots, visual markers, and parameters.') },
+        { key: 'strategy_research', action: 'strategy', icon: 'experiment', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.strategy_research.label', 'Strategy R&D'), prompt: prompt('strategy', 'Generate executable QuantDinger Strategy API V2 code for {symbol}, including entry/exit logic, risk controls, and runtime-safe parameters.') },
         { key: 'radar', action: 'chat', icon: 'aim', label: this.i18nText('aiAssetAnalysis.copilot.quickTasks.opportunity_radar.label', 'Opportunity radar'), prompt: prompt('radar', 'Scan {symbol} for likely opportunities in the next 24 hours, with triggers and invalidation.') }
       ]
     },
@@ -740,10 +797,10 @@ export default {
       return [
         task('diagnose', 'analysis', 'line-chart', 'blue', 'market_diagnosis', 'market_diagnosis', 'diagnose', 'Diagnose {symbol}: trend, momentum, support/resistance, liquidity, and risk.'),
         task('chart', 'chart', 'picture', 'purple', 'chart_review', 'chart_review', 'chart', 'I will paste or upload a chart image. Judge whether the setup is tradable and give stop loss, take profit, and invalidation.'),
-        task('strategy', 'strategy', 'line-chart', 'green', 'indicator_strategy', 'indicator_strategy', 'strategy', 'Create a strategy research plan for {symbol}, including entry/exit logic, risk controls, and validation steps.'),
+        task('indicator_research', 'strategy', 'line-chart', 'green', 'indicator_research', 'indicator_research', 'indicatorResearch', 'Generate chart-only QuantDinger indicator code for {symbol}, including plots, visual markers, and parameters.'),
+        task('strategy_research', 'strategy', 'experiment', 'green', 'strategy_research', 'strategy_research', 'strategy', 'Generate executable QuantDinger Strategy API V2 code for {symbol}, including entry/exit logic, risk controls, and runtime-safe parameters.'),
         task('trade_plan', 'chat', 'profile', 'orange', 'trade_plan', 'trade_plan', 'tradePlan', 'Create a practical trading plan for {symbol}: bias, key levels, trigger, stop loss, take profit, position sizing, and when to stay out.'),
         task('news', 'chat', 'global', 'cyan', 'news_research', 'news_research', 'news', 'Search recent news and events for {symbol}; separate facts, interpretation, and uncertainty.'),
-        task('logs', 'chat', 'bug', 'red', 'debug_logs', 'debug_logs', 'logs', 'Help me inspect strategy, bot, or API logs and identify likely causes and fixes.'),
         task('macro', 'chat', 'global', 'indigo', 'macro_economic_data', 'macro_economic_data', 'macro', 'Review macro data such as CPI, FOMC, rates, GDP, and PCE, and explain the market impact.'),
         task('radar', 'chat', 'radar-chart', 'gold', 'opportunity_radar', 'opportunity_radar', 'radar', 'Scan for possible opportunities in the next 24 hours and list triggers, risks, and invalidation.')
       ]
@@ -756,10 +813,11 @@ export default {
       return {
         market_diagnosis: make('market_diagnosis', 'Diagnose symbol', 'Trend, momentum, support/resistance, liquidity, and risk.'),
         chart_review: make('chart_review', 'Chart review', 'Judge entries, stops, take profit, and invalidation from a chart image.'),
-        indicator_strategy: make('indicator_strategy', 'Indicator Strategy', 'Generate a strategy draft that can be reviewed, backtested, and published.'),
+        indicator_research: make('indicator_research', 'Indicator R&D', 'Generate chart-only indicators with plots, markers, and parameters.'),
+        strategy_research: make('strategy_research', 'Strategy R&D', 'Generate executable Strategy API V2 drafts for backtest and live review.'),
+        script_strategy: make('strategy_research', 'Strategy R&D', 'Generate executable Strategy API V2 drafts for backtest and live review.'),
         trade_plan: make('trade_plan', 'Trading plan', 'Turn the current market context into a concrete execution checklist.'),
         news_research: make('news_research', 'News / event research', 'Search company, asset, macro, and industry news to build usable research context.'),
-        debug_logs: make('debug_logs', 'Debug logs', 'Locate strategy, bot, and API errors.'),
         macro_economic_data: make('macro_economic_data', 'Macro data', 'Query CPI, FOMC, rates, GDP, PCE, and other macro events.'),
         opportunity_radar: make('opportunity_radar', 'Opportunity radar', 'Scan likely opportunities over the next 24 hours.')
       }
@@ -772,28 +830,35 @@ export default {
       const order = [
         'market_diagnosis',
         'chart_review',
-        'indicator_strategy',
+        'indicator_research',
+        'strategy_research',
         'trade_plan',
         'news_research',
-        'debug_logs',
         'macro_economic_data',
         'opportunity_radar'
       ]
       const byId = new Map(this.systemQuickTasks.map(item => [item.key, item]))
       registry
         .filter(item => item && item.id !== 'scheduled_analysis')
-        .forEach(item => byId.set(item.id, item))
+        .forEach(item => {
+          if (item.id === 'script_strategy') {
+            byId.set('strategy_research', item)
+          } else {
+            byId.set(item.id, item)
+          }
+        })
       return order
         .map(id => byId.get(id))
         .filter(Boolean)
         .map(skill => {
           const actionType = skill.action_type || ''
-          const skillId = skill.id || skill.key
-          const displayText = this.quickTaskDisplayText[skillId] || {}
+          const rawSkillId = skill.id || skill.key
+          const skillId = rawSkillId === 'script_strategy' ? 'strategy_research' : rawSkillId
+          const displayText = this.quickTaskDisplayText[skillId] || this.quickTaskDisplayText[rawSkillId] || {}
           const promptKey = this.quickTaskPromptKey(skillId)
           return {
             key: skillId,
-            skillId,
+            skillId: rawSkillId,
             action: actionType === 'strategy'
               ? 'strategy'
               : actionType === 'addWatch'
@@ -828,15 +893,6 @@ export default {
           routeTitle: this.text.strategyRouteScriptTitle,
           routeDesc: this.text.strategyRouteScriptDesc,
           startLabel: this.text.strategyStartScript
-        },
-        {
-          key: 'bot',
-          icon: 'robot',
-          title: this.text.tradingBot,
-          desc: this.text.tradingBotDesc,
-          routeTitle: this.text.strategyRouteTemplateTitle,
-          routeDesc: this.text.strategyRouteTemplateDesc,
-          startLabel: this.text.strategyStartTemplate
         }
       ]
     },
@@ -873,7 +929,7 @@ export default {
           title: this.text.strategyExampleCode,
           prompt: this.i18nText(
             'aiAssetAnalysis.copilot.strategyExamples.code',
-            'Turn my idea into a QuantDinger Python ScriptStrategy: trend filter, entry/exit rules, position sizing, stop/take-profit, logging, and validation steps.',
+            'Turn my idea into a QuantDinger Python Strategy API V2: trend filter, entry/exit rules, position sizing, stop/take-profit, logging, and validation steps.',
             { symbol }
           )
         },
@@ -883,27 +939,7 @@ export default {
           title: this.text.strategyExampleStateful,
           prompt: this.i18nText(
             'aiAssetAnalysis.copilot.strategyExamples.statefulScript',
-            'Create a QuantDinger Python ScriptStrategy for {symbol}: keep position state, avoid duplicate entries, scale out at 2R, move stop to breakeven after 1R, and write clear logs.',
-            { symbol }
-          )
-        }],
-        bot: [{
-          key: 'grid-template',
-          targetType: 'bot',
-          title: this.text.strategyExampleGrid,
-          prompt: this.i18nText(
-            'aiAssetAnalysis.copilot.strategyExamples.gridTemplate',
-            'Evaluate whether {symbol} is suitable for a grid strategy template. Recommend price range, grid count, budget, stop condition, and when not to run it.',
-            { symbol }
-          )
-        },
-        {
-          key: 'trend-template',
-          targetType: 'bot',
-          title: this.text.strategyExampleTrendTemplate,
-          prompt: this.i18nText(
-            'aiAssetAnalysis.copilot.strategyExamples.trendTemplate',
-            'Create a trend-following strategy template plan for {symbol}: entry trigger, trailing stop, take-profit logic, position size, and manual review checklist.',
+            'Create a QuantDinger Python Strategy API V2 for {symbol}: keep position state, avoid duplicate entries, scale out at 2R, move stop to breakeven after 1R, and write clear logs.',
             { symbol }
           )
         }]
@@ -968,6 +1004,7 @@ export default {
     this.loadAgentPreflight()
     this.loadAiSkills()
     this.loadUserMemories()
+    this.applyIncomingCopilotPrompt()
     this.$nextTick(this.resizeComposer)
   },
   beforeDestroy () {
@@ -975,16 +1012,53 @@ export default {
     if (this.addWatchSearchTimer) clearTimeout(this.addWatchSearchTimer)
   },
   methods: {
+    applyIncomingCopilotPrompt () {
+      const query = (this.$route && this.$route.query) || {}
+      let prompt = ''
+      const key = String(query.copilotPromptKey || '')
+      if (key && key.startsWith('qd_copilot_') && typeof sessionStorage !== 'undefined') {
+        try {
+          prompt = String(sessionStorage.getItem(key) || '')
+          sessionStorage.removeItem(key)
+        } catch (_) {
+          prompt = ''
+        }
+      }
+      if (!prompt && query.copilotPrompt) {
+        try {
+          prompt = decodeURIComponent(String(query.copilotPrompt))
+        } catch (_) {
+          prompt = String(query.copilotPrompt || '')
+        }
+      }
+      if (!prompt.trim()) return
+      const target = this.normalizeSymbolOption({
+        market: query.market || '',
+        symbol: query.symbol || ''
+      })
+      if (target) {
+        this.context.market = target.market
+        this.context.symbol = target.symbol
+        this.selectedSymbolValue = this.symbolOptionValue(target)
+        this.symbolOptions = [target].concat(this.symbolOptions || [])
+      }
+      this.usePrompt(prompt, target ? { contextLock: target } : {})
+      const nextQuery = { ...query }
+      delete nextQuery.copilotPrompt
+      delete nextQuery.copilotPromptKey
+      if (this.$router) this.$router.replace({ path: this.$route.path, query: nextQuery }).catch(() => {})
+    },
     quickTaskPromptKey (id) {
       const key = String(id || '').toLowerCase()
       const aliases = {
         market_diagnosis: 'diagnose',
         chart_review: 'chart',
-        indicator_strategy: 'strategy',
+        indicator_research: 'indicatorResearch',
+        strategy_research: 'strategy',
+        script_strategy: 'strategy',
         trade_plan: 'tradePlan',
         scheduled_analysis: 'monitor',
         monitor_setup: 'monitor',
-        debug_logs: 'logs',
         macro_economic_data: 'macro',
         macro_check: 'macro',
         opportunity_radar: 'radar'
@@ -1028,7 +1102,9 @@ export default {
         'diagnose',
         'market_diagnosis',
         'strategy',
-        'indicator_strategy',
+        'indicator_research',
+        'strategy_research',
+        'script_strategy',
         'trade_plan',
         'opportunity_radar',
         'radar'
@@ -1051,14 +1127,26 @@ export default {
     buildLockedQuickPrompt (item, target) {
       const key = String((item && (item.key || item.skillId || item.id)) || '').toLowerCase()
       const label = this.selectedTargetLabel(target)
-      if (key === 'indicator_strategy' || key === 'strategy') {
+      if (key === 'indicator_research') {
+        return this.i18nText('aiAssetAnalysis.copilot.lockedPrompts.indicatorResearch', [
+          'Run QuantDinger indicator research for the selected data context {label}.',
+          '',
+          'Requirements:',
+          '1. Keep the task locked to the selected symbol; do not switch context because another symbol appears in examples.',
+          '2. Generate a chart-only QuantDinger Python indicator draft for the Indicator editor.',
+          '3. Indicators are visual analysis tools only: use output.signals for markers, keep output.layers empty by default, and do not emit executable open/close/add/reduce strategy columns.',
+          '4. Explain parameters, visual signals, invalidation annotations, and suitable market regimes.',
+          '5. Keep code comments in English.'
+        ].join('\n'), { label })
+      }
+      if (key === 'strategy_research' || key === 'script_strategy' || key === 'strategy') {
         return this.i18nText('aiAssetAnalysis.copilot.lockedPrompts.indicatorStrategy', [
           'Run QuantDinger strategy research for the selected data context {label}.',
           '',
           'Requirements:',
           '1. Keep the task locked to the selected symbol; do not switch context because another symbol appears in examples.',
-          '2. Generate a Python strategy draft that can land in Strategy R&D; prefer the indicator-strategy workflow for now.',
-          '3. If you output indicator-strategy code, use the QuantDinger contract: df boolean columns open_long, close_long, open_short, and close_short are the backtest/live signals.',
+          '2. Generate a Python Strategy API V2 draft that can land in Strategy R&D.',
+          '3. Do not use indicator code as an executable strategy. Indicators are chart-only; strategy execution belongs in Strategy API V2.',
           '4. Explain parameters, entry/exit signals, stop/take-profit logic, invalidation, and suitable market regimes.',
           '5. Keep code comments in English.'
         ].join('\n'), { label })
@@ -1166,6 +1254,7 @@ export default {
         const list = Array.isArray(res.data) ? res.data : ((res.data && res.data.watchlist) || [])
         this.watchlist = list.map(x => this.normalizeSymbolOption(x)).filter(Boolean)
         this.seedSymbolOptions()
+        this.applyDefaultWatchSymbol()
         if (this.watchlist.length) {
           const prices = await getWatchlistPrices({ watchlist: this.watchlist.slice(0, 24).map(x => ({ market: x.market, symbol: x.symbol })) })
           this.watchlistPrices = this.normalizePriceMap(prices.data || {})
@@ -1192,6 +1281,7 @@ export default {
       } catch (_) {}
     },
     async loadHistory (sessionId) {
+      this.resetComposerDraft()
       this.sessionId = sessionId
       try {
         const res = await getChatHistory({ session_id: sessionId })
@@ -1259,14 +1349,35 @@ export default {
       }
     },
     newSession () {
+      this.resetComposerDraft()
       this.sessionId = null
       this.messages = []
+    },
+    resetComposerDraft () {
+      this.draft = ''
+      this.attachments = []
+      this.draftContextLock = null
+      this.localizedDraft = null
+      this.pendingAgentTask = null
+      this.monitorSetupDraft = null
+      this.quickToolsVisible = false
+      this.composerHeight = this.composerMinHeight
+      this.$nextTick(this.resizeComposer)
     },
     seedSymbolOptions () {
       this.symbolOptions = (this.watchlist || []).filter(item => !this.context.market || item.market === this.context.market)
       if (!this.symbolOptions.length && this.context.symbol) {
         this.symbolOptions = [{ market: this.context.market, symbol: this.context.symbol }]
       }
+    },
+    applyDefaultWatchSymbol () {
+      if (this.selectedSymbolValue || this.context.symbol || this.draftContextLock) return
+      const first = (this.watchlist || [])[0]
+      if (!first) return
+      this.context.market = first.market || this.context.market || firstMarketValue(this.markets)
+      this.context.symbol = first.symbol || ''
+      this.selectedSymbolValue = this.symbolOptionValue(first)
+      this.seedSymbolOptions()
     },
     handleSymbolSearch (keyword) {
       if (this.symbolSearchTimer) clearTimeout(this.symbolSearchTimer)
@@ -1413,7 +1524,15 @@ export default {
       }
       this.addingWatch = true
       try {
-        const res = await addWatchlist({ market: item.market, symbol: item.symbol, name: item.name || item.symbol })
+        const res = await addWatchlist({
+          market: item.market,
+          symbol: item.symbol,
+          name: item.name || item.symbol,
+          exchange_id: item.exchange_id || '',
+          market_type: item.market_type || '',
+          instrument_id: item.instrument_id || '',
+          settle_currency: item.settle_currency || ''
+        })
         if (!res || res.code === 0) throw new Error((res && res.msg) || this.text.addWatchFailed)
         this.$message.success(this.text.addWatchSuccess)
         this.closeAddWatchModal()
@@ -1428,7 +1547,13 @@ export default {
       const normalized = this.normalizeSymbolOption(item)
       if (!normalized || !normalized.symbol) return
       try {
-        const res = await removeWatchlist({ market: normalized.market, symbol: normalized.symbol })
+        const res = await removeWatchlist({
+          market: normalized.market,
+          symbol: normalized.symbol,
+          exchange_id: normalized.exchange_id || '',
+          market_type: normalized.market_type || '',
+          instrument_id: normalized.instrument_id || ''
+        })
         if (!res || res.code === 0) throw new Error((res && res.msg) || this.text.removeWatchFailed)
         this.$message.success(this.text.removeWatchSuccess)
         if (this.selectedSymbolValue === this.symbolOptionValue(normalized)) {
@@ -1480,10 +1605,29 @@ export default {
       this.draft = prompt
       const lockTarget = options && options.contextLock ? this.normalizeSymbolOption(options.contextLock) : null
       this.draftContextLock = lockTarget ? { ...lockTarget, locked: true } : null
+      const localizedDraft = options && options.localizedDraft
+      this.localizedDraft = localizedDraft
+        ? { ...localizedDraft, lastValue: String(prompt || '') }
+        : null
       this.$nextTick(() => {
         this.resizeComposer()
         if (this.$refs.composerInput) this.$refs.composerInput.focus()
       })
+    },
+    refreshLocalizedDraft () {
+      const descriptor = this.localizedDraft
+      if (!descriptor || String(this.draft || '') !== String(descriptor.lastValue || '')) {
+        this.localizedDraft = null
+        return
+      }
+      let next = ''
+      if (descriptor.type === 'analysis') {
+        next = this.buildAnalysisPrompt(descriptor.target || null)
+      }
+      if (!next) return
+      this.draft = next
+      this.localizedDraft = { ...descriptor, lastValue: next }
+      this.$nextTick(this.resizeComposer)
     },
     async loadAgentPreflight () {
       try {
@@ -1596,18 +1740,18 @@ export default {
       const task = this.pendingAgentTask
       if (!task || task.type !== 'strategy_design') return
       const labels = {
-        indicator: this.i18nText('aiAssetAnalysis.copilot.actions.generateIndicatorStrategy', 'Generate indicator strategy code'),
-        script: this.i18nText('aiAssetAnalysis.copilot.actions.generateScriptStrategy', 'Generate trading script'),
-        bot: this.i18nText('aiAssetAnalysis.copilot.actions.generateTemplateStrategy', 'Generate strategy template plan')
+        indicator: this.i18nText('aiAssetAnalysis.copilot.actions.generateChartIndicator', 'Generate chart indicator code'),
+        script: this.i18nText('aiAssetAnalysis.copilot.actions.generateStrategyV2', 'Generate trading script')
       }
+      const targetType = task.targetType || 'indicator'
       assistantMsg.actions = assistantMsg.actions || []
       assistantMsg.actions.push({
         key: `generate-strategy-${Date.now()}`,
-        type: 'generate_strategy_code',
-        icon: task.targetType === 'bot' ? 'robot' : 'code',
-        label: labels[task.targetType] || labels.indicator,
+        type: 'generate_code',
+        icon: 'code',
+        label: labels[targetType] || labels.indicator,
         payload: {
-          task,
+          task: { ...task, targetType },
           prompt: task.originalPrompt || this.draft
         }
       })
@@ -1620,10 +1764,7 @@ export default {
         '/profile',
         '/indicator-ide',
         '/strategy-ide',
-        '/strategy-live',
-        '/strategy-script',
-        '/strategy-scripts',
-        '/trading-bot',
+        '/strategy-center',
         '/user/login'
       ]
       return allowed.includes(String(path || ''))
@@ -1634,12 +1775,51 @@ export default {
       ]
       return allowedPrefixes.some(prefix => String(key || '').startsWith(prefix))
     },
-    runMessageAction (action) {
+    normalizeStrategyWorkflowAction (action) {
+      const next = {
+        ...action,
+        query: { ...((action && action.query) || {}) }
+      }
+      const path = String((action && action.path) || '')
+      const storageKey = String((action && action.storageKey) || '')
+      const tab = String(next.query.tab || '').toLowerCase()
+
+      if (path === '/indicator-ide') {
+        delete next.query.tab
+      } else if (path === '/strategy-ide') {
+        if (['template', 'preset'].includes(tab) || String(next.query.aiPreset || '') === '1') {
+          next.query.tab = 'script'
+        } else if (['script', 'scripts', 'strategy-script'].includes(tab) || storageKey === 'qd_strategy_source') {
+          next.query.tab = 'script'
+          next.query.draft = '1'
+          delete next.query.aiDraft
+          delete next.query.source_id
+          delete next.query.sourceId
+          delete next.query.strategy_id
+          delete next.query.strategyId
+        } else if (['indicator', 'indicator-ide'].includes(tab) || storageKey === 'qd_copilot_indicator_code') {
+          next.path = '/indicator-ide'
+          delete next.query.tab
+        }
+      }
+      if (next.query.tab === 'script') {
+        delete next.query.aiPreset
+        delete next.query.indicator_id
+        delete next.query.strategy_id
+      } else if (next.query.tab === 'indicator') {
+        delete next.query.aiPreset
+        delete next.query.source_id
+        delete next.query.strategy_id
+        delete next.query.template
+      }
+      return next
+    },
+    runMessageAction (action, msg = null) {
       if (action && action.type === 'save_memory') {
         this.saveMemoryAction(action.payload || {})
         return
       }
-      if (action && action.type === 'generate_strategy_code') {
+      if (action && action.type === 'generate_code') {
         this.generateStrategyFromAction(action.payload || {})
         return
       }
@@ -1656,23 +1836,58 @@ export default {
         return
       }
       if (!action || !action.path) return
-      if (!this.isAllowedMessageActionPath(action.path)) {
+      const normalizedAction = this.normalizeStrategyWorkflowAction(this.hydrateMessageAction(action, msg))
+      if (!this.isAllowedMessageActionPath(normalizedAction.path)) {
         this.$message.warning(this.i18nText('aiAssetAnalysis.copilot.actionNotAllowed', 'This action is not allowed'))
         return
       }
       try {
-        if (action.storageKey && this.isAllowedMessageStorageKey(action.storageKey)) {
-          const value = typeof action.storageValue === 'string' ? action.storageValue : JSON.stringify(action.storageValue || {})
-          sessionStorage.setItem(action.storageKey, value)
+        if (normalizedAction.storageKey && this.isAllowedMessageStorageKey(normalizedAction.storageKey)) {
+          const value = typeof normalizedAction.storageValue === 'string' ? normalizedAction.storageValue : JSON.stringify(normalizedAction.storageValue || {})
+          sessionStorage.setItem(normalizedAction.storageKey, value)
         }
-        Object.keys(action.extraStorage || {}).forEach(key => {
+        Object.keys(normalizedAction.extraStorage || {}).forEach(key => {
           if (this.isAllowedMessageStorageKey(key)) {
             if (key === 'qd_copilot_indicator_prompt') return
-            sessionStorage.setItem(key, action.extraStorage[key])
+            sessionStorage.setItem(key, normalizedAction.extraStorage[key])
           }
         })
       } catch (_) {}
-      this.$router.push({ path: action.path, query: action.query || {} })
+      this.$router.push({ path: normalizedAction.path, query: normalizedAction.query || {} })
+    },
+    hydrateMessageAction (action, msg = null) {
+      const next = {
+        ...action,
+        query: { ...((action && action.query) || {}) },
+        extraStorage: { ...((action && action.extraStorage) || {}) }
+      }
+      const path = String(next.path || '')
+      const code = this.strategyCodeForMessage(msg)
+      const hasStoredCode = typeof next.storageValue === 'string'
+        ? !!next.storageValue.trim()
+        : !!next.storageValue
+      if (!hasStoredCode && code) {
+        next.storageValue = code
+      }
+      if (!next.storageKey && code) {
+        if (path === '/strategy-ide') {
+          next.storageKey = 'qd_strategy_source'
+          next.extraStorage.qd_copilot_script_strategy_meta = JSON.stringify(this.inferScriptDraftMetaFromMessage(msg))
+          next.query = { ...next.query, tab: 'script', draft: '1' }
+        } else if (path === '/indicator-ide') {
+          next.storageKey = 'qd_copilot_indicator_code'
+        }
+      }
+      return next
+    },
+    inferScriptDraftMetaFromMessage (msg = null) {
+      const content = String((msg && msg.content) || '')
+      const inferred = this.inferSymbolFromText(content) || this.normalizeSymbolOption(this.context) || {}
+      return {
+        symbol: inferred.symbol || this.context.symbol || '',
+        market: inferred.market || this.context.market || '',
+        name: inferred.symbol ? `${inferred.symbol} ${this.text.scriptStrategy}` : this.text.scriptStrategy
+      }
     },
     workflowActionForMessage (msg) {
       const actions = Array.isArray(msg && msg.actions) ? msg.actions : []
@@ -1681,10 +1896,7 @@ export default {
         return action && (
           action.group === 'strategy_workflow' ||
           path === '/indicator-ide' ||
-          path === '/strategy-ide' ||
-          path === '/strategy-script' ||
-          path === '/strategy-scripts' ||
-          path === '/trading-bot'
+          path === '/strategy-ide'
         )
       }) || null
     },
@@ -1709,7 +1921,7 @@ export default {
     },
     visibleMessageActions (msg) {
       const actions = Array.isArray(msg && msg.actions) ? msg.actions : []
-      return actions.filter(action => action && !['generate_strategy_code', 'agent_usage'].includes(action.type))
+      return actions.filter(action => action && !['generate_code', 'agent_usage'].includes(action.type))
     },
     strategyCodeForMessage (msg) {
       const action = this.workflowActionForMessage(msg)
@@ -1766,11 +1978,9 @@ export default {
         return
       }
       if (task.targetType === 'indicator') {
-        await this.generateIndicatorStrategyDraft(prompt, target)
-      } else if (task.targetType === 'script') {
-        await this.generateScriptStrategyDraft(prompt, target)
-      } else if (task.targetType === 'bot') {
-        await this.generateBotRecommendation(prompt, target)
+        await this.generateChartIndicatorDraft(prompt, target)
+      } else {
+        await this.generateStrategyV2Draft(prompt, target)
       }
       this.clearPendingAgentTask()
     },
@@ -1782,6 +1992,33 @@ export default {
       const value = String(text || '').toLowerCase()
       return /(\u5b9a\u65f6|\u5b9a\u671f|\u5468\u671f|\u63d0\u9192|\u901a\u77e5|\u76d1\u63a7|\u8ddf\u8e2a|\u8ffd\u8e2a|scheduled|schedule|monitor|alert)/i.test(value) &&
         /(ai|\u5206\u6790|analysis|scan|\u4efb\u52a1|task)/i.test(value)
+    },
+    normalizeMonitorChannels (channels) {
+      const alias = {
+        in_app: 'browser',
+        app: 'browser',
+        site: 'browser',
+        mail: 'email',
+        tg: 'telegram',
+        lark: 'webhook',
+        feishu: 'webhook',
+        dingtalk: 'webhook',
+        wecom: 'webhook'
+      }
+      const allowed = new Set(['browser', 'email', 'telegram', 'webhook'])
+      const raw = Array.isArray(channels) ? channels : (channels ? [channels] : [])
+      return Array.from(new Set(raw
+        .map(channel => alias[String(channel || '').trim().toLowerCase()] || String(channel || '').trim().toLowerCase())
+        .filter(channel => allowed.has(channel))))
+    },
+    monitorChannelLabel (channel) {
+      const labels = {
+        browser: this.text.notifyBrowser,
+        email: this.text.notifyEmail,
+        telegram: this.text.notifyTelegram,
+        webhook: this.text.notifyWebhook
+      }
+      return labels[channel] || channel
     },
     createMonitorSetupDraft (target) {
       return {
@@ -1797,7 +2034,7 @@ export default {
       }
       if (next && next.interval_min) merged.interval_min = next.interval_min
       if (next && Array.isArray(next.notify_channels) && next.notify_channels.length) {
-        merged.notify_channels = Array.from(new Set([...(merged.notify_channels || []), ...next.notify_channels]))
+        merged.notify_channels = this.normalizeMonitorChannels([...(merged.notify_channels || []), ...next.notify_channels])
       } else if (/(\u53ea\u8bb0\u5f55|\u50c5\u8a18\u9304|\u4e0d\u901a\u77e5|record only|no notification)/i.test(rawText || '')) {
         merged.notify_channels = []
         merged.record_only = true
@@ -1829,8 +2066,9 @@ export default {
       const channels = []
       if (/(\u7ad9\u5185|\u7ad9\u5167|\u6d4f\u89c8\u5668|\u700f\u89bd\u5668|browser|site)/i.test(value)) channels.push('browser')
       if (/(\u90ae\u4ef6|\u90f5\u4ef6|\u90ae\u7bb1|\u4fe1\u7bb1|email)/i.test(value)) channels.push('email')
-      if (/(webhook|telegram|tg|\u98de\u4e66|\u98db\u66f8|\u9489\u9489|\u91d8\u91d8|discord)/i.test(value)) channels.push('webhook')
-      return Array.from(new Set(channels))
+      if (/(telegram|tg)/i.test(value)) channels.push('telegram')
+      if (/(webhook|\u56de\u8c03|\u98de\u4e66|\u98db\u66f8|\u9489\u9489|\u91d8\u91d8|\u4f01\u5fae|wecom|lark|feishu|dingtalk)/i.test(value)) channels.push('webhook')
+      return this.normalizeMonitorChannels(channels)
     },
     parseMonitorSetup (text) {
       const value = String(text || '')
@@ -1838,7 +2076,7 @@ export default {
       const channels = this.parseMonitorChannels(value)
       return {
         interval_min: interval,
-        notify_channels: Array.from(new Set(channels))
+        notify_channels: this.normalizeMonitorChannels(channels)
       }
     },
     buildMonitorQuestion (target) {
@@ -1848,7 +2086,7 @@ export default {
         '',
         'Please provide:',
         '1. Interval: 15m / 30m / 1h / 4h / daily',
-        '2. Notification: browser / email / webhook / record only',
+        '2. Notification: browser / email / telegram / webhook / record only',
         '',
         'Example:',
         'Interval: 1h',
@@ -1857,7 +2095,7 @@ export default {
     },
     buildMonitorDraftMessage (payload) {
       const target = this.normalizeSymbolOption(payload.target || payload)
-      const channels = payload.notify_channels || payload.channels || []
+      const channels = this.normalizeMonitorChannels(payload.notify_channels || payload.channels || [])
       return this.i18nText('aiAssetAnalysis.copilot.monitorDraft', [
         '## AI Scheduled Analysis Draft',
         '',
@@ -1869,7 +2107,7 @@ export default {
       ].join('\n'), {
         symbol: target.market + ':' + target.symbol,
         interval: this.formatIntervalText(payload.interval_min),
-        notification: channels.length ? channels.join(', ') : this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only')
+        notification: channels.length ? channels.map(channel => this.monitorChannelLabel(channel)).join(', ') : this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only')
       })
     },
     monitorDraftSummary (draft) {
@@ -1881,7 +2119,7 @@ export default {
       }
       if (draft && (draft.record_only || (draft.notify_channels && draft.notify_channels.length))) {
         parts.push(this.i18nText('aiAssetAnalysis.copilot.monitorReceivedNotification', 'notification {notification}', {
-          notification: draft.record_only ? this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only') : draft.notify_channels.join(', ')
+          notification: draft.record_only ? this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only') : this.normalizeMonitorChannels(draft.notify_channels).map(channel => this.monitorChannelLabel(channel)).join(', ')
         }))
       }
       return parts.length ? parts.join(' / ') : this.i18nText('aiAssetAnalysis.copilot.monitorReceivedNone', 'nothing yet')
@@ -1945,7 +2183,7 @@ export default {
       const payload = {
         target,
         interval_min: draft.interval_min,
-        notify_channels: draft.record_only ? [] : draft.notify_channels,
+        notify_channels: draft.record_only ? [] : this.normalizeMonitorChannels(draft.notify_channels),
         name: 'AI-' + target.symbol + '-' + draft.interval_min + 'm'
       }
       this.messages.push({
@@ -1976,9 +2214,9 @@ export default {
       }
       try {
         const interval = Number(payload.interval_min || payload.interval || payload.run_interval_minutes || 240)
-        const channels = Array.isArray(payload.notify_channels)
+        const channels = this.normalizeMonitorChannels(Array.isArray(payload.notify_channels)
           ? payload.notify_channels
-          : (Array.isArray(payload.channels) ? payload.channels : [])
+          : (Array.isArray(payload.channels) ? payload.channels : []))
         const res = await addMonitor({
           name: payload.name || ('AI-' + target.symbol + '-' + interval + 'm'),
           position_ids: [],
@@ -2006,7 +2244,7 @@ export default {
             {
               symbol: target.market + ':' + target.symbol,
               interval: this.formatIntervalText(interval),
-              notification: channels.length ? channels.join(', ') : this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only')
+              notification: channels.length ? channels.map(channel => this.monitorChannelLabel(channel)).join(', ') : this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only')
             }
           ),
           meta: this.i18nText('aiAssetAnalysis.copilot.monitorCreatedMeta', 'task created'),
@@ -2154,6 +2392,9 @@ export default {
         market: active ? active.market : '',
         symbol: active ? active.symbol : '',
         name: active ? (active.name || '') : '',
+        exchange_id: active ? (active.exchange_id || '') : '',
+        market_type: active ? (active.market_type || '') : '',
+        instrument_id: active ? (active.instrument_id || '') : '',
         selected_market: selected ? selected.market : '',
         selected_symbol: selected ? selected.symbol : '',
         mentioned_market: !locked && (mentioned || resolved) ? (mentioned || resolved).market : '',
@@ -2208,9 +2449,12 @@ export default {
         }
       }
       if (this.quickTaskUsesSelectedSymbol(activeItem) && target) {
-        if (key === 'indicator_strategy') {
-          this.clearPendingAgentTask()
-          this.strategyFlowVisible = true
+        if (key === 'indicator_research') {
+          this.startStrategyFlow('indicator', '')
+          return
+        }
+        if (key === 'strategy_research' || key === 'script_strategy') {
+          this.startStrategyFlow('script', '')
           return
         }
         if (key === 'trade_plan') {
@@ -2235,11 +2479,15 @@ export default {
               workflow: 'QuantDinger Professional Analysis'
             }
           : null
-        this.usePrompt(this.buildAnalysisPrompt(target || null), target ? { contextLock: target } : {})
+        const analysisTarget = target ? { ...target } : null
+        this.usePrompt(this.buildAnalysisPrompt(analysisTarget), {
+          ...(target ? { contextLock: target } : {}),
+          localizedDraft: { type: 'analysis', target: analysisTarget }
+        })
         return
       }
       if (activeItem.action === 'strategy') {
-        this.strategyFlowVisible = true
+        this.startStrategyFlow('script', '')
         return
       }
       if (activeItem.action === 'addWatch') {
@@ -2405,12 +2653,12 @@ export default {
         take_profit: tp.take_profit || tp.takeProfit || ''
       }
       Object.keys(query).forEach(k => { if (!query[k] && query[k] !== 0) delete query[k] })
-      this.$router.push({ path: '/strategy-live', query })
+      this.$router.push({ path: '/strategy-center', query })
     },
     handleReportGoBacktest (result) {
       const market = result.market || (this.context && this.context.market) || ''
       const symbol = result.symbol || (this.context && this.context.symbol) || ''
-      this.$router.push({ path: '/indicator-ide', query: { market, symbol } })
+      this.$router.push({ path: '/backtest-center', query: { market, symbol } })
     },
     async exportReportPdf (reportId) {
       if (!reportId) return
@@ -2474,91 +2722,108 @@ export default {
       return this.i18nText('aiAssetAnalysis.copilot.analysisPromptTemplate', fallback, { symbol })
     },
     buildStrategyPrompt (targetKey, target, seedPrompt = '') {
+      const normalizedTargetKey = targetKey === 'indicator' ? 'indicator' : 'script'
       const targetText = target && target.symbol
         ? `${target.market}:${target.symbol}`
         : this.i18nText('aiAssetAnalysis.copilot.strategySymbolPlaceholder', '[enter symbol here, e.g. Crypto:BTC/USDT or USStock:AAPL]')
       const promptText = (key, fallback, values = {}) => this.i18nText(`aiAssetAnalysis.copilot.strategyPrompt.${key}`, fallback, values)
-      const workflowLine = targetKey === 'indicator'
-        ? promptText('workflowIndicator', 'Run location: Indicator Strategy editor. Generate QuantDinger Python indicator-strategy code, not ScriptStrategy code.')
-        : (targetKey === 'script'
-          ? promptText('workflowScript', 'Run location: Trading Script editor. Generate QuantDinger Python ScriptStrategy code, not indicator output code.')
-          : promptText('workflowTemplate', 'Run location: Strategy Template. Generate a strategy template recommendation and parameters, not custom Python code.'))
-      const typeLine = targetKey === 'indicator'
-        ? promptText('targetIndicator', 'Target type: Indicator Strategy. Prefer an indicator-strategy draft that supports chart display and backtesting, with parameters, buy/sell signals, stop/take-profit, and invalidation conditions.')
-        : (targetKey === 'script'
-          ? promptText('targetScript', 'Target type: Trading Script. It should fit Python ScriptStrategy with state management, order logic, risk parameters, error handling, and logging.')
-          : promptText('targetTemplate', 'Target type: Strategy Template. First decide whether grid, trend, DCA, martingale, or another strategy template type fits best, then explain why and list key parameters.'))
-      const contractLine = targetKey === 'indicator'
-        ? promptText('contractIndicator', 'Code contract: use df boolean columns open_long, close_long, open_short, close_short as executable signals. output.signals and output.layers are chart annotations only.')
-        : (targetKey === 'script'
-          ? promptText('contractScript', 'Code contract: define a ScriptStrategy-style draft with state variables, on-bar decision flow, order/risk handling, idempotency, and logs.')
-          : promptText('contractTemplate', 'Template contract: return template type, symbol, timeframe, price/risk parameters, enable/disable conditions, and manual verification steps.'))
-      return [
-        promptText('designFor', 'Design a strategy for {target}.', { target: targetText }),
-        '',
-        seedPrompt ? `${promptText('selectedIdea', 'Selected prompt idea:')}\n${seedPrompt}` : '',
-        seedPrompt ? '' : '',
-        promptText('preferences', 'My idea / preferences:'),
-        `- ${promptText('timeframe', 'Timeframe')}:`,
-        `- ${promptText('riskProfile', 'Risk profile')}:`,
-        `- ${promptText('signals', 'Signals or logic I want to use')}:`,
-        `- ${promptText('avoid', 'Behaviors I want to avoid')}:`,
-        '',
-        promptText('generateNow', 'If there is enough information, generate a runnable draft now. Use conservative defaults for missing parameters and clearly list defaults and tunable items.'),
-        '',
-        typeLine,
-        workflowLine,
-        contractLine
-      ].join('\n')
+      const promptKey = normalizedTargetKey === 'indicator'
+        ? (seedPrompt ? 'indicatorStarterWithIdea' : 'indicatorStarter')
+        : (seedPrompt ? 'scriptStarterWithIdea' : 'scriptStarter')
+      return promptText(promptKey, '', { target: targetText, idea: seedPrompt })
+    },
+    appendStrategySuggestion (suggestion) {
+      if (!suggestion || !suggestion.prompt) return
+      const current = String(this.draft || '').trim()
+      if (current.includes(suggestion.prompt)) return
+      this.draft = [current, suggestion.prompt].filter(Boolean).join('\n')
+      this.$nextTick(() => {
+        this.resizeComposer()
+        if (this.$refs.composerInput) this.$refs.composerInput.focus()
+      })
     },
     agentTargetFromPlan (plan, fallbackTarget) {
       const entities = plan && plan.entities ? plan.entities : {}
       const target = this.normalizeSymbolOption({
         market: entities.market || (fallbackTarget && fallbackTarget.market),
         symbol: entities.symbol || (fallbackTarget && fallbackTarget.symbol),
-        name: entities.name || (fallbackTarget && fallbackTarget.name)
+        name: entities.name || (fallbackTarget && fallbackTarget.name),
+        exchange_id: entities.exchange_id || (fallbackTarget && fallbackTarget.exchange_id),
+        market_type: entities.market_type || (fallbackTarget && fallbackTarget.market_type),
+        instrument_id: entities.instrument_id || (fallbackTarget && fallbackTarget.instrument_id)
       })
       return target || this.normalizeSymbolOption(fallbackTarget)
     },
     strategyTargetTypeFromPlan (plan) {
       const targetType = String(plan && plan.target_type ? plan.target_type : '').toLowerCase()
       const workflow = String(plan && plan.workflow ? plan.workflow : '').toLowerCase()
-      if (targetType === 'bot' || workflow === 'trading_bot') return 'bot'
+      if (targetType === 'indicator' || workflow === 'indicator_ide') return 'indicator'
       if (targetType === 'script' || workflow === 'script_strategy') return 'script'
-      return 'indicator'
+      return 'script'
+    },
+    strategyPromptTarget (target = {}, entities = {}) {
+      const market = String(entities.market || target.market || '').trim()
+      const rawSymbol = String(entities.symbol || target.symbol || '').trim()
+      if (!rawSymbol) return market
+      if (market.toLowerCase() !== 'crypto') {
+        return /^(?:CNStock|Forex|Future|Futures|USStock):/i.test(rawSymbol)
+          ? rawSymbol
+          : `${market}:${rawSymbol}`
+      }
+      const symbol = rawSymbol.replace(/^Crypto:/i, '')
+      if (symbol.includes('@')) return `Crypto:${symbol}`
+      const marketType = String(entities.market_type || target.market_type || 'spot').trim().toLowerCase() === 'swap'
+        ? 'swap'
+        : 'spot'
+      const exchangeId = String(entities.exchange_id || target.exchange_id || '').trim().toLowerCase()
+      return `Crypto:${symbol}@${exchangeId ? `${exchangeId}:` : ''}${marketType}`
     },
     buildExecutableStrategyPrompt (plan, message, target) {
       const entities = plan && plan.entities ? plan.entities : {}
       const timeframe = entities.timeframe || ''
       const template = entities.strategy_template || ''
-      const workflow = plan && plan.workflow ? plan.workflow : 'indicator_ide'
+      const workflow = plan && plan.workflow ? plan.workflow : 'script_strategy'
+      const isIndicatorWorkflow = String(workflow || '').toLowerCase() === 'indicator_ide'
+      const targetLabel = this.strategyPromptTarget(target, entities)
       const promptText = (key, fallback, values = {}) => this.i18nText(`aiAssetAnalysis.copilot.executableStrategyPrompt.${key}`, fallback, values)
+      const artifactRules = isIndicatorWorkflow
+        ? [
+            promptText('ruleIndicatorCode', '- Generate QuantDinger chart-indicator Python code for visualization only, not Strategy API V2 execution code.'),
+            promptText('ruleIndicatorSignals', '- Indicator output.signals are visual markers only. Do not emit ctx orders or open/close/add/reduce execution fields.'),
+            promptText('ruleChartAnnotations', '- Do not add output.layers by default. Use layers only for explicitly requested zones, channels, support/resistance, or invalidation areas.'),
+            promptText('ruleSparseAnnotations', '- Keep chart annotations sparse, transparent, and clear of dense candles.')
+          ]
+        : [
+            promptText('ruleScriptDraft', '- Generate one executable Python Strategy API V2 draft using explicit position intents and runtime-safe sizing.'),
+            promptText('ruleScriptOwnership', '- The strategy source owns its canonical instrument, market type, subscription frequency, direction, sizing, entries, exits, risk rules, and schedules. The run panel owns only initial capital, date range, and permitted Crypto @swap leverage.'),
+            promptText('ruleScriptApis', '- Use only Strategy API V2 runtime APIs. Read current prices with data.current(...), positions through amount/avg_cost, and global order/schedule helpers; never use get_current_data, quantity/cost_basis, or context.run_daily.')
+          ]
       const memoryLines = (this.userMemories || [])
         .slice(0, 8)
         .map(item => `- ${item.title || item.category}: ${item.content}`)
         .join('\n')
       return [
         promptText('taskType', 'This is an execution task, not a consulting answer.'),
-        promptText('generateArtifact', 'Generate the runnable QuantDinger strategy artifact now.'),
+        isIndicatorWorkflow
+          ? promptText('generateIndicatorArtifact', 'Generate the runnable QuantDinger chart indicator artifact now.')
+          : promptText('generateArtifact', 'Generate the runnable QuantDinger strategy artifact now.'),
         promptText('workflow', 'Workflow: {workflow}', { workflow }),
-        promptText('target', 'Target: {target}', { target: `${target.market}:${target.symbol}` }),
-        timeframe
-          ? promptText('timeframe', 'Timeframe: {timeframe}', { timeframe })
-          : promptText('timeframeDefault', 'Timeframe: choose a conservative default if the user did not specify it.'),
+        promptText('target', 'Target: {target}', { target: targetLabel }),
+        isIndicatorWorkflow
+          ? (timeframe
+              ? promptText('indicatorTimeframe', 'Chart context timeframe: {timeframe}. Use it only to interpret the request; indicator code must not hardcode a timeframe.', { timeframe })
+              : promptText('indicatorTimeframeDefault', 'No chart timeframe was supplied. Indicator code must remain timeframe-agnostic.'))
+          : (timeframe
+              ? promptText('strategyTimeframe', 'Source timeframe: {timeframe}. Preserve it in context.subscribe(frequency=...).', { timeframe })
+              : promptText('strategyTimeframeDefault', 'No timeframe was supplied. Choose a conservative source-owned default and encode it in context.subscribe(frequency=...).')),
         template ? promptText('referenceTemplate', 'Reference strategy/template: {template}', { template }) : '',
         '',
         promptText('executionRules', 'Execution rules:'),
         promptText('ruleNoConfirmation', '- Do not ask for confirmation when the target, timeframe, and strategy idea can be inferred.'),
-        promptText('ruleConservativeDefaults', '- Use conservative defaults for missing parameters and document them in the output.'),
+        promptText('ruleConservativeDefaults', '- Encode conservative missing strategy/indicator knobs as code parameters or metadata, not prose outside the generated code.'),
         promptText('ruleEnglishComments', '- Code comments must be English.'),
         promptText('ruleNativeWorkflow', '- Stay inside QuantDinger native workflows.'),
-        promptText('ruleIndicatorCode', '- For Indicator Strategy, generate runnable QuantDinger strategy Python code, not Pine Script.'),
-        promptText('ruleIndicatorSignals', '- For Indicator Strategy, execution must use df four-way boolean columns; output signals are chart markers only.'),
-        promptText('ruleChartAnnotations', '- For Indicator Strategy chart annotations, you may use output.layers for zones, support/resistance lines, and labels when it improves readability.'),
-        promptText('ruleSparseAnnotations', '- Keep chart annotations professional and sparse: use short labels, dashed borders, translucent fills, and avoid opaque gray boxes that cover candles.'),
-        promptText('ruleScriptDraft', '- For Trading Script, generate a Python ScriptStrategy draft that can be validated by QuantDinger.'),
-        promptText('ruleTemplatePlan', '- For Strategy Template, return a concrete strategy template plan with parameters; do not auto-start live trading.'),
-        promptText('ruleVerification', '- Include verification steps: open in QuantDinger, run backtest, inspect drawdown/win rate/trades, then save manually.'),
+        ...artifactRules,
         memoryLines ? `\n${promptText('userMemory', 'User memory:')}\n${memoryLines}` : '',
         '',
         promptText('originalRequest', 'Original user request:'),
@@ -2617,11 +2882,46 @@ export default {
         agentIntent: plan
       }
       if (targetType === 'script') {
-        await this.generateScriptStrategyDraft(prompt, target)
-      } else if (targetType === 'bot') {
-        await this.generateBotRecommendation(prompt, target)
+        await this.generateStrategyV2Draft(prompt, target)
       } else {
-        await this.generateIndicatorStrategyDraft(prompt, target)
+        await this.generateChartIndicatorDraft(prompt, target)
+      }
+      this.clearPendingAgentTask()
+      return true
+    },
+    async handlePendingStrategyAgentMessage (content, userMsg, contextLock = null) {
+      const task = this.pendingAgentTask
+      if (!task || task.type !== 'strategy_design') return false
+      const target = this.normalizeSymbolOption(contextLock || task.target || this.context)
+      if (!target || !target.symbol) {
+        this.messages.push({
+          localId: `local-${localId++}`,
+          role: 'assistant',
+          content: this.i18nText(
+            'aiAssetAnalysis.copilot.strategyMissingSymbol',
+            'I need a symbol before generating. Please select one or mention it in the message.'
+          ),
+          meta: 'agent:missing_symbol',
+          created_at: new Date().toISOString()
+        })
+        return true
+      }
+      const targetType = task.targetType === 'indicator' ? 'indicator' : 'script'
+      const workflow = targetType === 'indicator' ? 'indicator_ide' : 'script_strategy'
+      const plan = {
+        workflow,
+        entities: {
+          market: target.market,
+          symbol: target.symbol,
+          timeframe: ''
+        }
+      }
+      const prompt = this.buildExecutableStrategyPrompt(plan, content, target)
+      await this.persistCopilotMessage(userMsg, targetType === 'indicator' ? 'indicator_research_user' : 'strategy_research_user')
+      if (targetType === 'indicator') {
+        await this.generateChartIndicatorDraft(prompt, target)
+      } else {
+        await this.generateStrategyV2Draft(prompt, target)
       }
       this.clearPendingAgentTask()
       return true
@@ -2629,18 +2929,22 @@ export default {
     async startStrategyFlow (targetKey, seedPrompt = '') {
       const target = this.normalizeSymbolOption(this.context)
       this.strategyFlowVisible = false
-      this.selectedStrategyTarget = targetKey || this.selectedStrategyTarget || 'indicator'
+      const normalizedTargetKey = targetKey || this.selectedStrategyTarget || 'indicator'
+      this.selectedStrategyTarget = normalizedTargetKey
       this.pendingAgentTask = {
         type: 'strategy_design',
-        targetType: targetKey,
+        targetType: normalizedTargetKey,
         target,
-        workflow: targetKey === 'indicator'
-          ? 'QuantDinger Indicator Strategy'
-          : (targetKey === 'script' ? 'QuantDinger Trading Script' : 'QuantDinger Strategy Template'),
+        workflow: normalizedTargetKey === 'indicator'
+          ? 'QuantDinger Chart Indicator'
+          : 'QuantDinger Trading Script',
         originalPrompt: seedPrompt || ''
       }
-      this.usePrompt(this.buildStrategyPrompt(targetKey, target, seedPrompt))
-      this.$message.info(this.i18nText('aiAssetAnalysis.copilot.strategyPromptInserted', 'Strategy prompt inserted. Add your idea, then send it.'))
+      this.usePrompt(this.buildStrategyPrompt(normalizedTargetKey, target, seedPrompt))
+      const noticeKey = normalizedTargetKey === 'indicator'
+        ? 'aiAssetAnalysis.copilot.indicatorAgentArmed'
+        : 'aiAssetAnalysis.copilot.strategyAgentArmed'
+      this.$message.info(this.i18nText(noticeKey, ''))
     },
     selectStrategyTarget (targetKey) {
       this.selectedStrategyTarget = targetKey || 'indicator'
@@ -2652,13 +2956,13 @@ export default {
         .map(item => `- ${item.title || item.category}: ${item.content}`)
         .join('\n')
       const workflow = targetType === 'indicator'
-        ? promptText('workflowIndicator', 'QuantDinger Indicator Strategy')
-        : (targetType === 'script'
-          ? promptText('workflowScript', 'QuantDinger Trading Script')
-          : promptText('workflowTemplate', 'QuantDinger Strategy Template'))
+        ? promptText('workflowIndicator', 'QuantDinger Chart Indicator')
+        : promptText('workflowScript', 'QuantDinger Trading Script')
+      const isIndicatorWorkflow = targetType === 'indicator'
+      const targetLabel = this.strategyPromptTarget(target)
       const hardRules = [
         promptText('workflow', 'Workflow: {workflow}', { workflow }),
-        promptText('target', 'Target: {target}', { target: `${target && target.market ? target.market : ''}:${target && target.symbol ? target.symbol : ''}` }),
+        promptText('target', 'Target: {target}', { target: targetLabel }),
         '',
         promptText('hardRules', 'Hard rules:'),
         promptText('ruleExecutionTask', '- This is an execution task, not a consulting answer. Produce the runnable artifact now.'),
@@ -2666,8 +2970,10 @@ export default {
         promptText('ruleWorkflowOnly', '- Generate only for the QuantDinger workflow above.'),
         promptText('ruleNoOtherPlatforms', '- Do not output Pine Script, TradingView-only code, MQL, or code for another platform.'),
         promptText('ruleEnglishComments', '- Code comments must be English.'),
-        promptText('ruleRiskVerification', '- Include risk parameters, invalidation, and how the user should verify it in QuantDinger.'),
-        promptText('ruleConservativeDefaults', '- If a required assumption is missing, choose conservative defaults and state them.'),
+        isIndicatorWorkflow
+          ? promptText('ruleIndicatorVerification', '- Encode visual parameters and marker meanings as # @param declarations, plot/signal names, labels, and concise code comments.')
+          : promptText('ruleRiskVerification', '- Declare tunable risk knobs with # @param and read matching context.params defaults only inside executable handlers or callbacks. Encode explicit exits and state guards in code.'),
+        promptText('ruleConservativeDefaults', '- If a required assumption is missing, choose conservative defaults and encode them in code params or comments, not prose outside the code.'),
         '',
         memoryLines ? `[${promptText('userMemory', 'User memory')}]\n${memoryLines}\n` : '',
         `[${promptText('userRequirement', 'User requirement')}]`,
@@ -2677,26 +2983,35 @@ export default {
         hardRules.splice(
           6,
           0,
-          promptText('ruleIndicatorRunnable', '- Indicator Strategy output must be runnable in QuantDinger and suitable for chart display/backtest.'),
-          promptText('ruleIndicatorSignals', '- Indicator Strategy execution must use df four-way boolean columns: open_long, close_long, open_short, close_short.'),
-          promptText('ruleOutputSignalsChartOnly', '- output.signals is chart-only. It must never be the only source of backtest/live orders.'),
-          promptText('ruleOutputLayers', '- You may add output.layers for K-line zones, support/resistance lines, BOS/CHoCH labels, invalidation ranges, or premium/discount areas. Keep overlays sparse.'),
-          promptText('ruleLightChartLayers', '- Chart layers must look like lightweight analysis annotations, not blocking panels: short text, no opaque gray fill, opacity <= 0.08 for zones, dashed borders, and labels near the right edge or outside dense candles.')
+          promptText('ruleIndicatorRunnable', '- Indicator output must be runnable in the QuantDinger Indicator editor and suitable for chart display only.'),
+          promptText('ruleIndicatorSignals', '- Do not emit strategy execution columns such as open_long, close_long, open_short, close_short, add_long, or reduce_long.'),
+          promptText('ruleIndicatorNoStrategyMeta', '- Do not include strategy/backtest metadata such as # @strategy, # signal_form, # exit_owner, # flip_mode, four_way, or Strategy API V2.'),
+          promptText('ruleOutputSignalsChartOnly', '- output.signals is chart-only and never places backtest/live orders.'),
+          promptText('ruleOutputSignalsVisualOnly', '- If markers are needed, write them only as visual marker rows for output.signals with type, text, color, and data arrays. They must not imply executable orders.'),
+          promptText('ruleOutputLayers', '- Do not add output.layers by default. Use layers only when the user explicitly asks for zones, channels, support/resistance, invalidation ranges, or premium/discount areas. Prefer plots and output.signals for normal indicators.'),
+          promptText('ruleLightChartLayers', '- When layers are truly needed, they must look like lightweight analysis annotations, not blocking panels: short text, transparent fills, dashed borders when useful, and labels near the right edge or outside dense candles.')
         )
       } else if (targetType === 'script') {
-        hardRules.splice(6, 0, promptText('ruleScriptDraft', '- Trading Script output must be a Python ScriptStrategy draft for the QuantDinger Trading Script editor.'))
+        hardRules.splice(
+          6,
+          0,
+          promptText('ruleScriptDraft', '- Trading Script output must be a Python Strategy API V2 draft for the QuantDinger Trading Script editor.'),
+          promptText('ruleScriptOwnership', '- Source code owns the canonical instrument, market type, subscription frequency, direction, sizing, entries, exits, risk, and schedules. The run panel owns only initial capital, date range, and permitted Crypto @swap leverage.'),
+          promptText('ruleScriptApis', '- Use data.current(...) for current prices, position.amount/avg_cost for positions, and global order/schedule helpers. Never use get_current_data, position.quantity/cost_basis, or context.run_daily.'),
+          promptText('ruleInitializeParams', '- Never read context.params in initialize(context); read declared # @param values only inside executable handlers or callbacks.')
+        )
       } else {
-        hardRules.splice(6, 0, promptText('ruleTemplatePlan', '- Strategy Template output must recommend a QuantDinger template strategy type and concrete parameters.'))
+        hardRules.splice(6, 0, promptText('ruleScriptDraft', '- Trading Script output must be a Python Strategy API V2 draft for the QuantDinger Trading Script editor.'))
       }
       return hardRules.join('\n')
     },
-    async generateIndicatorStrategyDraft (prompt, target) {
+    async generateChartIndicatorDraft (prompt, target) {
       this.generatingStrategy = true
       const assistantMsg = {
         localId: 'local-' + (localId++),
         role: 'assistant',
-        content: this.i18nText('aiAssetAnalysis.copilot.generatingIndicatorStrategy', 'Generating indicator strategy draft...'),
-        meta: 'indicator_strategy'
+        content: this.i18nText('aiAssetAnalysis.copilot.generatingChartIndicator', 'Generating chart indicator draft...'),
+        meta: 'indicator_research'
       }
       this.messages.push(assistantMsg)
       this.scrollToBottom()
@@ -2715,7 +3030,15 @@ export default {
             'Accept-Language': language
           },
           credentials: 'include',
-          body: JSON.stringify({ prompt: agentPrompt })
+          body: JSON.stringify({
+            prompt: agentPrompt,
+            source: 'copilot_quick_tool',
+            context: {
+              source: 'copilot_quick_tool',
+              market: target.market || '',
+              symbol: target.symbol || ''
+            }
+          })
         })
         if (!response.ok || !response.body) throw new Error(`Indicator AI ${response.status}`)
         const reader = response.body.getReader()
@@ -2740,7 +3063,7 @@ export default {
               assistantMsg.content = [
                 `## ${target.symbol} ${this.text.indicatorStrategy}`,
                 '',
-                this.i18nText('aiAssetAnalysis.copilot.indicatorStrategyReady', 'An indicator strategy draft is ready. Keep refining entries, exits, risk controls, or parameters here, then open the Indicator Strategy editor when you are satisfied.'),
+                this.i18nText('aiAssetAnalysis.copilot.indicatorStrategyReady', 'A chart indicator draft is ready. Indicators are visual only; generate a script strategy before backtesting or live trading.'),
                 '',
                 '```python',
                 code,
@@ -2752,53 +3075,62 @@ export default {
         }
         const code = this.cleanMarkdownCodeBlocks(generatedCode)
         if (!code) throw new Error('Indicator AI returned empty code')
-        assistantMsg.meta = this.text.strategyGenerated
+        assistantMsg.meta = this.text.indicatorGenerated
         assistantMsg.actions = [{
           key: 'open-indicator-ide',
           group: 'strategy_workflow',
           icon: 'line-chart',
-          label: this.i18nText('aiAssetAnalysis.copilot.openStrategyResearch', 'Open Indicator Strategy editor'),
+          label: this.i18nText('aiAssetAnalysis.copilot.openIndicatorIde', 'Open Indicator editor'),
           path: '/indicator-ide',
           storageKey: 'qd_copilot_indicator_code',
           storageValue: code,
           query: { aiDraft: '1', symbol: target.symbol, market: target.market }
         }]
-        await this.persistCopilotMessage(assistantMsg, 'indicator_strategy')
+        await this.persistCopilotMessage(assistantMsg, 'indicator_research')
       } catch (e) {
-        assistantMsg.content = `${this.text.chatUnavailable}\n\n${(e && e.message) || ''}`
+        console.warn('Indicator generation failed', e)
+        assistantMsg.content = this.i18nText(
+          'aiAssetAnalysis.copilot.indicatorGenerationUnavailable',
+          'Indicator generation service is temporarily unavailable. Please check the backend AI configuration and try again.'
+        )
       } finally {
         this.generatingStrategy = false
         this.scrollToBottom()
       }
     },
-    async generateScriptStrategyDraft (prompt, target) {
+    async generateStrategyV2Draft (prompt, target) {
       this.generatingStrategy = true
       const assistantMsg = {
         localId: 'local-' + (localId++),
         role: 'assistant',
-        content: this.i18nText('aiAssetAnalysis.copilot.generatingScriptStrategy', 'Generating trading script draft...'),
+        content: this.i18nText('aiAssetAnalysis.copilot.generatingStrategyV2', 'Generating trading script draft...'),
         meta: 'strategy_build'
       }
       this.messages.push(assistantMsg)
       this.scrollToBottom()
       try {
         const agentPrompt = this.buildNativeStrategyGenerationPrompt('script', prompt, target)
-        const res = await aiGenerateStrategy({ prompt: agentPrompt, intent: 'generate_code' })
-        if (!res || !res.code) throw new Error((res && res.msg) || 'AI generation failed')
+        const res = await aiGenerateStrategy({
+          prompt: agentPrompt,
+          intent: 'generate_code',
+          source: 'copilot_quick_tool'
+        })
+        const code = this.extractStrategyCode(res)
+        if (!code) throw new Error((res && res.msg) || 'AI generation failed')
         const scriptDraftMeta = {
           symbol: target.symbol,
           market: target.market,
           name: `${target.symbol} ${this.text.scriptStrategy}`
         }
-        sessionStorage.setItem('qd_copilot_script_strategy_code', res.code)
+        sessionStorage.setItem('qd_strategy_source', code)
         sessionStorage.setItem('qd_copilot_script_strategy_meta', JSON.stringify(scriptDraftMeta))
         assistantMsg.content = [
           `## ${target.symbol} ${this.text.scriptStrategy}`,
           '',
-          this.i18nText('aiAssetAnalysis.copilot.scriptStrategyReady', 'A trading script draft is ready. Keep refining it here, or open the Trading Script editor to edit, backtest, and publish it.'),
+          this.i18nText('aiAssetAnalysis.copilot.scriptStrategyReady'),
           '',
           '```python',
-          res.code,
+          code,
           '```'
         ].join('\n')
         assistantMsg.meta = this.text.strategyGenerated
@@ -2806,68 +3138,33 @@ export default {
           key: 'open-script-strategy',
           group: 'strategy_workflow',
           icon: 'code',
-          label: this.i18nText('aiAssetAnalysis.copilot.openScriptStrategyIde', 'Open Trading Script editor'),
+          label: this.i18nText('aiAssetAnalysis.copilot.openStrategyV2Ide'),
           path: '/strategy-ide',
-          storageKey: 'qd_copilot_script_strategy_code',
-          storageValue: res.code,
+          storageKey: 'qd_strategy_source',
+          storageValue: code,
           extraStorage: {
             qd_copilot_script_strategy_meta: JSON.stringify(scriptDraftMeta)
           },
-          query: { tab: 'script', aiDraft: '1', symbol: target.symbol, market: target.market }
+          query: { tab: 'script', draft: '1' }
         }]
         await this.persistCopilotMessage(assistantMsg, 'strategy_build')
       } catch (e) {
-        assistantMsg.content = `${this.text.chatUnavailable}\n\n${(e && e.message) || ''}`
+        console.warn('Script strategy generation failed', e)
+        assistantMsg.content = this.i18nText(
+          'aiAssetAnalysis.copilot.scriptGenerationUnavailable',
+          'Strategy generation service is temporarily unavailable. Please check the backend AI configuration and try again.'
+        )
       } finally {
         this.generatingStrategy = false
         this.scrollToBottom()
       }
     },
-    async generateBotRecommendation (prompt, target) {
-      this.generatingStrategy = true
-      const assistantMsg = {
-        localId: 'local-' + (localId++),
-        role: 'assistant',
-        content: this.i18nText('aiAssetAnalysis.copilot.generatingTemplateStrategy', 'Generating strategy template recommendation...'),
-        meta: 'bot_recommend'
-      }
-      this.messages.push(assistantMsg)
-      this.scrollToBottom()
-      try {
-        const agentPrompt = this.buildNativeStrategyGenerationPrompt('bot', prompt, target)
-        const res = await aiGenerateStrategy({ prompt: agentPrompt, intent: 'bot_recommend' })
-        const recommendation = res && res.bot_recommend
-        if (!recommendation) throw new Error((res && res.msg) || 'AI bot recommendation failed')
-        sessionStorage.setItem('qd_copilot_bot_recommend', JSON.stringify(recommendation))
-        assistantMsg.content = [
-          `## ${target.symbol} ${this.text.tradingBot}`,
-          '',
-          `- Bot type: ${recommendation.botType || '--'}`,
-          `- Name: ${recommendation.botName || '--'}`,
-          `- Reason: ${recommendation.reason || '--'}`,
-          '',
-          '```json',
-          JSON.stringify(recommendation, null, 2),
-          '```'
-        ].join('\n')
-        assistantMsg.meta = this.text.strategyGenerated
-        assistantMsg.actions = [{
-          key: 'open-trading-bot',
-          group: 'strategy_workflow',
-          icon: 'robot',
-          label: this.i18nText('aiAssetAnalysis.copilot.openTemplateStrategy', 'Open Strategy Template'),
-          path: '/trading-bot',
-          storageKey: 'qd_copilot_bot_recommend',
-          storageValue: recommendation,
-          query: { aiPreset: '1' }
-        }]
-        await this.persistCopilotMessage(assistantMsg, 'bot_recommend')
-      } catch (e) {
-        assistantMsg.content = `${this.text.chatUnavailable}\n\n${(e && e.message) || ''}`
-      } finally {
-        this.generatingStrategy = false
-        this.scrollToBottom()
-      }
+    extractStrategyCode (res) {
+      if (!res || typeof res !== 'object') return ''
+      const data = res.data && typeof res.data === 'object' ? res.data : {}
+      const candidate = [data.code, data.source, data.strategy_code, res.code]
+        .find(value => typeof value === 'string' && value.trim())
+      return candidate ? candidate.trim() : ''
     },
     openTaskModal (item) {
       this.taskTarget = item ? this.normalizeSymbolOption(item) : this.normalizeSymbolOption(this.context)
@@ -2880,6 +3177,7 @@ export default {
       this.savingMonitor = true
       try {
         const interval = Number(this.taskForm.interval_min || 240)
+        const channels = this.normalizeMonitorChannels(this.taskForm.notify_channels || [])
         const res = await addMonitor({
           name: `AI-${target.symbol}-${interval}m`,
           position_ids: [],
@@ -2890,7 +3188,7 @@ export default {
             market: target.market,
             language: this.$store && this.$store.getters ? (this.$store.getters.lang || 'zh-CN') : (this.$i18n ? this.$i18n.locale : 'zh-CN')
           },
-          notification_config: { channels: this.taskForm.notify_channels || [] },
+          notification_config: { channels },
           is_active: true
         })
         if (!res || res.code === 0) throw new Error((res && res.msg) || this.text.monitorCreated)
@@ -2995,6 +3293,11 @@ export default {
           return
         }
       }
+      if (await this.handlePendingStrategyAgentMessage(content, userMsg, contextLock)) {
+        this.sending = false
+        this.scrollToBottom()
+        return
+      }
       if (await this.handleBackendAgentIntent(content, attachments, contextLock)) {
         this.sending = false
         this.scrollToBottom()
@@ -3091,28 +3394,51 @@ export default {
     },
     normalizeSymbolOption (item) {
       if (!item) return null
-      const market = item.market || item.market_type || item.category || this.context.market || 'Crypto'
+      const market = item.market || item.category || this.context.market || 'Crypto'
       const symbol = String(item.symbol || item.code || item.ticker || '').trim()
       if (!symbol) return null
       return {
         market,
         symbol: symbol.toUpperCase(),
-        name: item.name || item.display_name || item.label || ''
+        name: item.name || item.display_name || item.label || '',
+        exchange_id: item.exchange_id || item.exchangeId || '',
+        market_type: item.market_type || item.marketType || (market === 'Crypto' ? 'spot' : ''),
+        instrument_id: item.instrument_id || item.instrumentId || '',
+        settle_currency: item.settle_currency || item.settleCurrency || ''
       }
     },
     parseSymbolValue (value) {
+      if (String(value || '').includes('|')) {
+        const [market, exchangeId, marketType, instrumentId, symbol] = String(value || '').split('|')
+        return {
+          market,
+          exchange_id: exchangeId,
+          market_type: marketType,
+          instrument_id: instrumentId,
+          symbol
+        }
+      }
       const [market, ...rest] = String(value || '').split(':')
       return { market: market || this.context.market, symbol: rest.join(':') || '' }
     },
     symbolOptionValue (item) {
-      return `${item.market}:${item.symbol}`
+      return [
+        item.market || '',
+        item.exchange_id || '',
+        item.market_type || '',
+        item.instrument_id || '',
+        item.symbol || ''
+      ].join('|')
     },
     normalizePriceMap (raw) {
       if (!raw || typeof raw !== 'object') return {}
       const out = {}
       const list = Array.isArray(raw) ? raw : Object.keys(raw).map(key => raw[key])
       list.forEach(item => {
-        if (item && item.market && item.symbol) out[`${item.market}:${item.symbol}`] = item
+        if (item && item.market && item.symbol) {
+          out[this.watchKey(item)] = item
+          out[this.watchAssetKey(item)] = item
+        }
       })
       return out
     },
@@ -3129,8 +3455,9 @@ export default {
     },
     impactLabel (event) {
       const cls = this.impactClass(event)
-      if (this.isZh) return cls === 'high' ? '高影响' : cls === 'low' ? '低影响' : '中影响'
-      return cls === 'high' ? 'High' : cls === 'low' ? 'Low' : 'Medium'
+      if (cls === 'high') return this.text.impactHigh
+      if (cls === 'low') return this.text.impactLow
+      return this.text.impactMedium
     },
     formatEventTime (event) {
       const date = String((event && (event.date || event.datetime)) || '').slice(5, 10)
@@ -3225,16 +3552,27 @@ export default {
       const reader = response.body.getReader()
       const decoder = new TextDecoder('utf-8')
       let buffer = ''
-      while (true) {
+      let streamComplete = false
+      while (!streamComplete) {
         const { value, done } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
         const parts = buffer.split(/\r?\n\r?\n/)
         buffer = parts.pop() || ''
-        parts.forEach(part => this.handleStreamEvent(part, assistantMsg))
+        for (const part of parts) {
+          if (this.handleStreamEvent(part, assistantMsg) === 'done') {
+            streamComplete = true
+            break
+          }
+        }
         this.scrollToBottom()
+        if (streamComplete) {
+          try {
+            await reader.cancel()
+          } catch (_) {}
+        }
       }
-      if (buffer.trim()) this.handleStreamEvent(buffer, assistantMsg)
+      if (!streamComplete && buffer.trim()) this.handleStreamEvent(buffer, assistantMsg)
       if (assistantMsg.isThinking) {
         assistantMsg.content = ''
         assistantMsg.isThinking = false
@@ -3249,7 +3587,7 @@ export default {
         .filter(line => line.startsWith('data:'))
         .map(line => line.replace(/^data:\s*/, ''))
         .join('\n')
-      if (!data) return
+      if (!data) return eventName
       const payload = JSON.parse(data)
       if (eventName === 'meta') {
         this.sessionId = payload.session_id || this.sessionId
@@ -3269,6 +3607,7 @@ export default {
       } else if (eventName === 'error') {
         throw new Error(payload.msg || this.text.chatUnavailable)
       }
+      return eventName
     },
     setAgentUsageActions (message, actions = [], usage = null) {
       if (!message) return
@@ -3630,10 +3969,18 @@ export default {
       })
     },
     watchKey (item) {
-      return `${item.market}:${item.symbol}`
+      return [
+        item.market || '',
+        item.exchange_id || '',
+        item.market_type || '',
+        item.symbol || ''
+      ].join(':')
+    },
+    watchAssetKey (item) {
+      return [item.market || '', item.symbol || ''].join(':')
     },
     priceFor (item) {
-      return this.watchlistPrices[this.watchKey(item)] || null
+      return this.watchlistPrices[this.watchKey(item)] || this.watchlistPrices[this.watchAssetKey(item)] || null
     },
     priceChangePercent (price) {
       if (!price) return null
@@ -3681,6 +4028,11 @@ export default {
       if (minutes >= 1440) return `${Math.round(minutes / 1440)}d`
       if (minutes >= 60) return `${Math.round(minutes / 60)}h`
       return `${minutes}m`
+    },
+    notificationText (m) {
+      const config = (m && m.notification_config) || {}
+      const channels = this.normalizeMonitorChannels(config.channels || [])
+      return channels.length ? channels.map(channel => this.monitorChannelLabel(channel)).join(', ') : this.i18nText('aiAssetAnalysis.copilot.monitorNoNotify', 'record only')
     },
     formatIntervalText (value) {
       const minutes = Number(value || 0)
@@ -4083,9 +4435,9 @@ export default {
 }
 
 .composer-context-bar {
-  flex: 1 1 560px;
-  max-width: 680px;
-  margin: 0;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 0 8px;
 }
 
 .context-status {
@@ -4772,6 +5124,81 @@ export default {
   background: var(--qd-panel);
 }
 
+.composer-coach {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--qd-accent-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--qd-accent) 7%, var(--qd-panel));
+}
+
+.composer-coach-icon {
+  display: inline-grid;
+  flex: 0 0 30px;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--qd-accent);
+  color: #fff;
+}
+
+.composer-coach-copy {
+  min-width: 0;
+}
+
+.composer-coach-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-coach-head strong {
+  color: var(--qd-text);
+  font-size: 13px;
+}
+
+.composer-coach-head span {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--qd-accent-soft);
+  color: var(--qd-accent);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.composer-coach-copy p {
+  margin: 2px 0 7px;
+  color: var(--qd-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.composer-coach-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.composer-coach-suggestions button {
+  padding: 3px 8px;
+  border: 1px solid var(--qd-border);
+  border-radius: 999px;
+  background: var(--qd-panel);
+  color: var(--qd-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.composer-coach-suggestions button:hover {
+  border-color: var(--qd-accent-border);
+  color: var(--qd-accent);
+}
+
 .composer textarea {
   width: 100%;
   min-height: 98px;
@@ -4798,25 +5225,31 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 8px;
 }
 
 .risk-disclaimer {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  flex: 1 1 auto;
   gap: 5px;
-  width: 100%;
-  margin: 8px 0 0;
+  min-width: 0;
+  margin: 0;
   color: var(--qd-text-subtle);
   font-size: 12px;
   line-height: 1.45;
 }
 
+.risk-disclaimer span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .risk-disclaimer .anticon {
   flex: 0 0 auto;
-  margin-top: 2px;
   margin-right: 0;
   color: var(--qd-accent);
 }
@@ -4824,6 +5257,7 @@ export default {
 .composer-actions {
   display: flex;
   flex: 0 0 auto;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
 }
@@ -5098,14 +5532,14 @@ export default {
 .strategy-flow {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 4px 0 2px;
+  gap: 12px;
+  padding: 4px 4px 0;
 }
 
 .strategy-type-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .strategy-flow-guide {
@@ -5132,16 +5566,16 @@ export default {
 
 .strategy-flow-card {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  min-height: 116px;
-  padding: 14px;
-  border: 1px solid var(--qd-border-soft, #e8eff7);
-  border-radius: 10px;
+  min-height: 104px;
+  padding: 16px;
+  border: 1px solid var(--qd-border, #dbe7f3);
+  border-radius: 8px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--qd-panel, #fff) 88%, transparent), color-mix(in srgb, var(--qd-panel-soft, #f7fafd) 92%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--qd-panel, #fff) 94%, transparent), color-mix(in srgb, var(--qd-panel-soft, #f7fafd) 96%, transparent));
   color: var(--qd-text, #12243d);
   text-align: left;
   cursor: pointer;
@@ -5150,16 +5584,17 @@ export default {
 }
 
 .strategy-flow-card:hover {
-  border-color: color-mix(in srgb, var(--qd-accent) 54%, transparent);
-  background: var(--qd-accent-soft, #eef6ff);
-  box-shadow: 0 8px 22px var(--qd-accent-ring);
+  border-color: color-mix(in srgb, var(--qd-accent) 50%, var(--qd-border, #dbe7f3));
+  background: color-mix(in srgb, var(--qd-accent) 7%, var(--qd-panel, #fff));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--qd-accent) 10%, transparent);
   transform: translateY(-1px);
 }
 
 .strategy-flow-card.active {
-  border-color: color-mix(in srgb, var(--qd-accent) 72%, transparent);
-  background: color-mix(in srgb, var(--qd-accent) 10%, var(--qd-panel, #fff));
-  box-shadow: 0 10px 24px var(--qd-accent-ring);
+  border-color: color-mix(in srgb, var(--qd-accent) 70%, var(--qd-border, #dbe7f3));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--qd-accent) 14%, var(--qd-panel, #fff)), color-mix(in srgb, var(--qd-accent) 5%, var(--qd-panel-soft, #f7fafd)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--qd-accent) 20%, transparent), 0 14px 30px color-mix(in srgb, var(--qd-accent) 12%, transparent);
 }
 
 .strategy-flow-card > .anticon {
@@ -5167,8 +5602,8 @@ export default {
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid color-mix(in srgb, var(--qd-accent) 22%, transparent);
-  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--qd-accent) 28%, transparent);
+  border-radius: 8px;
   background: var(--qd-accent-soft);
   color: var(--qd-accent, #1677ff);
   font-size: 17px;
@@ -5182,78 +5617,75 @@ export default {
 .strategy-flow-card strong {
   margin-bottom: 6px;
   color: var(--qd-text, #12243d);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1.25;
 }
 
 .strategy-flow-card em {
   color: var(--qd-text-muted, #6b7f99);
-  font-size: 11px;
+  font-size: 12px;
   font-style: normal;
-  line-height: 1.45;
+  line-height: 1.55;
   white-space: normal;
   word-break: normal;
   overflow-wrap: anywhere;
 }
 
-.strategy-route-panel {
+.strategy-selected-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--qd-accent) 24%, var(--qd-border-soft, #e8eff7));
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--qd-accent) 8%, var(--qd-panel, #fff)), var(--qd-panel-soft, #f7fafd));
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--qd-accent) 20%, var(--qd-border-soft, #e8eff7));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--qd-accent) 6%, var(--qd-panel-soft, #f7fafd));
 }
 
-.strategy-route-main {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  align-items: flex-start;
-  gap: 10px;
+.strategy-selected-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-}
-
-.strategy-route-icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--qd-accent-soft, #eef6ff);
   color: var(--qd-accent, #1677ff);
-  font-size: 16px;
+  font-size: 13px;
 }
 
-.strategy-route-main strong,
-.strategy-route-main em {
-  display: block;
-}
-
-.strategy-route-main strong {
-  margin-bottom: 4px;
+.strategy-selected-label strong {
   color: var(--qd-text, #12243d);
   font-size: 13px;
   font-weight: 900;
+  white-space: nowrap;
 }
 
-.strategy-route-main em {
+.strategy-selected-bar em {
+  min-width: 0;
   color: var(--qd-text-muted, #6b7f99);
   font-size: 12px;
   font-style: normal;
-  line-height: 1.45;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-route-action {
+  flex: 0 0 auto;
+  min-width: 168px;
+  height: 34px;
+  border-radius: 7px;
+  font-weight: 800;
 }
 
 .strategy-examples {
   width: 100%;
   margin-top: 0;
-  padding: 10px 12px;
+  padding: 11px 12px 6px;
   border: 1px solid var(--qd-border-soft, #e8eff7);
-  border-radius: 10px;
-  background: var(--qd-panel-soft, #f7fafd);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--qd-panel-soft, #f7fafd) 86%, transparent);
 }
 
 .strategy-examples-head {
@@ -5261,7 +5693,9 @@ export default {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--qd-border-soft, #e8eff7);
 }
 
 .strategy-examples-head strong {
@@ -5282,9 +5716,8 @@ export default {
   gap: 10px;
   width: 100%;
   min-height: 54px;
-  padding: 9px 10px;
+  padding: 9px 8px;
   border: 0;
-  border-top: 1px solid var(--qd-border-soft, #e8eff7);
   background: transparent;
   color: var(--qd-text, #12243d);
   text-align: left;
@@ -5292,7 +5725,8 @@ export default {
 }
 
 .strategy-example-row:hover {
-  background: var(--qd-accent-soft, #eef6ff);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--qd-accent) 8%, transparent);
 }
 
 .strategy-example-row strong,
@@ -5317,6 +5751,12 @@ export default {
 
 .strategy-example-row .anticon {
   color: var(--qd-accent, #1677ff);
+}
+
+.strategy-flow-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
 }
 
 .copilot-workbench ::v-deep .ant-select-selection {
@@ -5360,7 +5800,7 @@ export default {
     min-height: 260px;
   }
   .strategy-type-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .strategy-flow-guide,
   .workflow-steps {
@@ -5393,6 +5833,20 @@ export default {
     width: 100%;
     grid-template-columns: 1fr;
     margin-right: 0;
+  }
+  .strategy-type-grid {
+    grid-template-columns: 1fr;
+  }
+  .strategy-selected-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .strategy-selected-bar em {
+    white-space: normal;
+  }
+  .strategy-route-action {
+    width: 100%;
   }
   .strategy-flow-guide,
   .workflow-steps {
@@ -5726,7 +6180,9 @@ export default {
 
 @media (max-width: 1360px) {
   .copilot-workbench {
-    grid-template-columns: minmax(250px, 300px) minmax(580px, 1fr);
+    grid-template-columns: minmax(210px, 240px) minmax(460px, 1fr) minmax(230px, 260px);
+    gap: 8px;
+    padding: 8px;
   }
 
   .copilot-workbench::before {
@@ -5736,6 +6192,11 @@ export default {
   .chat-hero::after {
     right: 30px;
     opacity: 0.34;
+  }
+
+  .welcome-prompts,
+  .quick-task-shelf {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
 }
 
@@ -5854,14 +6315,14 @@ export default {
 .strategy-flow {
   display: flex !important;
   flex-direction: column !important;
-  gap: 14px !important;
-  padding: 2px 0 0 !important;
+  gap: 12px !important;
+  padding: 4px 4px 0 !important;
 }
 
 .strategy-type-grid {
   display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 14px !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
 }
 
 .strategy-flow-guide {
@@ -5870,11 +6331,11 @@ export default {
 
 .strategy-flow-card {
   display: grid !important;
-  grid-template-columns: 36px minmax(0, 1fr) !important;
+  grid-template-columns: 38px minmax(0, 1fr) !important;
   align-items: flex-start !important;
-  min-height: 116px !important;
-  padding: 14px !important;
-  border-radius: 10px !important;
+  min-height: 104px !important;
+  padding: 16px !important;
+  border-radius: 8px !important;
   white-space: normal !important;
 }
 
@@ -5943,7 +6404,7 @@ body.dark .copilot-workbench .quick-task-shelf .welcome-task,
 body.dark .copilot-workbench .welcome-prompts button,
 body.dark .quick-tools-modal .quick-task-modal-grid .welcome-task,
 body.dark .copilot-workbench .strategy-flow-card,
-body.dark .copilot-workbench .strategy-route-panel,
+body.dark .copilot-workbench .strategy-selected-bar,
 body.dark .copilot-workbench .strategy-examples,
 body.realdark .copilot-workbench .session-row,
 body.realdark .copilot-workbench .calendar-card,
@@ -5954,7 +6415,7 @@ body.realdark .copilot-workbench .quick-task-shelf .welcome-task,
 body.realdark .copilot-workbench .welcome-prompts button,
 body.realdark .quick-tools-modal .quick-task-modal-grid .welcome-task,
 body.realdark .copilot-workbench .strategy-flow-card,
-body.realdark .copilot-workbench .strategy-route-panel,
+body.realdark .copilot-workbench .strategy-selected-bar,
 body.realdark .copilot-workbench .strategy-examples,
 .theme-dark .copilot-workbench .session-row,
 .theme-dark .copilot-workbench .calendar-card,
@@ -5965,7 +6426,7 @@ body.realdark .copilot-workbench .strategy-examples,
 .theme-dark .copilot-workbench .welcome-prompts button,
 .theme-dark .quick-tools-modal .quick-task-modal-grid .welcome-task,
 .theme-dark .copilot-workbench .strategy-flow-card,
-.theme-dark .copilot-workbench .strategy-route-panel,
+.theme-dark .copilot-workbench .strategy-selected-bar,
 .theme-dark .copilot-workbench .strategy-examples {
   border-color: rgba(255, 255, 255, 0.11) !important;
   background: #141414 !important;
@@ -5976,7 +6437,8 @@ body.dark .copilot-workbench .strategy-flow-card.active,
 body.realdark .copilot-workbench .strategy-flow-card.active,
 .theme-dark .copilot-workbench .strategy-flow-card.active {
   border-color: color-mix(in srgb, var(--qd-accent) 72%, rgba(255, 255, 255, 0.14)) !important;
-  background: color-mix(in srgb, var(--qd-accent) 15%, #141414) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--qd-accent) 18%, #141414), #141414) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--qd-accent) 20%, transparent) !important;
 }
 
 body.dark .copilot-workbench .session-row:hover,
@@ -6062,6 +6524,11 @@ body.realdark .copilot-workbench .empty-mini,
   .strategy-type-grid {
     grid-template-columns: 1fr !important;
   }
+
+  .copilot-workbench .welcome-prompts,
+  .copilot-workbench .quick-task-shelf {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
@@ -6125,6 +6592,172 @@ body.realdark .copilot-workbench .empty-mini,
 </style>
 
 <style lang="less">
+.copilot-modal {
+  --qd-panel: #ffffff;
+  --qd-panel-soft: #f7fafd;
+  --qd-text: #12243d;
+  --qd-text-muted: #6b7f99;
+  --qd-border: #dbe7f3;
+  --qd-border-soft: #e8eff7;
+  --qd-accent: var(--primary-color, #1677ff);
+  --qd-accent-soft: color-mix(in srgb, var(--qd-accent) 12%, #ffffff);
+
+  .strategy-flow {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 4px 4px 0 !important;
+  }
+
+  .strategy-type-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .strategy-flow-guide {
+    display: none !important;
+  }
+
+  .strategy-flow-card {
+    display: grid !important;
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-height: 104px !important;
+    padding: 16px !important;
+    border: 1px solid var(--qd-border, #dbe7f3) !important;
+    border-radius: 8px !important;
+    background: var(--qd-panel, #ffffff) !important;
+    color: var(--qd-text, #12243d) !important;
+    text-align: left !important;
+    white-space: normal !important;
+  }
+
+  .strategy-flow-card.active {
+    border-color: color-mix(in srgb, var(--qd-accent) 68%, var(--qd-border, #dbe7f3)) !important;
+    background: color-mix(in srgb, var(--qd-accent) 11%, var(--qd-panel, #ffffff)) !important;
+  }
+
+  .strategy-flow-card > .anticon {
+    display: grid !important;
+    place-items: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    border: 1px solid color-mix(in srgb, var(--qd-accent) 28%, transparent) !important;
+    border-radius: 8px !important;
+    background: var(--qd-accent-soft) !important;
+    color: var(--qd-accent, #1677ff) !important;
+    font-size: 17px !important;
+  }
+
+  .strategy-flow-card strong,
+  .strategy-flow-card em {
+    display: block !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .strategy-flow-card strong {
+    margin-bottom: 6px !important;
+    color: var(--qd-text, #12243d) !important;
+    font-size: 15px !important;
+    font-weight: 900 !important;
+    line-height: 1.25 !important;
+  }
+
+  .strategy-flow-card em {
+    color: var(--qd-text-muted, #6b7f99) !important;
+    font-size: 12px !important;
+    font-style: normal !important;
+    line-height: 1.55 !important;
+  }
+
+  .strategy-selected-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    min-height: 42px !important;
+    padding: 9px 12px !important;
+    border: 1px solid color-mix(in srgb, var(--qd-accent) 20%, var(--qd-border-soft, #e8eff7)) !important;
+    border-radius: 8px !important;
+    background: color-mix(in srgb, var(--qd-accent) 6%, var(--qd-panel-soft, #f7fafd)) !important;
+  }
+
+  .strategy-selected-label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+    color: var(--qd-accent, #1677ff) !important;
+    font-size: 13px !important;
+  }
+
+  .strategy-selected-label strong {
+    color: var(--qd-text, #12243d) !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+  }
+
+  .strategy-selected-bar em {
+    min-width: 0 !important;
+    color: var(--qd-text-muted, #6b7f99) !important;
+    font-size: 12px !important;
+    font-style: normal !important;
+    line-height: 1.4 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .strategy-examples {
+    width: 100% !important;
+    padding: 11px 12px 6px !important;
+    border: 1px solid var(--qd-border-soft, #e8eff7) !important;
+    border-radius: 8px !important;
+    background: color-mix(in srgb, var(--qd-panel-soft, #f7fafd) 86%, transparent) !important;
+  }
+
+  .strategy-flow-footer {
+    display: flex !important;
+    justify-content: flex-end !important;
+    padding-top: 2px !important;
+  }
+
+  .strategy-route-action {
+    min-width: 168px !important;
+    height: 34px !important;
+    border-radius: 7px !important;
+    font-weight: 800 !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .copilot-modal {
+    .strategy-type-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    .strategy-selected-bar {
+      align-items: flex-start !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+
+    .strategy-selected-bar em {
+      white-space: normal !important;
+    }
+
+    .strategy-route-action {
+      width: 100% !important;
+    }
+  }
+}
+
 .add-watch-copilot-modal {
   .ant-modal-content,
   .ant-modal-header,
@@ -6217,14 +6850,18 @@ body.realdark .add-watch-copilot-modal,
 
   .symbol-result-card {
     border-color: rgba(255, 255, 255, 0.11) !important;
-    background: #111827 !important;
+    background: #101010 !important;
     color: #e7edf6 !important;
   }
 
   .symbol-result-card:hover,
   .symbol-result-card.active {
     border-color: color-mix(in srgb, var(--qd-accent) 62%, rgba(255, 255, 255, 0.12)) !important;
-    background: color-mix(in srgb, var(--qd-accent) 15%, #111827) !important;
+    background: color-mix(in srgb, var(--qd-accent) 15%, #101010) !important;
+  }
+
+  .selected-watch-alert .ant-alert-icon {
+    color: var(--qd-accent) !important;
   }
 
   .symbol-result-card em {
@@ -6259,8 +6896,60 @@ body.realdark .copilot-modal,
     color: #dbe4f0 !important;
   }
 
+  .ant-modal-body,
+  .ant-form,
+  .ant-form-item-label > label,
+  .ant-checkbox-wrapper,
+  .ant-checkbox-group,
+  .ant-select-selection-selected-value {
+    color: #e7edf6 !important;
+  }
+
+  .ant-form-item-label > label {
+    font-weight: 700;
+  }
+
+  .ant-input,
+  .ant-select-selection {
+    background: #101010 !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    color: #e7edf6 !important;
+  }
+
+  .ant-input[disabled],
+  .ant-input-disabled {
+    background: #1b1b1b !important;
+    color: rgba(231, 237, 246, 0.74) !important;
+    -webkit-text-fill-color: rgba(231, 237, 246, 0.74) !important;
+  }
+
+  .ant-select-arrow,
+  .ant-checkbox-wrapper span {
+    color: rgba(231, 237, 246, 0.78) !important;
+  }
+
+  .ant-checkbox-inner {
+    background: #101010 !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
+  }
+
+  .ant-checkbox-checked .ant-checkbox-inner {
+    background: var(--qd-accent) !important;
+    border-color: var(--qd-accent) !important;
+  }
+
+  .ant-alert-info {
+    background: color-mix(in srgb, var(--qd-accent) 9%, #101010) !important;
+    border-color: color-mix(in srgb, var(--qd-accent) 26%, rgba(255, 255, 255, 0.12)) !important;
+  }
+
+  .ant-alert-message,
+  .ant-alert-description {
+    color: rgba(231, 237, 246, 0.82) !important;
+  }
+
   .strategy-flow-card,
-  .strategy-route-panel,
+  .strategy-selected-bar,
   .strategy-examples {
     border-color: rgba(255, 255, 255, 0.11) !important;
     background: #141414 !important;
@@ -6278,22 +6967,21 @@ body.realdark .copilot-modal,
     background: color-mix(in srgb, var(--qd-accent) 15%, #141414) !important;
   }
 
-  .strategy-flow-card > .anticon,
-  .strategy-route-icon {
+  .strategy-flow-card > .anticon {
     border-color: color-mix(in srgb, var(--qd-accent) 28%, rgba(255, 255, 255, 0.12)) !important;
     background: color-mix(in srgb, var(--qd-accent) 18%, #101010) !important;
     color: var(--qd-accent) !important;
   }
 
   .strategy-flow-card strong,
-  .strategy-route-main strong,
+  .strategy-selected-label strong,
   .strategy-examples-head strong,
   .strategy-example-row strong {
     color: #e7edf6 !important;
   }
 
   .strategy-flow-card em,
-  .strategy-route-main em,
+  .strategy-selected-bar em,
   .strategy-examples-head span,
   .strategy-example-row em {
     color: #9ba6b8 !important;

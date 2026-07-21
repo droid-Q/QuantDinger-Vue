@@ -52,7 +52,7 @@ import {
   AutoComplete,
   message,
   notification,
-  Slider,
+  Slider
 } from 'ant-design-vue'
 // import Viser from 'viser-vue'
 

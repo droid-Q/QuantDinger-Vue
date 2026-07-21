@@ -181,6 +181,28 @@ body.realdark .ant-modal-confirm {
   }
 }
 
+/* Keep empty-state copy readable wherever Ant Design renders it, including portals. */
+.basic-layout-wrapper.dark .ant-empty,
+.basic-layout-wrapper.realdark .ant-empty,
+body.dark .ant-empty,
+body.realdark .ant-empty,
+.theme-dark .ant-empty {
+  color: rgba(255, 255, 255, 0.52) !important;
+}
+
+.basic-layout-wrapper.dark .ant-empty-description,
+.basic-layout-wrapper.realdark .ant-empty-description,
+body.dark .ant-empty-description,
+body.realdark .ant-empty-description,
+.theme-dark .ant-empty-description,
+.basic-layout-wrapper.dark .ant-empty-footer,
+.basic-layout-wrapper.realdark .ant-empty-footer,
+body.dark .ant-empty-footer,
+body.realdark .ant-empty-footer,
+.theme-dark .ant-empty-footer {
+  color: rgba(255, 255, 255, 0.52) !important;
+}
+
 /* ========== USDT / 充值支付弹窗：暗黑下避免黑字顺色 ========== */
 body.dark .ant-modal-wrap [class*='usdt'],
 body.realdark .ant-modal-wrap [class*='usdt'],
@@ -223,4 +245,207 @@ body.realdark .ant-modal-wrap [class*='billing'] .ant-descriptions-item-content,
 body.dark .ant-modal-wrap [class*='payment'] .ant-descriptions-item-content,
 body.realdark .ant-modal-wrap [class*='payment'] .ant-descriptions-item-content {
   color: #e5e5e5 !important;
+}
+
+/* Top navigation menu colors must follow the layout theme, not Ant's light menu defaults. */
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu {
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item > a,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item > span,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item .anticon,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item .ant-menu-title-content,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title > span,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .anticon,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .ant-menu-title-content,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item > a,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item > span,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item .anticon,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item .ant-menu-title-content,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title > span,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .anticon,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .ant-menu-title-content,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item > a,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item > span,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item .anticon,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item .ant-menu-title-content,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title > span,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .anticon,
+body.dark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .ant-menu-title-content,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item > a,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item > span,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item .anticon,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item .ant-menu-title-content,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu > .ant-menu-submenu-title > span,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .anticon,
+body.realdark .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .ant-menu-title-content {
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item:hover,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-active,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu:hover,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-active,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item:hover,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-active,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu:hover,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-active,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item:hover *,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-active *,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected *,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu:hover *,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-active *,
+.basic-layout-wrapper.dark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected *,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item:hover *,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-active *,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected *,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu:hover *,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-active *,
+.basic-layout-wrapper.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected * {
+  color: var(--primary-color, #1890ff) !important;
+}
+
+/* Keep data surfaces low-contrast and readable in dark themes. */
+.basic-layout-wrapper.dark .ant-table,
+.basic-layout-wrapper.realdark .ant-table,
+body.dark .ant-table,
+body.realdark .ant-table,
+.basic-layout-wrapper.dark .ant-table-content,
+.basic-layout-wrapper.realdark .ant-table-content,
+body.dark .ant-table-content,
+body.realdark .ant-table-content,
+.basic-layout-wrapper.dark .ant-table-body,
+.basic-layout-wrapper.realdark .ant-table-body,
+body.dark .ant-table-body,
+body.realdark .ant-table-body,
+.basic-layout-wrapper.dark .ant-table-placeholder,
+.basic-layout-wrapper.realdark .ant-table-placeholder,
+body.dark .ant-table-placeholder,
+body.realdark .ant-table-placeholder {
+  background: #17191c !important;
+  border-color: #2a2d31 !important;
+}
+
+.basic-layout-wrapper.dark .ant-table,
+.basic-layout-wrapper.realdark .ant-table,
+body.dark .ant-table,
+body.realdark .ant-table,
+.theme-dark .ant-table {
+  border-color: #2a2d31 !important;
+}
+
+.basic-layout-wrapper.dark .ant-table-bordered .ant-table-content,
+.basic-layout-wrapper.realdark .ant-table-bordered .ant-table-content,
+body.dark .ant-table-bordered .ant-table-content,
+body.realdark .ant-table-bordered .ant-table-content,
+.basic-layout-wrapper.dark .ant-table-bordered .ant-table-body,
+.basic-layout-wrapper.realdark .ant-table-bordered .ant-table-body,
+body.dark .ant-table-bordered .ant-table-body,
+body.realdark .ant-table-bordered .ant-table-body,
+.basic-layout-wrapper.dark .ant-table-bordered table,
+.basic-layout-wrapper.realdark .ant-table-bordered table,
+body.dark .ant-table-bordered table,
+body.realdark .ant-table-bordered table {
+  border-color: #2a2d31 !important;
+}
+
+.basic-layout-wrapper.dark .ant-table-thead > tr > th,
+.basic-layout-wrapper.realdark .ant-table-thead > tr > th,
+body.dark .ant-table-thead > tr > th,
+body.realdark .ant-table-thead > tr > th {
+  color: rgba(255, 255, 255, 0.86) !important;
+  background: #101113 !important;
+  border-color: #2a2d31 !important;
+}
+
+.basic-layout-wrapper.dark .ant-table-tbody > tr > td,
+.basic-layout-wrapper.realdark .ant-table-tbody > tr > td,
+body.dark .ant-table-tbody > tr > td,
+body.realdark .ant-table-tbody > tr > td,
+.basic-layout-wrapper.dark .ant-table-placeholder,
+.basic-layout-wrapper.realdark .ant-table-placeholder,
+body.dark .ant-table-placeholder,
+body.realdark .ant-table-placeholder {
+  color: rgba(255, 255, 255, 0.68) !important;
+  border-color: #2a2d31 !important;
+}
+
+.basic-layout-wrapper.dark .ant-table-tbody > tr:hover > td,
+.basic-layout-wrapper.realdark .ant-table-tbody > tr:hover > td,
+body.dark .ant-table-tbody > tr:hover > td,
+body.realdark .ant-table-tbody > tr:hover > td {
+  background: #202327 !important;
+}
+
+/* Normalize Ant Design table borders across dark pages and portal overlays. */
+.theme-dark .ant-table,
+.theme-dark .ant-table-content,
+.theme-dark .ant-table-body,
+.theme-dark .ant-table-placeholder,
+body.dark .ant-drawer .ant-table,
+body.realdark .ant-drawer .ant-table,
+body.dark .ant-modal .ant-table,
+body.realdark .ant-modal .ant-table {
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: #17191c !important;
+}
+
+.theme-dark .ant-table-thead > tr > th,
+body.dark .ant-drawer .ant-table-thead > tr > th,
+body.realdark .ant-drawer .ant-table-thead > tr > th,
+body.dark .ant-modal .ant-table-thead > tr > th,
+body.realdark .ant-modal .ant-table-thead > tr > th {
+  color: rgba(255, 255, 255, 0.86) !important;
+  background: #101113 !important;
+  border-color: #2a2d31 !important;
+}
+
+.theme-dark .ant-table-tbody > tr > td,
+.theme-dark .ant-table-placeholder,
+body.dark .ant-drawer .ant-table-tbody > tr > td,
+body.realdark .ant-drawer .ant-table-tbody > tr > td,
+body.dark .ant-modal .ant-table-tbody > tr > td,
+body.realdark .ant-modal .ant-table-tbody > tr > td {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: #17191c !important;
+  border-color: #2a2d31 !important;
+}
+
+.theme-dark .ant-table-bordered,
+.theme-dark .ant-table-bordered .ant-table-content,
+.theme-dark .ant-table-bordered .ant-table-header > table,
+.theme-dark .ant-table-bordered .ant-table-body > table,
+.theme-dark .ant-table-bordered .ant-table-thead > tr > th,
+.theme-dark .ant-table-bordered .ant-table-tbody > tr > td,
+body.dark .ant-drawer .ant-table-bordered,
+body.dark .ant-drawer .ant-table-bordered .ant-table-content,
+body.dark .ant-drawer .ant-table-bordered .ant-table-thead > tr > th,
+body.dark .ant-drawer .ant-table-bordered .ant-table-tbody > tr > td,
+body.realdark .ant-drawer .ant-table-bordered,
+body.realdark .ant-drawer .ant-table-bordered .ant-table-content,
+body.realdark .ant-drawer .ant-table-bordered .ant-table-thead > tr > th,
+body.realdark .ant-drawer .ant-table-bordered .ant-table-tbody > tr > td {
+  border-color: #2a2d31 !important;
+}
+
+.theme-dark .ant-table-tbody > tr:hover > td,
+body.dark .ant-drawer .ant-table-tbody > tr:hover > td,
+body.realdark .ant-drawer .ant-table-tbody > tr:hover > td {
+  background: #202327 !important;
 }

@@ -102,7 +102,7 @@ export function parseUtcAwareInstant (input) {
  * Format a backtest trade timestamp.
  *
  * Backend writes trade times via `timestamp.strftime('%Y-%m-%d %H:%M')` on
- * naive UTC-indexed pandas DataFrames (see backend_api_python/app/services/backtest.py).
+ * UTC-indexed pandas DataFrames from the unified V2 backtest service.
  * That string carries no tz info, but its value IS UTC. `new Date(s)` would
  * interpret it as browser-local, producing a wrong wall clock for any user
  * outside UTC (e.g. CN users see "8 hours late").

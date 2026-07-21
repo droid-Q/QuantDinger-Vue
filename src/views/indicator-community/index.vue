@@ -28,14 +28,13 @@
         >
           <a-radio-button value="indicator">{{ $t('community.tabIndicators') }}</a-radio-button>
           <a-radio-button value="script_template">{{ $t('community.tabScriptTemplates') }}</a-radio-button>
-          <a-radio-button value="bot_preset">{{ $t('community.tabBotPresets') }}</a-radio-button>
         </a-radio-group>
       </div>
       <div class="header-right">
         <a-input-search
           v-model="filters.keyword"
           :placeholder="$t('community.searchPlaceholder')"
-          style="width: 240px"
+          class="market-search"
           allow-clear
           @search="handleSearch"
           @pressEnter="handleSearch"
@@ -44,20 +43,49 @@
           <a-radio-button value="">{{ $t('community.all') }}</a-radio-button>
           <a-radio-button value="free">{{ $t('community.freeOnly') }}</a-radio-button>
           <a-radio-button value="paid">{{ $t('community.paidOnly') }}</a-radio-button>
+          <a-radio-button value="vip_free">{{ $t('community.vipFree') }}</a-radio-button>
         </a-radio-group>
-        <!--
-          Sort. Default = composite score, so high-quality indicators
-          surface to the top of page 1 without the user having to
-          discover the option. The other modes are still useful
-          (newest = "what's new", hot = "what's everyone using").
-        -->
+        <a-select
+          v-model="filters.codeVisibility"
+          class="market-filter-select"
+          @change="handleFilterChange"
+        >
+          <a-select-option value="">{{ $t('community.codeVisibilityAll') }}</a-select-option>
+          <a-select-option value="visible">{{ $t('community.codeVisible') }}</a-select-option>
+          <a-select-option value="hidden">{{ $t('community.codeHidden') }}</a-select-option>
+        </a-select>
+        <div class="price-range-filter">
+          <a-input-number
+            v-model="filters.minPrice"
+            :min="0"
+            :precision="0"
+            :placeholder="$t('community.minPrice')"
+            @pressEnter="handleFilterChange"
+          />
+          <span class="price-range-filter__dash">-</span>
+          <a-input-number
+            v-model="filters.maxPrice"
+            :min="0"
+            :precision="0"
+            :placeholder="$t('community.maxPrice')"
+            @pressEnter="handleFilterChange"
+          />
+          <a-button class="price-range-filter__apply" @click="handleFilterChange">
+            {{ $t('community.applyFilters') }}
+          </a-button>
+        </div>
+        <a-button class="market-reset-btn" @click="resetMarketFilters">
+          <a-icon type="reload" />
+          {{ $t('community.resetFilters') }}
+        </a-button>
         <a-select v-model="filters.sortBy" style="width: 160px" @change="handleFilterChange">
-          <a-select-option value="score">{{ $t('community.sortScore') }}</a-select-option>
-          <a-select-option value="newest">{{ $t('community.sortNewest') }}</a-select-option>
-          <a-select-option value="hot">{{ $t('community.sortHot') }}</a-select-option>
-          <a-select-option value="rating">{{ $t('community.sortRating') }}</a-select-option>
-          <a-select-option value="price_asc">{{ $t('community.sortPriceLow') }}</a-select-option>
-          <a-select-option value="price_desc">{{ $t('community.sortPriceHigh') }}</a-select-option>
+          <a-select-option
+            v-for="option in marketSortOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </a-select-option>
         </a-select>
         <a-button type="link" @click="showMyPurchases = true">
           <a-icon type="shopping" />
@@ -68,16 +96,7 @@
 
     <template v-if="activeTab === 'market'">
       <a-spin :spinning="loading">
-        <div v-if="indicators.length === 0 && !loading" class="empty-state">
-          <a-empty :description="marketEmptyDescription">
-            <a-button v-if="marketAssetType === 'indicator'" type="primary" @click="goToCreate">
-              {{ $t('community.createFirst') }}
-            </a-button>
-            <a-button v-else-if="marketAssetType === 'bot_preset'" type="primary" @click="goToTradingBot">
-              {{ $t('community.createBotPreset') }}
-            </a-button>
-          </a-empty>
-        </div>
+        <div v-if="indicators.length === 0 && !loading" class="empty-state empty-state--blank" />
         <div v-else class="indicator-grid">
           <indicator-card
             v-for="item in indicators"
@@ -98,6 +117,11 @@
           @change="handlePageChange"
         />
       </div>
+
+      <div class="market-risk-tip">
+        <a-icon type="safety-certificate" />
+        <span>{{ $t('community.marketRiskTip') }}</span>
+      </div>
     </template>
 
     <template v-if="activeTab === 'author'">
@@ -110,19 +134,53 @@
     <template v-if="activeTab === 'review' && isAdmin">
       <div class="review-panel">
         <div class="review-header">
-          <a-radio-group v-model="reviewFilter" button-style="solid" @change="loadPendingIndicators">
-            <a-radio-button value="pending">
-              <a-badge :count="reviewStats.pending" :offset="[8, -2]" :number-style="{ backgroundColor: '#faad14' }">
-                {{ $t('community.admin.pending') }}
-              </a-badge>
-            </a-radio-button>
-            <a-radio-button value="approved">
-              {{ $t('community.admin.approved') }} ({{ reviewStats.approved }})
-            </a-radio-button>
-            <a-radio-button value="rejected">
-              {{ $t('community.admin.rejected') }} ({{ reviewStats.rejected }})
-            </a-radio-button>
-          </a-radio-group>
+          <div class="review-header__status">
+            <a-radio-group v-model="reviewFilter" button-style="solid" @change="handleReviewStatusChange">
+              <a-radio-button value="pending">
+                <a-badge :count="reviewStats.pending" :offset="[8, -2]" :number-style="{ backgroundColor: '#faad14' }">
+                  {{ $t('community.admin.pending') }}
+                </a-badge>
+              </a-radio-button>
+              <a-radio-button value="approved">
+                {{ $t('community.admin.approved') }} ({{ reviewStats.approved }})
+              </a-radio-button>
+              <a-radio-button value="rejected">
+                {{ $t('community.admin.rejected') }} ({{ reviewStats.rejected }})
+              </a-radio-button>
+            </a-radio-group>
+          </div>
+          <div class="review-header__filters">
+            <a-input-search
+              v-model="reviewFilters.keyword"
+              :placeholder="$t('community.admin.searchPlaceholder')"
+              allow-clear
+              class="review-search"
+              @search="handleReviewFilterChange"
+              @pressEnter="handleReviewFilterChange"
+            />
+            <a-select v-model="reviewFilters.assetType" class="review-select" @change="handleReviewFilterChange">
+              <a-select-option value="">{{ $t('community.admin.allTypes') }}</a-select-option>
+              <a-select-option value="indicator">{{ $t('community.tabIndicators') }}</a-select-option>
+              <a-select-option value="script_template">{{ $t('community.tabScriptTemplates') }}</a-select-option>
+            </a-select>
+            <a-select v-model="reviewFilters.pricingType" class="review-select" @change="handleReviewFilterChange">
+              <a-select-option value="">{{ $t('community.all') }}</a-select-option>
+              <a-select-option value="free">{{ $t('community.freeOnly') }}</a-select-option>
+              <a-select-option value="paid">{{ $t('community.paidOnly') }}</a-select-option>
+              <a-select-option value="vip_free">{{ $t('community.vipFree') }}</a-select-option>
+            </a-select>
+            <a-select v-model="reviewFilters.sortBy" class="review-select" @change="handleReviewFilterChange">
+              <a-select-option value="newest">{{ $t('community.sortNewest') }}</a-select-option>
+              <a-select-option value="oldest">{{ $t('community.admin.sortOldest') }}</a-select-option>
+              <a-select-option value="price_asc">{{ $t('community.sortPriceLow') }}</a-select-option>
+              <a-select-option value="price_desc">{{ $t('community.sortPriceHigh') }}</a-select-option>
+              <a-select-option value="name">{{ $t('community.admin.sortName') }}</a-select-option>
+            </a-select>
+            <a-button class="review-reset-btn" @click="resetReviewFilters">
+              <a-icon type="reload" />
+              {{ $t('community.admin.resetFilters') }}
+            </a-button>
+          </div>
         </div>
 
         <a-spin :spinning="reviewLoading">
@@ -137,6 +195,14 @@
                   <a-tag color="blue">{{ getAssetTypeText(item.asset_type) }}</a-tag>
                   <a-tag v-if="item.pricing_type === 'free'" color="green">{{ $t('community.free') }}</a-tag>
                   <a-tag v-else color="orange">{{ item.price }} {{ $t('community.credits') }}</a-tag>
+                  <a-tag v-if="item.vip_free" color="gold">{{ $t('community.vipFree') }}</a-tag>
+                  <a-tag
+                    class="code-visibility-tag"
+                    :class="{ 'is-hidden': item.code_hidden }"
+                    :color="item.code_hidden ? 'default' : 'cyan'"
+                  >
+                    {{ item.code_hidden ? $t('community.codeHidden') : $t('community.codeVisible') }}
+                  </a-tag>
                   <a-tag :color="getStatusColor(item.review_status)">{{ getStatusText(item.review_status) }}</a-tag>
                 </div>
                 <div class="item-author">
@@ -148,11 +214,37 @@
 
               <div class="review-item-body">
                 <div class="item-desc">{{ item.description || $t('community.admin.noDescription') }}</div>
+                <div class="review-evidence-row">
+                  <button
+                    v-if="isStrategyAsset(item)"
+                    type="button"
+                    class="evidence-button"
+                    @click="openReviewPerformance(item)"
+                  >
+                    <a-icon type="line-chart" />
+                    {{ $t('community.admin.viewBacktest') }}
+                  </button>
+                  <button type="button" class="evidence-button" @click="openDetail(item)">
+                    <a-icon type="profile" />
+                    {{ $t('community.admin.viewDetail') }}
+                  </button>
+                  <span v-if="item.reviewed_at" class="reviewed-meta">
+                    {{ $t('community.admin.reviewedAt') }}: {{ formatDate(item.reviewed_at) }}
+                    <template v-if="item.reviewer_username"> / {{ item.reviewer_username }}</template>
+                  </span>
+                </div>
                 <div v-if="item.code" class="item-code">
-                  <a-button type="link" size="small" @click="toggleCode(item.id)">
-                    <a-icon :type="expandedCodes[item.id] ? 'up' : 'down'" />
-                    {{ $t('community.admin.viewCode') }}
-                  </a-button>
+                  <div class="code-toolbar">
+                    <a-button type="link" size="small" @click="toggleCode(item.id)">
+                      <a-icon :type="expandedCodes[item.id] ? 'up' : 'down'" />
+                      {{ $t('community.admin.viewCode') }}
+                    </a-button>
+                    <a-button type="link" size="small" @click.stop="copyReviewCode(item)">
+                      <a-icon type="copy" />
+                      {{ $t('community.admin.copyCode') }}
+                    </a-button>
+                    <span class="code-meta">{{ formatCodeMeta(item.code) }}</span>
+                  </div>
                   <pre v-if="expandedCodes[item.id]" class="code-preview">{{ item.code }}</pre>
                 </div>
                 <div v-if="item.review_note" class="review-note">
@@ -220,6 +312,91 @@
           />
         </a-form-item>
       </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model="reviewPerformanceVisible"
+      :title="reviewPerformanceTitle"
+      :footer="null"
+      width="760px"
+      :wrap-class-name="reviewPerformanceWrapClass"
+    >
+      <a-spin :spinning="reviewPerformanceLoading">
+        <div v-if="reviewPerformance" class="review-performance">
+          <div class="review-performance__grid">
+            <div class="perf-cell perf-cell--score">
+              <span>{{ $t('community.compositeScore') }}</span>
+              <strong>{{ formatReviewNumber(reviewPerformance.score, 0) }}</strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.totalReturn') }}</span>
+              <strong :class="toneClass(reviewPerformance.total_return)">
+                {{ formatReviewPercent(reviewPerformance.total_return) }}
+              </strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.sharpe') }}</span>
+              <strong :class="toneClass(reviewPerformance.sharpe, 1)">
+                {{ formatReviewNumber(reviewPerformance.sharpe, 2) }}
+              </strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.maxDrawdown') }}</span>
+              <strong class="negative">{{ formatReviewPercent(reviewPerformance.max_drawdown) }}</strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.profitFactor') }}</span>
+              <strong>{{ formatReviewNumber(reviewPerformance.profit_factor, 2) }}</strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.winRate') }}</span>
+              <strong :class="Number(reviewPerformance.win_rate || 0) >= 50 ? 'positive' : 'negative'">
+                {{ formatReviewNumber(reviewPerformance.win_rate, 2) }}%
+              </strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.admin.backtestSamples') }}</span>
+              <strong>{{ reviewPerformance.sample_size || 0 }}</strong>
+            </div>
+            <div class="perf-cell">
+              <span>{{ $t('community.liveTrades') }}</span>
+              <strong>{{ reviewPerformance.live_trade_count || 0 }}</strong>
+            </div>
+          </div>
+          <div v-if="reviewPerformance.best_run_meta" class="review-performance__best">
+            <div class="best-title">{{ $t('community.admin.bestRun') }}</div>
+            <a-tag v-if="reviewPerformance.best_run_meta.symbol" class="tag-symbol">
+              {{ reviewPerformance.best_run_meta.symbol }}
+            </a-tag>
+            <a-tag v-if="reviewPerformance.best_run_meta.timeframe" class="tag-tf">
+              {{ reviewPerformance.best_run_meta.timeframe }}
+            </a-tag>
+            <span :class="toneClass(reviewPerformance.best_run_meta.total_return)">
+              {{ $t('community.totalReturn') }} {{ formatReviewPercent(reviewPerformance.best_run_meta.total_return) }}
+            </span>
+            <span class="negative">
+              {{ $t('community.maxDrawdown') }} {{ formatReviewPercent(reviewPerformance.best_run_meta.max_drawdown) }}
+            </span>
+          </div>
+          <div v-if="hasReviewPerformanceTags" class="review-performance__tags">
+            <div>
+              <span class="tag-label">{{ $t('community.applicableSymbols') }}</span>
+              <a-tag v-for="sym in reviewPerformance.applicable_symbols" :key="`review-sym-${sym}`" class="tag-symbol">{{ sym }}</a-tag>
+            </div>
+            <div>
+              <span class="tag-label">{{ $t('community.applicableTimeframes') }}</span>
+              <a-tag v-for="tf in reviewPerformance.applicable_timeframes" :key="`review-tf-${tf}`" class="tag-tf">{{ tf }}</a-tag>
+            </div>
+          </div>
+          <a-alert
+            v-if="!Number(reviewPerformance.sample_size || 0)"
+            type="warning"
+            show-icon
+            :message="$t('community.admin.noBacktestData')"
+          />
+        </div>
+        <a-empty v-else-if="!reviewPerformanceLoading" :description="$t('community.admin.noBacktestData')" />
+      </a-spin>
     </a-modal>
 
     <indicator-detail
@@ -309,19 +486,57 @@ export default {
       const base = 'qd-my-purchases-modal'
       return this.isDarkTheme ? `${base} ${base}--dark` : base
     },
+    reviewPerformanceWrapClass () {
+      const base = 'qd-review-performance-modal'
+      return this.isDarkTheme ? `${base} ${base}--dark` : base
+    },
+    reviewPerformanceTitle () {
+      const name = this.reviewPerformanceItem && this.reviewPerformanceItem.name
+      return name
+        ? `${this.$t('community.admin.backtestData')} · ${name}`
+        : this.$t('community.admin.backtestData')
+    },
+    hasReviewPerformanceTags () {
+      if (!this.reviewPerformance) return false
+      return (this.reviewPerformance.applicable_symbols || []).length > 0 ||
+        (this.reviewPerformance.applicable_timeframes || []).length > 0
+    },
     isAdmin () {
       if (!this.userRole) return false
       const roleId = this.userRole.id || this.userRole
       return roleId === 'admin'
     },
-    marketEmptyDescription () {
-      if (this.marketAssetType === 'script_template') {
-        return this.$t('community.scriptTemplatesEmpty')
+    normalizedPriceRange () {
+      const parse = value => {
+        if (value === '' || value === null || value === undefined) return undefined
+        const parsed = Number(value)
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
       }
-      if (this.marketAssetType === 'bot_preset') {
-        return this.$t('community.botPresetsEmpty')
+      const min = parse(this.filters.minPrice)
+      const max = parse(this.filters.maxPrice)
+      if (min !== undefined && max !== undefined && min > max) {
+        return { min: max, max: min }
       }
-      return this.$t('community.noIndicators')
+      return { min, max }
+    },
+    defaultMarketSort () {
+      return this.marketAssetType === 'indicator' ? 'hot' : 'score'
+    },
+    marketSortOptions () {
+      const common = [
+        { value: 'newest', label: this.$t('community.sortNewest') },
+        { value: 'hot', label: this.$t('community.sortHot') },
+        { value: 'rating', label: this.$t('community.sortRating') },
+        { value: 'price_asc', label: this.$t('community.sortPriceLow') },
+        { value: 'price_desc', label: this.$t('community.sortPriceHigh') }
+      ]
+      if (this.marketAssetType === 'indicator') {
+        return common
+      }
+      return [
+        { value: 'score', label: this.$t('community.sortScore') },
+        ...common
+      ]
     }
   },
   data () {
@@ -332,11 +547,10 @@ export default {
       filters: {
         keyword: '',
         pricingType: '',
-        // 'score' = composite multi-factor scoring (return / sharpe /
-        // drawdown / win-rate / stability), see backend
-        // services/community_service.py::_summarise_indicator_runs.
-        // Default landing puts the best-scoring indicators on page 1.
-        sortBy: 'score'
+        codeVisibility: '',
+        minPrice: undefined,
+        maxPrice: undefined,
+        sortBy: 'hot'
       },
       pagination: {
         current: 1,
@@ -351,6 +565,12 @@ export default {
       myPurchases: [],
       activeTab: 'market',
       reviewFilter: 'pending',
+      reviewFilters: {
+        keyword: '',
+        assetType: '',
+        pricingType: '',
+        sortBy: 'newest'
+      },
       reviewLoading: false,
       pendingIndicators: [],
       reviewPagination: {
@@ -367,7 +587,11 @@ export default {
       showReviewModal: false,
       reviewAction: 'approve',
       reviewNote: '',
-      reviewingIndicator: null
+      reviewingIndicator: null,
+      reviewPerformanceVisible: false,
+      reviewPerformanceLoading: false,
+      reviewPerformanceItem: null,
+      reviewPerformance: null
     }
   },
   watch: {
@@ -389,6 +613,7 @@ export default {
     const q = this.$route.query
     if (q && q.asset_type) {
       this.marketAssetType = String(q.asset_type)
+      this.filters.sortBy = this.defaultMarketSort
     }
     this.loadIndicators()
   },
@@ -403,7 +628,11 @@ export default {
             page: this.pagination.current,
             page_size: this.pagination.pageSize,
             keyword: this.filters.keyword || undefined,
-            pricing_type: this.filters.pricingType || undefined,
+            pricing_type: this.filters.pricingType && this.filters.pricingType !== 'vip_free' ? this.filters.pricingType : undefined,
+            vip_free: this.filters.pricingType === 'vip_free' ? 1 : undefined,
+            code_visibility: this.filters.codeVisibility || undefined,
+            min_price: this.normalizedPriceRange.min,
+            max_price: this.normalizedPriceRange.max,
             sort_by: this.filters.sortBy,
             asset_type: this.marketAssetType
           }
@@ -457,6 +686,20 @@ export default {
 
     handleMarketAssetTypeChange () {
       this.pagination.current = 1
+      this.filters.sortBy = this.defaultMarketSort
+      this.loadIndicators()
+    },
+
+    resetMarketFilters () {
+      this.filters = {
+        keyword: '',
+        pricingType: '',
+        codeVisibility: '',
+        minPrice: undefined,
+        maxPrice: undefined,
+        sortBy: this.defaultMarketSort
+      }
+      this.pagination.current = 1
       this.loadIndicators()
     },
 
@@ -478,14 +721,7 @@ export default {
 
     handlePurchased () {
       this.loadIndicators()
-    },
-
-    goToCreate () {
-      this.$router.push('/indicator-ide')
-    },
-
-    goToTradingBot () {
-      this.$router.push('/trading-bot')
+      this.loadMyPurchases()
     },
 
     usePurchaseActionLabel (item) {
@@ -494,10 +730,7 @@ export default {
       }
       const assetType = item && item.indicator && item.indicator.asset_type
       if (assetType === 'script_template') {
-        return this.$t('community.useScriptStrategy')
-      }
-      if (assetType === 'bot_preset') {
-        return this.$t('community.useBotPreset')
+        return this.$t('community.useStrategyV2')
       }
       return this.$t('community.useNow')
     },
@@ -515,26 +748,18 @@ export default {
         if (sid) {
           this.$router.push({
             path: '/strategy-ide',
-            query: { tab: 'script', source_id: String(sid) }
+            query: { sourceId: String(sid) }
           })
         } else {
-          this.$router.push({ path: '/strategy-ide', query: { tab: 'script' } })
+          this.$router.push({ path: '/strategy-ide' })
         }
         return
       }
-      if (assetType === 'bot_preset') {
-        const sid = (item && item.purchased_strategy_id) || (indicator && indicator.purchased_strategy_id)
-        if (sid) {
-          this.$router.push({
-            path: '/trading-bot',
-            query: { strategy_id: String(sid), action: 'edit' }
-          })
-        } else {
-          this.$router.push('/trading-bot')
-        }
-        return
-      }
-      this.$router.push('/indicator-ide')
+      const localId = item && (item.local_copy_id || item.purchased_indicator_id || item.indicator_id)
+      this.$router.push({
+        path: '/indicator-ide',
+        query: localId ? { indicator_id: String(localId) } : {}
+      })
     },
 
     async restorePurchaseCopy (item) {
@@ -548,7 +773,14 @@ export default {
         })
         if (res && res.code === 1) {
           const data = res.data || {}
-          this.$message.success(this.$t(res.msg === 'restored' ? 'community.restoreCopySuccess' : 'community.syncCodeSuccess'))
+          if (res.msg === 'restored') {
+            this.$message.success(this.$t('community.restoreCopySuccess'))
+          } else if (res.msg === 'listing_unpublished_no_update' || res.msg === 'listing_deleted_no_update') {
+            const msgKey = `community.${res.msg}`
+            this.$message.info(this.$te(msgKey) ? this.$t(msgKey) : this.$t('community.already_latest'))
+          } else {
+            this.$message.success(this.$t('community.syncCodeSuccess'))
+          }
           item.local_copy_missing = false
           item.local_copy_exists = true
           item.restore_available = false
@@ -591,7 +823,6 @@ export default {
       return Number.isInteger(n) ? String(n) : n.toFixed(2)
     },
 
-
     handleTabChange (tab) {
       if (tab === 'review') {
         this.loadPendingIndicators()
@@ -628,7 +859,11 @@ export default {
           params: {
             page: this.reviewPagination.current,
             page_size: this.reviewPagination.pageSize,
-            review_status: this.reviewFilter
+            review_status: this.reviewFilter,
+            keyword: this.reviewFilters.keyword || undefined,
+            asset_type: this.reviewFilters.assetType || undefined,
+            pricing_type: this.reviewFilters.pricingType || undefined,
+            sort_by: this.reviewFilters.sortBy || 'newest'
           }
         })
         if (res.code === 1) {
@@ -643,6 +878,27 @@ export default {
       }
     },
 
+    handleReviewStatusChange () {
+      this.reviewPagination.current = 1
+      this.loadPendingIndicators()
+    },
+
+    handleReviewFilterChange () {
+      this.reviewPagination.current = 1
+      this.loadPendingIndicators()
+    },
+
+    resetReviewFilters () {
+      this.reviewFilters = {
+        keyword: '',
+        assetType: '',
+        pricingType: '',
+        sortBy: 'newest'
+      }
+      this.reviewPagination.current = 1
+      this.loadPendingIndicators()
+    },
+
     handleReviewPageChange (page) {
       this.reviewPagination.current = Number(page || 1)
       this.loadPendingIndicators()
@@ -650,6 +906,87 @@ export default {
 
     toggleCode (id) {
       this.$set(this.expandedCodes, id, !this.expandedCodes[id])
+    },
+
+    async copyReviewCode (item) {
+      const code = item && item.code
+      if (!code) return
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(code)
+        } else {
+          const textarea = document.createElement('textarea')
+          textarea.value = code
+          textarea.setAttribute('readonly', '')
+          textarea.style.position = 'fixed'
+          textarea.style.opacity = '0'
+          document.body.appendChild(textarea)
+          textarea.select()
+          document.execCommand('copy')
+          document.body.removeChild(textarea)
+        }
+        this.$message.success(this.$t('community.admin.codeCopied'))
+      } catch (e) {
+        console.error('Copy review code failed:', e)
+        this.$message.error(this.$t('community.admin.codeCopyFailed'))
+      }
+    },
+
+    formatCodeMeta (code) {
+      const text = String(code || '')
+      if (!text) return ''
+      const lines = text.split(/\r\n|\r|\n/).length
+      return this.$t('community.admin.codeMeta', { lines, chars: text.length })
+    },
+
+    isStrategyAsset (item) {
+      const assetType = String((item && item.asset_type) || '').toLowerCase()
+      return assetType === 'script_template' || assetType === 'script' || assetType === 'strategy'
+    },
+
+    async openReviewPerformance (item) {
+      if (!item || !item.id) return
+      this.reviewPerformanceItem = item
+      this.reviewPerformance = null
+      this.reviewPerformanceVisible = true
+      this.reviewPerformanceLoading = true
+      try {
+        const res = await request({
+          url: `/api/community/indicators/${item.id}/performance`,
+          method: 'get'
+        })
+        if (res.code === 1) {
+          this.reviewPerformance = res.data || null
+        } else {
+          this.$message.error(res.msg || this.$t('community.admin.backtestLoadFailed'))
+        }
+      } catch (e) {
+        console.error('Load review performance failed:', e)
+        this.$message.error(this.$t('community.admin.backtestLoadFailed'))
+      } finally {
+        this.reviewPerformanceLoading = false
+      }
+    },
+
+    formatReviewNumber (val, digits = 2) {
+      const v = parseFloat(val)
+      if (isNaN(v)) return '-'
+      return v.toFixed(digits)
+    },
+
+    formatReviewPercent (val) {
+      const v = parseFloat(val)
+      if (isNaN(v)) return '-'
+      const sign = v > 0 ? '+' : ''
+      return `${sign}${v.toFixed(2)}%`
+    },
+
+    toneClass (val, positiveThreshold = 0) {
+      const v = parseFloat(val)
+      if (isNaN(v)) return ''
+      if (v > positiveThreshold) return 'positive'
+      if (v < 0) return 'negative'
+      return ''
     },
 
     getStatusColor (status) {
@@ -673,7 +1010,6 @@ export default {
     getAssetTypeText (assetType) {
       const type = assetType || 'indicator'
       if (type === 'script_template') return this.$t('community.tabScriptTemplates')
-      if (type === 'bot_preset') return this.$t('community.tabBotPresets')
       return this.$t('community.tabIndicators')
     },
 
@@ -800,7 +1136,41 @@ export default {
     .header-right {
       display: flex;
       align-items: center;
-      gap: 16px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-width: 980px;
+
+      .market-search {
+        width: 260px;
+      }
+
+      .market-filter-select {
+        width: 132px;
+      }
+
+      .price-range-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        ::v-deep .ant-input-number {
+          width: 86px;
+        }
+
+        &__dash {
+          color: rgba(0, 0, 0, 0.35);
+          line-height: 32px;
+        }
+
+        &__apply {
+          flex-shrink: 0;
+        }
+      }
+
+      .market-reset-btn {
+        flex-shrink: 0;
+      }
     }
   }
 
@@ -828,6 +1198,26 @@ export default {
     border-radius: 8px;
   }
 
+  .market-risk-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 12px 16px;
+    color: rgba(0, 0, 0, 0.58);
+    font-size: 12px;
+    line-height: 1.65;
+    background: rgba(250, 173, 20, 0.08);
+    border: 1px solid rgba(250, 173, 20, 0.18);
+    border-radius: 8px;
+
+    .anticon {
+      margin-top: 2px;
+      color: #d48806;
+      flex-shrink: 0;
+    }
+  }
+
   .empty-purchases {
     padding: 40px 0;
   }
@@ -841,11 +1231,42 @@ export default {
 
   .review-panel {
     .review-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
       margin-bottom: 20px;
       padding: 16px 20px;
       background: #fff;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+      &__status {
+        flex-shrink: 0;
+      }
+
+      &__filters {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex: 1;
+        min-width: 420px;
+        flex-wrap: wrap;
+
+        .review-search {
+          width: 260px;
+        }
+
+        .review-select {
+          width: 132px;
+        }
+
+        .review-reset-btn {
+          flex-shrink: 0;
+        }
+      }
     }
 
     .review-list {
@@ -876,6 +1297,12 @@ export default {
             font-size: 16px;
             font-weight: 600;
           }
+
+          .code-visibility-tag.is-hidden {
+            border-color: #d9d9d9;
+            background: #fafafa;
+            color: rgba(0, 0, 0, 0.65);
+          }
         }
 
         .item-author {
@@ -901,6 +1328,22 @@ export default {
         }
 
         .item-code {
+          margin-top: 10px;
+
+          .code-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+
+            .code-meta {
+              margin-left: auto;
+              font-size: 12px;
+              color: rgba(0, 0, 0, 0.4);
+            }
+          }
+
           .code-preview {
             margin-top: 8px;
             padding: 12px;
@@ -911,6 +1354,39 @@ export default {
             overflow: auto;
             white-space: pre-wrap;
             word-break: break-all;
+          }
+        }
+
+        .review-evidence-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin: 10px 0 8px;
+
+          .evidence-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 28px;
+            padding: 0 10px;
+            border: 1px solid rgba(82, 196, 26, 0.24);
+            border-radius: 4px;
+            background: rgba(82, 196, 26, 0.08);
+            color: #389e0d;
+            font-size: 12px;
+            cursor: pointer;
+
+            &:hover {
+              background: rgba(82, 196, 26, 0.16);
+              border-color: rgba(82, 196, 26, 0.45);
+            }
+          }
+
+          .reviewed-meta {
+            margin-left: auto;
+            font-size: 12px;
+            color: rgba(0, 0, 0, 0.45);
           }
         }
 
@@ -983,9 +1459,36 @@ export default {
         color: rgba(255, 255, 255, 0.65);
       }
 
+      .code-visibility-tag.is-hidden {
+        border-color: #434343;
+        background: #303030;
+        color: rgba(255, 255, 255, 0.78);
+      }
+
       .item-code .code-preview {
         background: #262626;
         color: rgba(255, 255, 255, 0.85);
+      }
+
+      .item-code .code-toolbar .code-meta {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .review-evidence-row {
+        .evidence-button {
+          background: rgba(82, 196, 26, 0.12);
+          border-color: rgba(82, 196, 26, 0.32);
+          color: #95de64;
+
+          &:hover {
+            background: rgba(82, 196, 26, 0.2);
+            border-color: rgba(82, 196, 26, 0.5);
+          }
+        }
+
+        .reviewed-meta {
+          color: rgba(255, 255, 255, 0.45);
+        }
       }
 
       .review-note {
@@ -1011,6 +1514,16 @@ export default {
   .empty-state,
   .pagination-wrapper {
     background: #1f1f1f;
+  }
+
+  .market-risk-tip {
+    color: rgba(255, 255, 255, 0.58);
+    background: rgba(250, 173, 20, 0.09);
+    border-color: rgba(250, 173, 20, 0.24);
+
+    .anticon {
+      color: #ffc53d;
+    }
   }
 
   ::v-deep .indicator-card {
@@ -1048,6 +1561,34 @@ export default {
 
   ::v-deep .ant-input-search-icon {
     color: rgba(255, 255, 255, 0.45);
+  }
+
+  ::v-deep .ant-input-number {
+    background: #262626;
+    border-color: #434343;
+    color: rgba(255, 255, 255, 0.85);
+
+    .ant-input-number-input {
+      color: rgba(255, 255, 255, 0.85);
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.35);
+      }
+    }
+
+    .ant-input-number-handler-wrap {
+      background: #262626;
+      border-color: #434343;
+    }
+
+    .ant-input-number-handler {
+      border-color: #434343;
+    }
+
+    .ant-input-number-handler-up-inner,
+    .ant-input-number-handler-down-inner {
+      color: rgba(255, 255, 255, 0.45);
+    }
   }
 
   ::v-deep .ant-radio-group {
@@ -1168,6 +1709,23 @@ export default {
       .header-right {
         flex-wrap: wrap;
         justify-content: center;
+
+        .market-search,
+        .market-filter-select,
+        > .ant-select,
+        .market-reset-btn,
+        .price-range-filter {
+          width: 100%;
+        }
+
+        .price-range-filter {
+          display: grid;
+          grid-template-columns: 1fr auto 1fr auto;
+
+          ::v-deep .ant-input-number {
+            width: 100%;
+          }
+        }
       }
     }
 
@@ -1189,6 +1747,172 @@ export default {
   from leaking to other modals.
 -->
 <style lang="less">
+.qd-review-performance-modal {
+  .review-performance {
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .perf-cell {
+      min-width: 0;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f7f7f7;
+
+      span {
+        display: block;
+        margin-bottom: 6px;
+        color: rgba(0, 0, 0, 0.45);
+        font-size: 12px;
+      }
+
+      strong {
+        color: rgba(0, 0, 0, 0.85);
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      &--score {
+        background: linear-gradient(135deg, rgba(245, 175, 25, 0.12), rgba(241, 39, 17, 0.08));
+
+        strong {
+          color: #d4380d;
+        }
+      }
+    }
+
+    .positive {
+      color: #52c41a !important;
+    }
+
+    .negative {
+      color: #f5222d !important;
+    }
+
+    &__best,
+    &__tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #fafafa;
+      border: 1px solid #f0f0f0;
+      font-size: 12px;
+
+      .ant-tag {
+        margin: 0;
+        border: none;
+      }
+
+      .tag-symbol {
+        background: rgba(24, 144, 255, 0.08);
+        color: var(--primary-color, #1890ff);
+      }
+
+      .tag-tf {
+        background: rgba(82, 196, 26, 0.08);
+        color: #389e0d;
+      }
+    }
+
+    &__tags {
+      align-items: flex-start;
+      flex-direction: column;
+
+      > div {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .tag-label,
+      .best-title {
+        color: rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    .best-title {
+      font-weight: 600;
+      color: rgba(0, 0, 0, 0.65);
+    }
+  }
+}
+
+.qd-review-performance-modal--dark {
+  .ant-modal-content,
+  .ant-modal-header {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+
+  .ant-modal-title {
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .ant-modal-close {
+    color: rgba(255, 255, 255, 0.55);
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.88);
+    }
+  }
+
+  .review-performance {
+    .perf-cell {
+      background: #262626;
+
+      span {
+        color: rgba(255, 255, 255, 0.45);
+      }
+
+      strong {
+        color: rgba(255, 255, 255, 0.88);
+      }
+
+      &--score {
+        background: linear-gradient(135deg, rgba(245, 175, 25, 0.18), rgba(241, 39, 17, 0.12));
+
+        strong {
+          color: #ffa940;
+        }
+      }
+    }
+
+    &__best,
+    &__tags {
+      background: #262626;
+      border-color: #303030;
+      color: rgba(255, 255, 255, 0.65);
+
+      .tag-symbol {
+        background: rgba(24, 144, 255, 0.16);
+        color: #69c0ff;
+      }
+
+      .tag-tf {
+        background: rgba(82, 196, 26, 0.16);
+        color: #95de64;
+      }
+    }
+
+    .tag-label,
+    .best-title {
+      color: rgba(255, 255, 255, 0.55);
+    }
+  }
+
+  .ant-empty-description {
+    color: rgba(255, 255, 255, 0.45);
+  }
+}
+
 .qd-my-purchases-modal {
   .my-purchases-list {
     .ant-list-item {

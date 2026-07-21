@@ -1,0 +1,84 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+
+import {
+  filterAndSortStrategies,
+  normalizeTimestampMilliseconds,
+  strategyExchangeId,
+  strategyExecutionMode,
+  strategyLastActivityTimestamp,
+  strategyRuntimeSummary,
+  strategySymbol
+} from '../../src/utils/strategyRuntime.js'
+
+const rows = [
+  {
+    id: 1,
+    strategy_name: 'Signal BTC',
+    status: 'stopped',
+    execution_mode: 'signal',
+    initial_capital: 1000,
+    total_pnl: -10,
+    updated_at: '2026-07-10T10:00:00Z',
+    trading_config: { symbol: 'BTC/USDT', timeframe: '5m' }
+  },
+  {
+    id: 2,
+    strategy_name: 'Live ETH Momentum',
+    status: 'running',
+    initial_capital: 2000,
+    total_pnl: 25,
+    trading_config: {
+      symbol: 'ETH/USDT',
+      execution_mode: 'live',
+      last_execution_time: 1783677600
+    }
+  },
+  {
+    id: 3,
+    strategy_name: 'Live SOL Rotation',
+    status: 'running',
+    execution_mode: 'live',
+    initial_capital: 500,
+    total_pnl: 5,
+    trading_config: JSON.stringify({ symbol: 'SOL/USDT', last_signal_time: '2026-07-10T09:00:00Z' })
+  }
+]
+
+test('normalizes strategy runtime fields', () => {
+  assert.equal(strategyExecutionMode(rows[1]), 'live')
+  assert.equal(strategySymbol(rows[2]), 'SOL/USDT')
+  assert.equal(strategyLastActivityTimestamp(rows[1]), 1783677600000)
+})
+
+test('resolves the live exchange from supported strategy payload shapes', () => {
+  assert.equal(strategyExchangeId({ exchange_config: { exchange_id: 'OKX' } }), 'okx')
+  assert.equal(strategyExchangeId({ exchange_config: '{"exchangeId":"Bybit"}' }), 'bybit')
+  assert.equal(strategyExchangeId({ trading_config: { exchange_id: 'binance' } }), 'binance')
+  assert.equal(strategyExchangeId({ exchange_id: 'alpaca' }), 'alpaca')
+  assert.equal(strategyExchangeId({}), '')
+})
+
+test('normalizes Unix seconds and milliseconds for runtime charts', () => {
+  assert.equal(normalizeTimestampMilliseconds(1784434455), 1784434455000)
+  assert.equal(normalizeTimestampMilliseconds('1784434455'), 1784434455000)
+  assert.equal(normalizeTimestampMilliseconds(1784434455000), 1784434455000)
+  assert.equal(normalizeTimestampMilliseconds('2026-07-19T04:14:15Z'), 1784434455000)
+})
+
+test('summarizes live operations without excluding strategies that have no trades', () => {
+  assert.deepEqual(strategyRuntimeSummary(rows), {
+    total: 3,
+    running: 2,
+    runningLive: 2,
+    runningSignal: 0,
+    totalPnl: 20,
+    totalCapital: 3500
+  })
+})
+
+test('filters and sorts running strategies before stopped strategies', () => {
+  const filtered = filterAndSortStrategies(rows, { keyword: 'live', status: 'running', executionMode: 'live' })
+  assert.deepEqual(filtered.map(item => item.id), [2, 3])
+  assert.deepEqual(filterAndSortStrategies(rows).map(item => item.id), [2, 3, 1])
+})

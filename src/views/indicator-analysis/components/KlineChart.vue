@@ -1,11 +1,11 @@
 <template>
-  <div ref="chartRootEl" class="chart-left" :class="{ 'theme-dark': chartTheme === 'dark' }">
+  <div ref="chartRootEl" class="chart-left" :class="{ 'theme-dark': chartTheme === 'dark', 'chart-left--full': fullWidth }">
     <div class="chart-wrapper">
       <div class="drawing-toolbar">
         <a-tooltip
           v-for="tool in drawingTools"
           :key="tool.name"
-          :title="tool.hint ? `${tool.title} — ${tool.hint}` : tool.title"
+          :title="tool.hint ? `${tool.title} - ${tool.hint}` : tool.title"
           placement="right"
         >
           <div
@@ -80,10 +80,13 @@
         ></canvas>
       </div>
 
-      <div v-if="loading" class="chart-overlay">
+      <div v-if="loading && !klineData.length" class="chart-overlay">
         <a-spin size="large">
           <a-icon slot="indicator" type="loading" style="font-size: 24px; color: #13c2c2" spin />
         </a-spin>
+      </div>
+      <div v-else-if="loading" class="chart-refresh-indicator" aria-live="polite">
+        <a-spin size="small" />
       </div>
 
       <div v-if="error" class="chart-overlay">
@@ -195,6 +198,18 @@ export default {
       type: String,
       default: ''
     },
+    exchangeId: {
+      type: String,
+      default: ''
+    },
+    marketType: {
+      type: String,
+      default: 'spot'
+    },
+    instrumentId: {
+      type: String,
+      default: ''
+    },
     timeframe: {
       type: String,
       default: '1H'
@@ -211,6 +226,18 @@ export default {
       type: Boolean,
       default: false
     },
+    fullWidth: {
+      type: Boolean,
+      default: false
+    },
+    initialBeforeTime: {
+      type: [Number, String],
+      default: null
+    },
+    initialLimit: {
+      type: Number,
+      default: null
+    },
     userId: {
       type: Number,
       default: null
@@ -224,6 +251,11 @@ export default {
     const loadingHistory = ref(false)
     const hasMoreHistory = ref(true)
     let loadingHistoryPromise = null
+    let loadGeneration = 0
+    let activeLoadContextKey = ''
+    let lastHistoryBeforeTimestamp = null
+    let lastHistoryLoadAt = 0
+    let suppressHistoryRangeUntil = 0
     const chartInitialized = ref(false)
 
     const chartRef = shallowRef(null)
@@ -265,15 +297,54 @@ export default {
     const realtimeTimer = ref(null)
     const realtimeInterval = ref(5000)
     const realtimeFetchInFlight = ref(false)
+    let restPollingKickTimer = null
+    let realtimeResyncTimer = null
     let realtimeChartRafId = null
     let wsClient = null
     const wsActive = ref(false)
+    let wsStaleTimer = null
     let _cachedExchangeId = null
     let _exchangeIdTs = 0
     let _realtimeGeneration = 0
     const lastPriceEmitSig = ref('')
 
     const pricePrecision = ref(2)
+
+    const HISTORY_LOAD_COOLDOWN_MS = 900
+    const MIN_INITIAL_KLINE_LIMIT = 480
+    const MAX_INITIAL_KLINE_LIMIT = 900
+    const HISTORY_PAGE_LIMIT = 500
+    const marketRequestParams = (extra = {}) => ({
+      market: props.market,
+      symbol: props.symbol,
+      timeframe: props.timeframe,
+      exchange_id: props.exchangeId || undefined,
+      market_type: props.marketType || undefined,
+      instrument_id: props.instrumentId || undefined,
+      ...extra
+    })
+
+    const clampNumber = (value, min, max) => Math.max(min, Math.min(max, value))
+
+    const estimateVisibleBarCount = () => {
+      const container = document.getElementById('kline-chart-container')
+      const width = container && container.clientWidth ? container.clientWidth : (window.innerWidth || 1280)
+      return clampNumber(Math.ceil(width / 8), 120, 260)
+    }
+
+    const getInitialKlineLimit = () => {
+      const requestedLimit = Number(props.initialLimit)
+      if (Number.isFinite(requestedLimit) && requestedLimit > 0) {
+        return clampNumber(Math.round(requestedLimit), 120, 1000)
+      }
+      return clampNumber(estimateVisibleBarCount() * 3, MIN_INITIAL_KLINE_LIMIT, MAX_INITIAL_KLINE_LIMIT)
+    }
+
+    const getInitialBeforeTime = () => {
+      const requestedTime = Number(props.initialBeforeTime)
+      if (!Number.isFinite(requestedTime) || requestedTime <= 0) return undefined
+      return Math.floor(requestedTime > 100000000000 ? requestedTime / 1000 : requestedTime)
+    }
 
     const calcPricePrecision = (data) => {
       if (!data || data.length === 0) return 2
@@ -303,7 +374,7 @@ export default {
       }
 
       const result = Math.max(maxDecimals, spreadDecimals, 2)
-      return Math.min(result, 10) // 上限 10 位
+      return Math.min(result, 10)
     }
 
     const formatPrice = (v) => {
@@ -311,17 +382,140 @@ export default {
     }
 
     const indicatorsUpdating = ref(false)
-    const indicatorRefreshInterval = ref(10000)
-    const lastIndicatorRefreshTs = ref(0)
+    const indicatorsUpdateQueued = ref(false)
+    const lastRealtimeIndicatorBarTs = ref(null)
+    let indicatorRenderSeq = 0
 
     const maybeUpdateIndicators = (force = false) => {
-      if (!chartRef.value) return
-      const now = Date.now()
-      const iv = Number(indicatorRefreshInterval.value || 10000)
-      if (force || !lastIndicatorRefreshTs.value || (now - lastIndicatorRefreshTs.value) >= iv) {
-        lastIndicatorRefreshTs.value = now
-        updateIndicators()
+      if (!chartRef.value || !klineData.value.length) return
+      const latestBar = klineData.value[klineData.value.length - 1]
+      const latestBarTs = Number(latestBar && latestBar.timestamp)
+      if (!force && Number.isFinite(latestBarTs) && lastRealtimeIndicatorBarTs.value === latestBarTs) return
+      lastRealtimeIndicatorBarTs.value = Number.isFinite(latestBarTs) ? latestBarTs : null
+      updateIndicators()
+    }
+
+    const isCryptoMarket = () => {
+      const m = (props.market || '').toLowerCase()
+      return m === 'crypto' || m === '' || m === 'cryptocurrency'
+    }
+
+    const getRealtimePollingInterval = () => {
+      const tf = String(props.timeframe || '1H')
+      const cryptoMap = {
+        '1m': 5000,
+        '3m': 8000,
+        '5m': 10000,
+        '15m': 15000,
+        '30m': 30000,
+        '1H': 30000,
+        '4H': 45000,
+        '1D': 60000,
+        '1W': 60000
       }
+      const marketDataMap = {
+        '1m': 15000,
+        '3m': 15000,
+        '5m': 20000,
+        '15m': 30000,
+        '30m': 45000,
+        '1H': 60000,
+        '4H': 60000,
+        '1D': 60000,
+        '1W': 60000
+      }
+      const map = isCryptoMarket() ? cryptoMap : marketDataMap
+      return map[tf] || (isCryptoMarket() ? 30000 : 60000)
+    }
+
+    const TIMEFRAME_MS = {
+      '1m': 60 * 1000,
+      '3m': 3 * 60 * 1000,
+      '5m': 5 * 60 * 1000,
+      '15m': 15 * 60 * 1000,
+      '30m': 30 * 60 * 1000,
+      '1H': 60 * 60 * 1000,
+      '4H': 4 * 60 * 60 * 1000,
+      '1D': 24 * 60 * 60 * 1000,
+      '1W': 7 * 24 * 60 * 60 * 1000
+    }
+
+    const getTimeframeMs = (tf = props.timeframe) => TIMEFRAME_MS[String(tf || '1H')] || 0
+
+    const normalizeTimestampMs = (value) => {
+      let timeValue = value
+      if (typeof timeValue === 'string') {
+        timeValue = parseInt(timeValue, 10)
+      }
+      if (!Number.isFinite(timeValue)) return null
+      if (timeValue < 1e10) {
+        timeValue = timeValue * 1000
+      }
+      return timeValue
+    }
+
+    const alignKlineTimestampMs = (value, tf = props.timeframe) => {
+      const ts = normalizeTimestampMs(value)
+      if (!ts) return null
+      const key = String(tf || '1H')
+      const interval = getTimeframeMs(key)
+      if (!interval) return ts
+      if (key === '1D') {
+        const d = new Date(ts)
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+      }
+      if (key === '1W') {
+        const d = new Date(ts)
+        const utcDay = d.getUTCDay()
+        const daysFromMonday = (utcDay + 6) % 7
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - daysFromMonday * TIMEFRAME_MS['1D']
+      }
+      return Math.floor(ts / interval) * interval
+    }
+
+    const mergeKlineBar = (base, incoming, timestamp = base && base.timestamp) => {
+      if (!base) return incoming
+      if (!incoming) return base
+      return {
+        timestamp,
+        open: Number.isFinite(Number(base.open)) ? Number(base.open) : Number(incoming.open),
+        high: Math.max(Number(base.high), Number(incoming.high)),
+        low: Math.min(Number(base.low), Number(incoming.low)),
+        close: Number(incoming.close),
+        volume: Math.max(Number(base.volume || 0), Number(incoming.volume || 0))
+      }
+    }
+
+    const normalizeKlineSequence = (bars) => {
+      if (!Array.isArray(bars) || bars.length === 0) return []
+      const byTimestamp = new Map()
+      bars
+        .filter(item => item && item.timestamp && !isNaN(item.open) && !isNaN(item.high) && !isNaN(item.low) && !isNaN(item.close))
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .forEach(item => {
+          const existing = byTimestamp.get(item.timestamp)
+          byTimestamp.set(item.timestamp, existing ? mergeKlineBar(existing, item, item.timestamp) : item)
+        })
+      return Array.from(byTimestamp.values()).sort((a, b) => a.timestamp - b.timestamp)
+    }
+
+    const isRealtimeAppendGapSuspicious = (prevTimestamp, nextTimestamp) => {
+      const prev = Number(prevTimestamp)
+      const next = Number(nextTimestamp)
+      const interval = getTimeframeMs()
+      if (!interval || !Number.isFinite(prev) || !Number.isFinite(next) || next <= prev) return false
+      const maxIntervals = isCryptoMarket() ? 3 : 80
+      return (next - prev) > interval * maxIntervals
+    }
+
+    const scheduleRealtimeKlineResync = () => {
+      if (realtimeResyncTimer || loading.value) return
+      realtimeResyncTimer = setTimeout(() => {
+        realtimeResyncTimer = null
+        if (props.symbol && props.realtimeEnabled) {
+          loadKlineData(true)
+        }
+      }, 300)
     }
 
     const addedIndicatorIds = ref([])
@@ -330,6 +524,40 @@ export default {
     const addedDrawingOverlayIds = ref([])
     const activeDrawingTool = ref(null)
     let shiftMeasurePointerDownHandler = null
+
+    const removeSignalOverlayBatch = (ids) => {
+      const inst = chartRef.value
+      if (!inst || !Array.isArray(ids) || ids.length === 0) return
+      ids.forEach(overlayId => {
+        try {
+          if (typeof inst.removeOverlay === 'function') {
+            inst.removeOverlay(overlayId)
+          } else if (typeof inst.removeOverlayById === 'function') {
+            inst.removeOverlayById(overlayId)
+          }
+        } catch (err) {
+        }
+      })
+    }
+
+    const removeIndicatorBatch = (items) => {
+      const inst = chartRef.value
+      if (!inst || !Array.isArray(items) || items.length === 0) return
+      items.forEach(info => {
+        try {
+          const name = typeof info === 'string' ? info : info.name
+          const paneId = typeof info === 'string' ? undefined : info.paneId
+          if (!name) return
+          if (paneId) {
+            inst.removeIndicator(paneId, name)
+          } else {
+            inst.removeIndicator('candle_pane', name)
+            inst.removeIndicator(name)
+          }
+        } catch (err) {
+        }
+      })
+    }
 
     const { proxy } = getCurrentInstance()
 
@@ -354,7 +582,7 @@ export default {
     const indicatorButtons = ref([
       {
         id: 'sma',
-        name: 'SMA (简单移动平均)',
+        name: 'SMA',
         shortName: 'SMA',
         type: 'line',
         defaultParams: { length: 20 },
@@ -362,7 +590,7 @@ export default {
       },
       {
         id: 'ema',
-        name: 'EMA (指数移动平均)',
+        name: 'EMA',
         shortName: 'EMA',
         type: 'line',
         defaultParams: { length: 20 },
@@ -370,7 +598,7 @@ export default {
       },
       {
         id: 'rsi',
-        name: 'RSI (相对强弱)',
+        name: 'RSI',
         shortName: 'RSI',
         type: 'line',
         defaultParams: { length: 14 },
@@ -390,7 +618,7 @@ export default {
       },
       {
         id: 'bb',
-        name: '布林带 (Bollinger Bands)',
+        name: 'Bollinger Bands',
         shortName: 'BB',
         type: 'band',
         defaultParams: { length: 20, mult: 2 },
@@ -401,7 +629,7 @@ export default {
       },
       {
         id: 'atr',
-        name: 'ATR (平均真实波幅)',
+        name: 'ATR',
         shortName: 'ATR',
         type: 'line',
         defaultParams: { period: 14 },
@@ -409,7 +637,7 @@ export default {
       },
       {
         id: 'cci',
-        name: 'CCI (商品通道指数)',
+        name: 'CCI',
         shortName: 'CCI',
         type: 'line',
         defaultParams: { length: 20 },
@@ -417,7 +645,7 @@ export default {
       },
       {
         id: 'williams',
-        name: 'Williams %R (威廉指标)',
+        name: 'Williams %R',
         shortName: 'W%R',
         type: 'line',
         defaultParams: { length: 14 },
@@ -425,7 +653,7 @@ export default {
       },
       {
         id: 'mfi',
-        name: 'MFI (资金流量指标)',
+        name: 'MFI',
         shortName: 'MFI',
         type: 'line',
         defaultParams: { length: 14 },
@@ -433,16 +661,16 @@ export default {
       },
       {
         id: 'adx',
-        name: 'ADX (平均趋向指数)',
+        name: 'ADX',
         shortName: 'ADX',
         type: 'adx',
         defaultParams: { length: 14 },
         paramSchema: [{ key: 'length', labelKey: 'indicatorIde.editor.period', type: 'number', min: 1, max: 200, step: 1 }]
       },
-      { id: 'obv', name: 'OBV (能量潮)', shortName: 'OBV', type: 'line', defaultParams: {}, paramSchema: [] },
+      { id: 'obv', name: 'OBV', shortName: 'OBV', type: 'line', defaultParams: {}, paramSchema: [] },
       {
         id: 'adosc',
-        name: 'ADOSC (积累/派发振荡器)',
+        name: 'ADOSC',
         shortName: 'ADOSC',
         type: 'line',
         defaultParams: { fast: 3, slow: 10 },
@@ -451,10 +679,10 @@ export default {
           { key: 'slow', labelKey: 'indicatorIde.editor.slowLine', type: 'number', min: 2, max: 200, step: 1 }
         ]
       },
-      { id: 'ad', name: 'AD (积累/派发线)', shortName: 'AD', type: 'line', defaultParams: {}, paramSchema: [] },
+      { id: 'ad', name: 'AD', shortName: 'AD', type: 'line', defaultParams: {}, paramSchema: [] },
       {
         id: 'kdj',
-        name: 'KDJ (随机指标)',
+        name: 'KDJ',
         shortName: 'KDJ',
         type: 'line',
         defaultParams: { period: 9, k: 3, d: 3 },
@@ -698,7 +926,7 @@ export default {
         const indicatorToAdd = {
           ...indicator,
           params: { ...indicator.defaultParams },
-          calculate: null // calculate 函数在 updateIndicators 中通过 id 判断
+          calculate: null
         }
         emit('indicator-toggle', {
           action: 'add',
@@ -939,7 +1167,7 @@ export default {
 
         return {
           params: params,
-          plots: [], // 从代码中无法直接提取 plots，需要在执行时确定
+          plots: [],
           success: true
         }
       } catch (err) {
@@ -955,7 +1183,7 @@ export default {
       try {
         await ensurePyodideReady()
       } catch (err) {
-        throw new Error('Python 引擎未就绪，请等待加载完成')
+        throw new Error('Python engine is not ready yet. Please try again after it finishes loading.')
       }
 
       try {
@@ -981,14 +1209,14 @@ export default {
         })
 
         if (!resultJson || typeof resultJson !== 'string') {
-          throw new Error(`Python 代码执行后未返回有效的 JSON 字符串，返回类型: ${typeof resultJson}`)
+          throw new Error(`Python execution did not return a valid JSON string. Return type: ${typeof resultJson}`)
         }
 
         let result
         try {
           result = JSON.parse(resultJson)
         } catch (parseError) {
-          throw new Error(`JSON 解析失败: ${parseError.message}。可能是数据中包含 NaN 或其他无效值。`)
+          throw new Error(`Failed to parse Python JSON output: ${parseError.message}. Check for NaN or unsupported values.`)
         }
 
         if (!result) {
@@ -1031,7 +1259,7 @@ export default {
 
         return result
       } catch (err) {
-        throw new Error(`Python 执行失败: ${err.message}`)
+        throw new Error(`Python execution failed: ${err.message}`)
       }
     }
 
@@ -1076,6 +1304,223 @@ const normalizeCompactBacktestMarkerText = (text, side) => {
   return side === 'buy' ? 'L' : 'S'
 }
 
+const isFinitePrice = (value) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+const MAX_RENDERED_SIGNAL_POINTS = 320
+const FALSE_SIGNAL_STRINGS = new Set(['', '0', 'false', 'none', 'null', 'nan', 'na', 'n/a'])
+
+const buildSignalMarkerMetrics = (klineData = []) => {
+  let minLow = Infinity
+  let maxHigh = -Infinity
+  for (const item of klineData) {
+    const high = isFinitePrice(item?.high)
+    const low = isFinitePrice(item?.low)
+    if (high != null) maxHigh = Math.max(maxHigh, high)
+    if (low != null) minLow = Math.min(minLow, low)
+  }
+  const rawRange = maxHigh - minLow
+  const fallbackPrice = Math.max(Math.abs(maxHigh || 0), Math.abs(minLow || 0), 1)
+  const priceRange = Number.isFinite(rawRange) && rawRange > 0
+    ? rawRange
+    : fallbackPrice * 0.01
+  return { priceRange }
+}
+
+const normalizeSignalMarkerPrice = (rawPrice, klineItem, side, metrics) => {
+  const high = isFinitePrice(klineItem?.high)
+  const low = isFinitePrice(klineItem?.low)
+  if (high == null || low == null) return isFinitePrice(rawPrice)
+
+  const priceRange = Math.max(Number(metrics?.priceRange) || 0, Math.abs(high || low || 1) * 0.002, 0.000001)
+  const candleRange = Math.max(high - low, 0)
+  const minPad = Math.min(priceRange * 0.035, Math.max(priceRange * 0.012, candleRange * 0.18))
+  const maxPad = Math.max(
+    minPad,
+    Math.min(priceRange * 0.055, Math.max(priceRange * 0.035, candleRange * 0.65))
+  )
+  const raw = isFinitePrice(rawPrice)
+  const isBuy = side === 'buy'
+  const anchor = isBuy ? low : high
+  const defaultPrice = isBuy ? anchor - minPad : anchor + minPad
+  if (raw == null) return defaultPrice
+
+  if (isBuy) {
+    if (raw >= low) return defaultPrice
+    return Math.min(anchor - minPad, Math.max(anchor - maxPad, raw))
+  }
+
+  if (raw <= high) return defaultPrice
+  return Math.max(anchor + minPad, Math.min(anchor + maxPad, raw))
+}
+
+const getKlineTimestampMs = (klineItem) => {
+  const timestampRaw = klineItem?.timestamp ?? klineItem?.time
+  let timestamp = Number(timestampRaw)
+  if (!Number.isFinite(timestamp)) return null
+  if (timestamp < 1e10) timestamp *= 1000
+  return timestamp
+}
+
+const normalizeSignalSide = (signal) => {
+  const explicitSide = String(signal?.side || '').toLowerCase()
+  const rawType = String(signal?.type || signal?.action || 'buy').toLowerCase()
+  const sideSource = explicitSide || rawType
+
+  if (['sell', 'short', 'exit', 'close', 'close_long', 'reduce'].includes(sideSource)) return 'sell'
+  if (['buy', 'long', 'entry', 'open', 'open_long', 'add'].includes(sideSource)) return 'buy'
+  return rawType.includes('sell') || rawType.includes('short') || rawType.includes('exit') ? 'sell' : 'buy'
+}
+
+const defaultSignalText = (signal, side) => {
+  if (signal?.text != null && String(signal.text).trim()) return String(signal.text)
+  return side === 'buy' ? 'B' : 'S'
+}
+
+const defaultSignalColor = (signal, side) => {
+  if (signal?.color) return signal.color
+  return side === 'buy' ? '#22C55E' : '#EF4444'
+}
+
+const parseSignalValue = (value) => {
+  if (value == null || value === false) {
+    return { active: false, rawPrice: null }
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (FALSE_SIGNAL_STRINGS.has(normalized)) {
+      return { active: false, rawPrice: null }
+    }
+    const rawPrice = isFinitePrice(value)
+    return { active: true, rawPrice }
+  }
+
+  if (typeof value === 'number') {
+    const rawPrice = isFinitePrice(value)
+    return { active: rawPrice != null && rawPrice !== 0, rawPrice }
+  }
+
+  if (typeof value === 'boolean') {
+    return { active: value, rawPrice: null }
+  }
+
+  if (typeof value === 'object') {
+    const explicitActive = value.active ?? value.signal ?? value.triggered ?? value.hit ?? value.visible
+    const rawPrice = isFinitePrice(value.price ?? value.value ?? value.y ?? value.data)
+    const hasActiveFlag = explicitActive != null
+    const active = hasActiveFlag ? Boolean(explicitActive) : rawPrice != null && rawPrice !== 0
+    return {
+      active,
+      rawPrice,
+      text: value.text ?? value.label ?? value.name,
+      color: value.color
+    }
+  }
+
+  return { active: false, rawPrice: null }
+}
+
+const signalRenderMode = (signal, activeCount, dataLength) => {
+  const rawMode = String(signal?.renderMode || signal?.mode || '').toLowerCase()
+  if (['point', 'points', 'marker', 'markers', 'raw'].includes(rawMode)) return 'points'
+  if (['state', 'continuous', 'condition'].includes(rawMode)) return 'edge'
+
+  const ratio = dataLength > 0 ? activeCount / dataLength : 0
+  return ratio > 0.18 ? 'edge' : 'events'
+}
+
+const shouldRenderSignalEntry = (entries, index, mode) => {
+  const entry = entries[index]
+  if (!entry?.active) return false
+  if (mode === 'points') return true
+  if (mode === 'edge') {
+    return !entries[index - 1]?.active
+  }
+
+  return true
+}
+
+const normalizeIndicatorRenderResult = (rawResult = {}, internalData = []) => {
+  const result = rawResult && typeof rawResult === 'object' ? rawResult : {}
+  const renderResult = {
+    name: result.name ? String(result.name) : '',
+    description: result.description ? String(result.description) : '',
+    plots: Array.isArray(result.plots) ? result.plots : [],
+    layers: Array.isArray(result.layers) ? result.layers : [],
+    calculatedVars: result.calculatedVars && typeof result.calculatedVars === 'object'
+      ? result.calculatedVars
+      : {},
+    signalPoints: []
+  }
+
+  if (!Array.isArray(result.signals) || !internalData.length) {
+    return renderResult
+  }
+
+  const signalMarkerMetrics = buildSignalMarkerMetrics(internalData)
+  const seenSignalKeys = new Set()
+
+  for (const signal of result.signals) {
+    if (!signal || !Array.isArray(signal.data)) continue
+
+    const action = String(signal.type || signal.action || 'buy').toLowerCase()
+    const side = normalizeSignalSide(signal)
+    const isBuySignal = side === 'buy'
+    const fallbackText = defaultSignalText(signal, side)
+    const dataLength = Math.min(signal.data.length, internalData.length)
+    const entries = Array.from({ length: dataLength }, (_, i) => parseSignalValue(signal.data[i]))
+    const activeCount = entries.reduce((count, entry) => count + (entry.active ? 1 : 0), 0)
+    const mode = signalRenderMode(signal, activeCount, dataLength)
+
+    for (let i = 0; i < dataLength; i++) {
+      if (!shouldRenderSignalEntry(entries, i, mode)) continue
+
+      const entry = entries[i]
+      const klineItem = internalData[i]
+      const timestamp = getKlineTimestampMs(klineItem)
+      if (timestamp == null) continue
+
+      const anchorPrice = isBuySignal
+        ? isFinitePrice(klineItem?.low)
+        : isFinitePrice(klineItem?.high)
+      const price = normalizeSignalMarkerPrice(entry.rawPrice, klineItem, side, signalMarkerMetrics)
+      if (anchorPrice == null || price == null) continue
+
+      let text = fallbackText
+      if (Array.isArray(signal.textData) && signal.textData[i] != null) {
+        text = signal.textData[i]
+      } else if (entry.text != null && String(entry.text).trim()) {
+        text = entry.text
+      }
+
+      const color = entry.color || defaultSignalColor(signal, side)
+      const key = `${timestamp}:${side}:${String(text)}`
+      if (seenSignalKeys.has(key)) continue
+      seenSignalKeys.add(key)
+
+      renderResult.signalPoints.push({
+        timestamp,
+        price,
+        anchorPrice,
+        side,
+        action,
+        color,
+        text,
+        rawPrice: entry.rawPrice
+      })
+    }
+  }
+
+  if (renderResult.signalPoints.length > MAX_RENDERED_SIGNAL_POINTS) {
+    renderResult.signalPoints = renderResult.signalPoints.slice(-MAX_RENDERED_SIGNAL_POINTS)
+  }
+
+  return renderResult
+}
+
 registerOverlay({
       name: 'signalTag',
       totalStep: 1,
@@ -1101,7 +1546,7 @@ registerOverlay({
 
         if (!coordinates[0]) return []
         const x = coordinates[0].x
-        const signalY = coordinates[0].y // Point 0: 标签位置（已含与 K 线的价格间距）
+        const signalY = coordinates[0].y
 
         const anchorY = coordinates[1] ? coordinates[1].y : signalY
 
@@ -1547,7 +1992,7 @@ registerOverlay({
       let metaText = ''
       if (barCount > 0) {
         metaText = `${barCount}${proxy.$t('dashboard.indicator.drawing.measureBarUnit')}`
-        if (timeSpan) metaText += ` · ${timeSpan}`
+        if (timeSpan) metaText += ` 鐠?${timeSpan}`
       } else if (timeSpan) {
         metaText = timeSpan
       }
@@ -1713,14 +2158,8 @@ registerOverlay({
     })
 
     const formatKlineData = (data) => {
-      return data.map(item => {
-        let timeValue = item.time || item.timestamp
-        if (typeof timeValue === 'string') {
-          timeValue = parseInt(timeValue)
-        }
-        if (timeValue < 1e10) {
-          timeValue = timeValue * 1000
-        }
+      const bars = data.map(item => {
+        const timeValue = alignKlineTimestampMs(item.time || item.timestamp)
         return {
           timestamp: timeValue,
           open: parseFloat(item.open),
@@ -1729,8 +2168,8 @@ registerOverlay({
           close: parseFloat(item.close),
           volume: parseFloat(item.volume || 0)
         }
-      }).filter(item => item.timestamp && !isNaN(item.open) && !isNaN(item.high) && !isNaN(item.low) && !isNaN(item.close))
-        .sort((a, b) => a.timestamp - b.timestamp)
+      })
+      return normalizeKlineSequence(bars)
     }
 
     const klineBarSnapshotKey = (b) => {
@@ -1805,7 +2244,7 @@ registerOverlay({
 
     const convertToInternalFormat = (data) => {
       return data.map(item => ({
-        time: Math.floor(item.timestamp / 1000), // 转回秒级时间戳用于比较
+        time: Math.floor(item.timestamp / 1000),
         open: item.open,
         high: item.high,
         low: item.low,
@@ -1867,30 +2306,45 @@ registerOverlay({
       }
     }
 
-    const loadKlineData = async (silent = false) => {
+    const loadKlineData = async () => {
       if (!props.symbol) return
-      if (loading.value && !silent) return
+      const contextKey = JSON.stringify([
+        props.market,
+        props.symbol,
+        props.timeframe,
+        props.exchangeId,
+        props.marketType,
+        props.instrumentId,
+        props.initialBeforeTime,
+        props.initialLimit
+      ])
+      if (loading.value && contextKey === activeLoadContextKey) return
+      const generation = ++loadGeneration
+      activeLoadContextKey = contextKey
 
       stopRealtime()
       clearBacktestOverlays()
 
       loading.value = true
       error.value = null
+      loadingHistory.value = false
+      loadingHistoryPromise = null
+      lastHistoryBeforeTimestamp = null
+      lastHistoryLoadAt = 0
+      suppressHistoryRangeUntil = Date.now() + 1200
 
       try {
         let formattedData = []
+        const initialLimit = getInitialKlineLimit()
         try {
           const response = await request({
             url: '/api/indicator/kline',
             method: 'get',
-            params: {
-              market: props.market,
-              symbol: props.symbol,
-              timeframe: props.timeframe,
-              limit: 300
-            },
+            params: marketRequestParams({ limit: initialLimit, before_time: getInitialBeforeTime() }),
             timeout: 45000
           })
+
+          if (generation !== loadGeneration) return
 
           if (response.code === 1 && response.data && Array.isArray(response.data)) {
             formattedData = formatKlineData(response.data)
@@ -1938,7 +2392,7 @@ registerOverlay({
 
               setTimeout(() => {
                 if (chartRef.value) {
-                  updateIndicators()
+                  maybeUpdateIndicators(true)
                 }
               }, 100)
             }
@@ -1947,16 +2401,9 @@ registerOverlay({
           if (props.realtimeEnabled) {
             startRealtime()
           }
-
-          if (formattedData.length < 200 && hasMoreHistory.value) {
-            setTimeout(() => {
-              if (klineData.value.length > 0 && klineData.value.length < 200 && hasMoreHistory.value) {
-                loadMoreHistoryDataForScroll(klineData.value[0].timestamp)
-              }
-            }, 1500)
-          }
         })
       } catch (err) {
+        if (generation !== loadGeneration) return
         error.value = proxy.$t('dashboard.indicator.error.loadDataFailed') + ': ' + (err.message || proxy.$t('dashboard.indicator.error.loadDataFailedDesc'))
         klineData.value = []
         if (chartRef.value) {
@@ -1967,12 +2414,28 @@ registerOverlay({
           }
         }
       } finally {
-        loading.value = false
+        if (generation === loadGeneration) {
+          loading.value = false
+          activeLoadContextKey = ''
+        }
       }
     }
 
     const loadMoreHistoryDataForScroll = async (timestamp) => {
       if (!props.symbol || !klineData.value || klineData.value.length === 0) {
+        return
+      }
+
+      const beforeTimestamp = Number(timestamp)
+      if (!Number.isFinite(beforeTimestamp)) {
+        return
+      }
+
+      const now = Date.now()
+      if (lastHistoryBeforeTimestamp === beforeTimestamp && now - lastHistoryLoadAt < 5000) {
+        return
+      }
+      if (now - lastHistoryLoadAt < HISTORY_LOAD_COOLDOWN_MS) {
         return
       }
 
@@ -1994,21 +2457,20 @@ registerOverlay({
       }
 
       loadingHistory.value = true
+      lastHistoryBeforeTimestamp = beforeTimestamp
+      lastHistoryLoadAt = now
       loadingHistoryPromise = (async () => {
         await nextTick()
 
         try {
-          const beforeTime = Math.floor(timestamp / 1000)
+          const beforeTime = Math.floor(beforeTimestamp / 1000)
           const response = await request({
             url: '/api/indicator/kline',
             method: 'get',
-            params: {
-              market: props.market,
-              symbol: props.symbol,
-              timeframe: props.timeframe,
-              limit: 300,
+            params: marketRequestParams({
+              limit: HISTORY_PAGE_LIMIT,
               before_time: beforeTime
-            },
+            }),
             timeout: 45000
           })
 
@@ -2023,7 +2485,7 @@ registerOverlay({
               return
             }
 
-            const filteredNewData = newData.filter(item => item.timestamp < timestamp)
+            const filteredNewData = newData.filter(item => item.timestamp < beforeTimestamp)
 
             if (filteredNewData.length === 0) {
               hasMoreHistory.value = false
@@ -2041,32 +2503,53 @@ registerOverlay({
             } catch (e) {
             }
 
-            const newDataCount = filteredNewData.length
-            klineData.value = [...filteredNewData, ...klineData.value]
+            const mergedHistory = normalizeKlineSequence([...filteredNewData, ...klineData.value])
+            const newDataCount = Math.max(0, mergedHistory.length - klineData.value.length)
+            klineData.value = mergedHistory
+            suppressHistoryRangeUntil = Date.now() + 1200
 
             nextTick(() => {
               if (chartRef.value) {
-                chartRef.value.applyNewData(klineData.value)
+                const restoreDataIndex = savedVisibleRange && typeof savedVisibleRange.from === 'number'
+                  ? Math.max(0, Math.round(savedVisibleRange.from + newDataCount))
+                  : null
 
-                if (savedVisibleRange && typeof savedVisibleRange.from === 'number') {
-                  const newFrom = savedVisibleRange.from + newDataCount
-                  const newTo = savedVisibleRange.to + newDataCount
+                const afterApply = () => {
+                  if (restoreDataIndex !== null) {
+                    requestAnimationFrame(() => {
+                      suppressHistoryRangeUntil = Date.now() + 900
+                      try {
+                        if (chartRef.value && typeof chartRef.value.scrollToDataIndex === 'function') {
+                          chartRef.value.scrollToDataIndex(restoreDataIndex, 0)
+                        }
+                      } catch (e) {
+                      }
+                    })
+                  }
+                  updateIndicators()
+                }
 
+                try {
+                  chartRef.value.applyNewData(klineData.value, hasMoreHistory.value, afterApply)
+                } catch (e) {
+                  try {
+                    chartRef.value.applyNewData(klineData.value)
+                    afterApply()
+                  } catch (e2) {
+                    updateIndicators()
+                  }
+                }
+
+                if (restoreDataIndex !== null && typeof chartRef.value.scrollToDataIndex !== 'function') {
                   setTimeout(() => {
                     try {
                       if (chartRef.value) {
-                        if (typeof chartRef.value.scrollToDataIndex === 'function') {
-                          chartRef.value.scrollToDataIndex(newFrom)
-                        } else if (typeof chartRef.value.setVisibleRange === 'function') {
-                          chartRef.value.setVisibleRange(newFrom, newTo)
-                        }
+                        suppressHistoryRangeUntil = Date.now() + 500
                       }
                     } catch (e) {
                     }
                   }, 50)
                 }
-
-                updateIndicators()
               }
             })
           } else if (chartRef.value && typeof chartRef.value.noMoreData === 'function') {
@@ -2105,13 +2588,10 @@ registerOverlay({
         const response = await request({
           url: '/api/indicator/kline',
           method: 'get',
-          params: {
-            market: props.market,
-            symbol: props.symbol,
-            timeframe: props.timeframe,
-            limit: 300,
-            before_time: earliestTime
-          },
+            params: marketRequestParams({
+              limit: HISTORY_PAGE_LIMIT,
+              before_time: earliestTime
+            }),
           timeout: 45000
         })
 
@@ -2130,7 +2610,7 @@ registerOverlay({
             return
           }
 
-          klineData.value = [...filteredNewData, ...klineData.value]
+          klineData.value = normalizeKlineSequence([...filteredNewData, ...klineData.value])
 
           nextTick(() => {
             if (chartRef.value) {
@@ -2159,12 +2639,7 @@ registerOverlay({
         const response = await request({
           url: '/api/indicator/kline',
           method: 'get',
-          params: {
-            market: props.market,
-            symbol: props.symbol,
-            timeframe: props.timeframe,
-            limit: 3
-          },
+          params: marketRequestParams({ limit: 3 }),
           timeout: 12000
         })
 
@@ -2173,38 +2648,45 @@ registerOverlay({
           const existingData = [...klineData.value]
 
           if (newData.length > 0) {
-            const lastNewTime = Math.floor(newData[newData.length - 1].timestamp / 1000)
-            const lastExistingTime = Math.floor(existingData[existingData.length - 1].timestamp / 1000)
+            const existingLast = existingData[existingData.length - 1]
+            const lastNew = newData[newData.length - 1]
+            const newForwardBars = newData.filter(item => item.timestamp > existingLast.timestamp)
 
-            if (isSameTimeframe(lastNewTime, lastExistingTime, props.timeframe)) {
-              const existingLast = existingData[existingData.length - 1]
-              const newLast = newData[newData.length - 1]
+            if (newForwardBars.length > 0 && isRealtimeAppendGapSuspicious(existingLast.timestamp, newForwardBars[0].timestamp)) {
+              scheduleRealtimeKlineResync()
+              return
+            }
 
-              const mergedLast = {
-                timestamp: existingLast.timestamp,
-                open: existingLast.open,
-                high: Math.max(existingLast.high, newLast.high),
-                low: Math.min(existingLast.low, newLast.low),
-                close: newLast.close,
-                volume: newLast.volume
-              }
-              if (klineBarSnapshotKey(mergedLast) === klineBarSnapshotKey(existingLast)) {
-                return
-              }
-              existingData[existingData.length - 1] = mergedLast
-              klineData.value = existingData
+            const existingTimestamps = new Set(existingData.map(item => item.timestamp))
+            const mergedData = normalizeKlineSequence([...existingData, ...newData])
+            const mergedLast = mergedData[mergedData.length - 1]
+            const hasAppendedBars = mergedData.some(item => !existingTimestamps.has(item.timestamp))
+            const lastChanged = mergedLast && (
+              mergedLast.timestamp !== existingLast.timestamp ||
+              klineBarSnapshotKey(mergedLast) !== klineBarSnapshotKey(existingLast)
+            )
 
-              const internalData = convertToInternalFormat(klineData.value)
-              updatePricePanel(internalData)
+            if (!hasAppendedBars && !lastChanged && lastNew.timestamp <= existingLast.timestamp) {
+              return
+            }
 
-              const last = existingData[existingData.length - 1]
+            klineData.value = mergedData.length > 500 ? mergedData.slice(-500) : mergedData
+
+            const internalData = convertToInternalFormat(klineData.value)
+            updatePricePanel(internalData, { force: hasAppendedBars })
+
+            if (hasAppendedBars) {
+              const appendBars = mergedData.filter(item => !existingTimestamps.has(item.timestamp))
+              appendRealtimeBarsToChart(appendBars)
+              maybeUpdateIndicators(true)
+            } else if (mergedLast && mergedLast.timestamp === existingLast.timestamp) {
               const bar = {
-                timestamp: last.timestamp,
-                open: last.open,
-                high: last.high,
-                low: last.low,
-                close: last.close,
-                volume: last.volume != null ? last.volume : 0
+                timestamp: mergedLast.timestamp,
+                open: mergedLast.open,
+                high: mergedLast.high,
+                low: mergedLast.low,
+                close: mergedLast.close,
+                volume: mergedLast.volume != null ? mergedLast.volume : 0
               }
               if (chartRef.value && typeof chartRef.value.updateData === 'function') {
                 scheduleRealtimeChartBarUpdate(bar)
@@ -2213,27 +2695,7 @@ registerOverlay({
                   chartRef.value.applyNewData(klineData.value)
                 } catch (_) {}
               }
-            } else if (lastNewTime > lastExistingTime) {
-              const uniqueNewData = newData.filter(newItem => {
-                const newItemTime = Math.floor(newItem.timestamp / 1000)
-                return !existingData.some(existingItem => {
-                  const existingItemTime = Math.floor(existingItem.timestamp / 1000)
-                  return isSameTimeframe(newItemTime, existingItemTime, props.timeframe)
-                })
-              })
-
-              if (uniqueNewData.length > 0) {
-                klineData.value = [...existingData, ...uniqueNewData]
-                if (klineData.value.length > 500) {
-                  klineData.value = klineData.value.slice(-500)
-                }
-
-                const internalData = convertToInternalFormat(klineData.value)
-                updatePricePanel(internalData, { force: true })
-
-                appendRealtimeBarsToChart(uniqueNewData)
-                maybeUpdateIndicators(true)
-              }
+              maybeUpdateIndicators(false)
             }
           }
         }
@@ -2243,39 +2705,62 @@ registerOverlay({
       }
     }
 
-    const startRestPolling = () => {
+    const runRestRealtimeUpdate = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      if (!loading.value && props.symbol && klineData.value && klineData.value.length > 0) {
+        updateKlineRealtime()
+      }
+    }
+
+    const startRestPolling = (options = {}) => {
       if (realtimeTimer.value) {
         clearInterval(realtimeTimer.value)
       }
-      const intervalMap = {
-        '1m': 30000,
-        '3m': 30000,
-        '5m': 30000,
-        '15m': 45000,
-        '30m': 60000,
-        '1H': 60000,
-        '4H': 60000,
-        '1D': 60000,
-        '1W': 60000
+      if (restPollingKickTimer) {
+        clearTimeout(restPollingKickTimer)
+        restPollingKickTimer = null
       }
-      const base = intervalMap[props.timeframe] || 30000
-      realtimeInterval.value = Math.min(Math.max(base, 30000), 60000)
+      realtimeInterval.value = getRealtimePollingInterval()
 
       if (props.realtimeEnabled && props.symbol && klineData.value.length > 0) {
-        realtimeTimer.value = setInterval(() => {
-          if (typeof document !== 'undefined' && document.hidden) return
-          if (!loading.value && props.symbol && klineData.value && klineData.value.length > 0) {
-            updateKlineRealtime()
-          }
-        }, realtimeInterval.value)
+        const kickDelay = Number(options.kickDelay)
+        if (options.kick) {
+          restPollingKickTimer = setTimeout(() => {
+            restPollingKickTimer = null
+            runRestRealtimeUpdate()
+          }, Number.isFinite(kickDelay) ? Math.max(0, kickDelay) : 0)
+        }
+        realtimeTimer.value = setInterval(runRestRealtimeUpdate, realtimeInterval.value)
       }
     }
 
     const stopRestPolling = () => {
+      if (restPollingKickTimer) {
+        clearTimeout(restPollingKickTimer)
+        restPollingKickTimer = null
+      }
       if (realtimeTimer.value) {
         clearInterval(realtimeTimer.value)
         realtimeTimer.value = null
       }
+    }
+
+    const clearWsStaleWatchdog = () => {
+      if (wsStaleTimer) {
+        clearTimeout(wsStaleTimer)
+        wsStaleTimer = null
+      }
+    }
+
+    const armWsStaleWatchdog = () => {
+      clearWsStaleWatchdog()
+      if (!props.realtimeEnabled || !isCryptoMarket()) return
+      wsStaleTimer = setTimeout(() => {
+        wsStaleTimer = null
+        if (wsActive.value && props.realtimeEnabled && props.symbol && klineData.value.length > 0) {
+          startRestPolling({ kick: true, kickDelay: 0 })
+        }
+      }, 15000)
     }
 
     let pendingWsBar = null
@@ -2292,28 +2777,38 @@ registerOverlay({
 
     const handleWsTick = (bar) => {
       if (!wsActive.value) return
+      armWsStaleWatchdog()
       const arr = klineData.value
       if (!arr || arr.length === 0) return
 
+      const normalizedTimestamp = alignKlineTimestampMs(bar.timestamp)
+      if (!normalizedTimestamp) return
+
+      const normalizedBar = {
+        timestamp: normalizedTimestamp,
+        open: Number(bar.open),
+        high: Number(bar.high),
+        low: Number(bar.low),
+        close: Number(bar.close),
+        volume: Number(bar.volume || 0)
+      }
+
+      if (!Number.isFinite(normalizedBar.open) ||
+          !Number.isFinite(normalizedBar.high) ||
+          !Number.isFinite(normalizedBar.low) ||
+          !Number.isFinite(normalizedBar.close)) {
+        return
+      }
+
       const lastBar = arr[arr.length - 1]
 
-      if (bar.timestamp === lastBar.timestamp) {
-        const newHigh = Math.max(lastBar.high, bar.high)
-        const newLow = Math.min(lastBar.low, bar.low)
-        if (lastBar.close === bar.close &&
-            lastBar.high === newHigh &&
-            lastBar.low === newLow &&
-            lastBar.volume === bar.volume) {
-          return // 数值无变化，跳过
+      if (normalizedBar.timestamp === lastBar.timestamp) {
+        stopRestPolling()
+        const merged = mergeKlineBar(lastBar, normalizedBar, lastBar.timestamp)
+        if (klineBarSnapshotKey(merged) === klineBarSnapshotKey(lastBar)) {
+          return
         }
-        const merged = {
-          timestamp: lastBar.timestamp,
-          open: lastBar.open,
-          high: newHigh,
-          low: newLow,
-          close: bar.close,
-          volume: bar.volume
-        }
+
         arr[arr.length - 1] = merged
         klineData.value = arr.slice()
 
@@ -2323,8 +2818,16 @@ registerOverlay({
         if (wsTickRafId == null) {
           wsTickRafId = requestAnimationFrame(flushWsTick)
         }
-      } else if (bar.timestamp > lastBar.timestamp) {
-        arr.push(bar)
+        maybeUpdateIndicators(false)
+      } else if (normalizedBar.timestamp > lastBar.timestamp) {
+        if (isRealtimeAppendGapSuspicious(lastBar.timestamp, normalizedBar.timestamp)) {
+          startRestPolling({ kick: true, kickDelay: 0 })
+          scheduleRealtimeKlineResync()
+          return
+        }
+
+        stopRestPolling()
+        arr.push(normalizedBar)
         if (arr.length > 500) {
           arr.splice(0, arr.length - 500)
         }
@@ -2332,7 +2835,7 @@ registerOverlay({
 
         updatePricePanelFromLastBars(arr, true)
 
-        appendRealtimeBarsToChart([bar])
+        appendRealtimeBarsToChart([normalizedBar])
         maybeUpdateIndicators(true)
       }
     }
@@ -2361,7 +2864,7 @@ registerOverlay({
     }
 
     const handleWsReconnecting = () => {
-      startRestPolling()
+      startRestPolling({ kick: true, kickDelay: 0 })
     }
 
     const handleWsReconnected = () => {
@@ -2370,12 +2873,7 @@ registerOverlay({
 
     const handleWsError = () => {
       wsActive.value = false
-      startRestPolling()
-    }
-
-    const isCryptoMarket = () => {
-      const m = (props.market || '').toLowerCase()
-      return m === 'crypto' || m === '' || m === 'cryptocurrency'
+      startRestPolling({ kick: true, kickDelay: 0 })
     }
 
     const _fetchExchangeId = async () => {
@@ -2396,11 +2894,13 @@ registerOverlay({
       const gen = ++_realtimeGeneration
 
       if (!props.realtimeEnabled || !props.symbol || klineData.value.length === 0) return
-
       if (isCryptoMarket()) {
+        startRestPolling({ kick: true, kickDelay: 2500 })
+        if (String(props.marketType || 'spot').toLowerCase() !== 'spot') return
         try {
-          const exchangeId = await _fetchExchangeId()
+          const exchangeId = props.exchangeId || await _fetchExchangeId()
           if (gen !== _realtimeGeneration) return
+          if (!['binance', 'bitget', 'bybit', 'okx', 'gate'].includes(String(exchangeId).toLowerCase())) return
           if (!wsClient) {
             wsClient = new ExchangeKlineWs()
           }
@@ -2412,18 +2912,24 @@ registerOverlay({
             onReconnected: handleWsReconnected
           }, exchangeId)
           wsActive.value = true
+          armWsStaleWatchdog()
         } catch (_) {
           if (gen !== _realtimeGeneration) return
           wsActive.value = false
-          startRestPolling()
+          startRestPolling({ kick: true, kickDelay: 0 })
         }
       } else {
-        startRestPolling()
+        startRestPolling({ kick: true, kickDelay: 800 })
       }
     }
 
     const stopRealtime = () => {
       stopRestPolling()
+      clearWsStaleWatchdog()
+      if (realtimeResyncTimer) {
+        clearTimeout(realtimeResyncTimer)
+        realtimeResyncTimer = null
+      }
       if (wsTickRafId != null) {
         cancelAnimationFrame(wsTickRafId)
         wsTickRafId = null
@@ -2469,12 +2975,12 @@ registerOverlay({
       try {
         const container = document.getElementById('kline-chart-container')
         if (!container) {
-          throw new Error('容器元素不存在')
+          throw new Error('K-line chart container is missing')
         }
 
         try {
           chartRef.value = init(container, {
-            drawingBarVisible: true, // 尝试启用内置画线工具栏
+            drawingBarVisible: true,
             overlay: {
               visible: true
             }
@@ -2492,7 +2998,7 @@ registerOverlay({
         }
 
         if (!chartRef.value) {
-          throw new Error('图表初始化失败：无法创建图表实例')
+          throw new Error('K-line chart initialization failed')
         }
 
         if (chartRef.value) {
@@ -2538,6 +3044,8 @@ registerOverlay({
         if (chartRef.value && typeof chartRef.value.subscribeAction === 'function') {
           chartRef.value.subscribeAction('onDataReady', () => {
             scheduleSyncVolumePaneLayout()
+            const rows = typeof chartRef.value.getDataList === 'function' ? chartRef.value.getDataList() : []
+            emit('load', { barCount: Array.isArray(rows) ? rows.length : 0 })
           })
         }
 
@@ -2606,6 +3114,11 @@ registerOverlay({
 
           chartRef.value.subscribeAction('onVisibleRangeChange', async (data) => {
             if (data && typeof data.from === 'number') {
+              if (Date.now() < suppressHistoryRangeUntil) {
+                lastVisibleFrom = data.from
+                return
+              }
+
               if (!initialRangeProcessed) {
                 lastVisibleFrom = data.from
                 initialRangeProcessed = true
@@ -2620,29 +3133,19 @@ registerOverlay({
                 return
               }
 
-              if (loadingHistory.value && data.from <= 0) {
-                try {
-                  if (chartRef.value && typeof chartRef.value.setVisibleRange === 'function') {
-                    const dataLength = klineData.value.length
-                    if (dataLength > 0) {
-                      const currentRange = chartRef.value.getVisibleRange()
-                      if (currentRange) {
-                        const visibleCount = Math.ceil((currentRange.to - currentRange.from) * dataLength / 100)
-                        const minFrom = 0.1
-                        const newTo = Math.min(100, minFrom + (visibleCount / dataLength * 100))
-                        chartRef.value.setVisibleRange(minFrom, newTo)
-                      }
-                    }
-                  }
-                } catch (e) {
-                }
+              if (loadingHistory.value) {
+                lastVisibleFrom = data.from
                 return
               }
 
-              if (data.from <= 5 && !loadingHistory.value && !loadingHistoryPromise && hasMoreHistory.value && chartInitialized.value) {
+              const visibleBars = Math.max(1, (data.to || 0) - data.from)
+              const leftThreshold = clampNumber(Math.ceil(visibleBars * 0.08), 3, 18)
+              const reachedLeftEdge = data.from <= leftThreshold
+
+              if (reachedLeftEdge && !loadingHistory.value && !loadingHistoryPromise && hasMoreHistory.value && chartInitialized.value) {
                 const isScrollingLeft = lastVisibleFrom !== null && lastVisibleFrom > data.from
-                const isAlreadyAtEdge = data.from <= 0
-                if (isScrollingLeft || isAlreadyAtEdge) {
+                const canLoadAgain = Date.now() - lastHistoryLoadAt >= HISTORY_LOAD_COOLDOWN_MS
+                if (isScrollingLeft && canLoadAgain) {
                   if (klineData.value.length > 0) {
                     const earliestTimestamp = klineData.value[0].timestamp
                     await loadMoreHistoryDataForScroll(earliestTimestamp)
@@ -2675,14 +3178,14 @@ registerOverlay({
             }
 
             nextTick(() => {
-              updateIndicators()
+              maybeUpdateIndicators(true)
             })
           }
         }
 
         window.addEventListener('resize', handleResize)
       } catch (error) {
-        error.value = proxy.$t('dashboard.indicator.error.chartInitFailed') + ': ' + (error.message || '未知错误')
+        error.value = proxy.$t('dashboard.indicator.error.chartInitFailed') + ': ' + (error.message || 'Unknown error')
       }
     }
 
@@ -2831,17 +3334,715 @@ registerOverlay({
       })
     }
 
-    const registerCustomIndicator = (name, calcFunc, figures, calcParams = [], precision = -1, shouldOverlay = false) => {
+    const CUSTOM_INDICATOR_RENDER_VERSION = 'r14'
+    const LAMP_FIGURE_TYPES = ['lamp', 'dot', 'point', 'scatter', 'circle']
+
+    const hashCustomIndicatorSignature = (value) => {
+      const text = String(value || '')
+      let hash = 2166136261
+      for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i)
+        hash = Math.imul(hash, 16777619)
+      }
+      return (hash >>> 0).toString(36)
+    }
+
+    const normalizeCustomFigureType = (type) => {
+      const rawType = String(type || 'line').toLowerCase()
+      if (LAMP_FIGURE_TYPES.includes(rawType)) return 'circle'
+      if (['histogram', 'column'].includes(rawType)) return 'bar'
+      if (['circle', 'bar', 'line'].includes(rawType)) return rawType
+      return 'line'
+    }
+
+    const toPositiveNumber = (value, fallback) => {
+      const numeric = Number(value)
+      return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback
+    }
+
+    const getPlotPointValue = (point) => {
+      if (point && typeof point === 'object') {
+        const value = point.value ?? point.y ?? point.data
+        return value == null ? null : value
+      }
+      return point
+    }
+
+    const getPlotPointColor = (point) => {
+      if (point && typeof point === 'object') {
+        return point.color || point.fillColor || point.backgroundColor || null
+      }
+      return null
+    }
+
+    const getPlotPointSize = (point) => {
+      if (point && typeof point === 'object') {
+        const size = Number(point.size ?? point.radius ?? point.r)
+        return Number.isFinite(size) && size > 0 ? size : null
+      }
+      return null
+    }
+
+    const isTruthyLampValue = (value) => {
+      if (value == null) return false
+      if (typeof value === 'boolean') return value
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase()
+        if (!normalized || ['0', 'false', 'off', 'nan', 'none', 'null'].includes(normalized)) return false
+        return true
+      }
+      const numeric = Number(value)
+      return Number.isFinite(numeric) && numeric !== 0
+    }
+
+    const normalizePlotDataSeries = (data, options = {}) => {
+      if (!Array.isArray(data)) return []
+      if (options.forceLamp) {
+        const lane = Number(options.lampLane)
+        const fallbackLane = Number.isFinite(lane) && lane > 0 ? lane : 1
+        return data.map(point => {
+          const value = getPlotPointValue(point)
+          return isTruthyLampValue(value) ? fallbackLane : null
+        })
+      }
+      return data.map(getPlotPointValue)
+    }
+
+    const getKLineTimeKey = (item) => {
+      const raw = Number(item?.timestamp ?? item?.time)
+      if (!Number.isFinite(raw)) return null
+      return raw > 1e10 ? Math.floor(raw / 1000) : Math.floor(raw)
+    }
+
+    const buildAlignedPlotRows = (sourceData, plotDataMap, targetData) => {
+      const sourceRows = Array.isArray(sourceData) ? sourceData : []
+      const targetRows = Array.isArray(targetData) ? targetData : []
+      const sourceIndexByTime = new Map()
+
+      sourceRows.forEach((item, index) => {
+        const timeKey = getKLineTimeKey(item)
+        if (timeKey !== null) {
+          sourceIndexByTime.set(timeKey, index)
+        }
+      })
+
+      return targetRows.map((item, fallbackIndex) => {
+        const timeKey = getKLineTimeKey(item)
+        const sourceIndex = timeKey !== null && sourceIndexByTime.has(timeKey)
+          ? sourceIndexByTime.get(timeKey)
+          : fallbackIndex
+        const dataPoint = {}
+        for (const figureKey in plotDataMap) {
+          const plotData = plotDataMap[figureKey]
+          dataPoint[figureKey] = sourceIndex >= 0 && sourceIndex < plotData.length
+            ? plotData[sourceIndex]
+            : null
+        }
+        return dataPoint
+      })
+    }
+
+    const extractPlotColorSeries = (data) => {
+      if (!Array.isArray(data)) return []
+      return data.map(getPlotPointColor)
+    }
+
+    const extractPlotSizeSeries = (data) => {
+      if (!Array.isArray(data)) return []
+      return data.map(getPlotPointSize)
+    }
+
+    const isLampType = (type) => LAMP_FIGURE_TYPES.includes(String(type || '').toLowerCase())
+
+    const looksLikeLampPlot = (plot) => {
+      if (!plot) return false
+      if (isLampType(plot.type)) return true
+      const name = String(plot.name || plot.title || '').toLowerCase()
+      const lampNamePattern = /(lamp|light|red|green|on|off|bull|bear|signal|state|trend)/
+      if (!lampNamePattern.test(name)) return false
+      const data = Array.isArray(plot.data) ? plot.data : []
+      const sample = data.map(getPlotPointValue).filter(value => value != null).slice(0, 80)
+      if (!sample.length) return true
+      const numericSample = sample.map(Number).filter(Number.isFinite)
+      if (!numericSample.length) return true
+      const uniqueValues = new Set(numericSample.map(value => Number(value.toFixed(6))))
+      const integerish = numericSample.every(value => Math.abs(value - Math.round(value)) < 1e-6)
+      return integerish && uniqueValues.size <= 8
+    }
+
+    // Legacy lane parser kept for compatibility reference while v2 handles current lamp belts.
+    // eslint-disable-next-line no-unused-vars
+    const getLampLaneKey = (plot, plotIdx) => {
+      const rawName = String(plot?.name || plot?.title || `lamp_${plotIdx}`)
+      const key = rawName
+        .replace(/\b(red|green|on|off|bullish|bearish|bull|bear|long|short|up|down|light|lamp)\b/ig, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return key || `lamp_${plotIdx}`
+    }
+
+    const isLampSummaryPlot = (plot) => {
+      const name = String(plot?.name || plot?.title || '').toLowerCase()
+      return /(count|score|total|sum|summary)/.test(name)
+    }
+
+    const getLampLaneKeyV2 = (plot, plotIdx) => {
+      const explicitLabel = plot?.laneLabel ?? plot?.rowLabel ?? plot?.label ?? plot?.group ?? plot?.laneName
+      const rawName = String(explicitLabel || plot?.name || plot?.title || `lamp_${plotIdx}`)
+      const key = rawName
+        .replace(/\b(red|green|on|off|bullish|bearish|bull|bear|long|short|up|down|light|lamp|buy|sell|entry|exit|signal|signals)\b/ig, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return key || `L${plotIdx + 1}`
+    }
+
+    const resolveLampColor = (color, fallback = '#22c55e') => {
+      const normalized = String(color || '').toLowerCase()
+      if (normalized.includes('ff3b30') || normalized.includes('ef4444') || normalized.includes('red')) return '#ff4d4f'
+      if (normalized.includes('35c759') || normalized.includes('22c55e') || normalized.includes('green')) return '#22c55e'
+      return color || fallback
+    }
+
+    const createLampBeltMeta = (plots) => {
+      const laneKeys = []
+      const laneKeyByIndex = new Map()
+
+      plots.forEach((plot, plotIdx) => {
+        if (!looksLikeLampPlot(plot) || isLampSummaryPlot(plot)) return
+        const laneKey = getLampLaneKeyV2(plot, plotIdx)
+        laneKeyByIndex.set(plotIdx, laneKey)
+        if (!laneKeys.includes(laneKey)) laneKeys.push(laneKey)
+      })
+
+      if (laneKeys.length < 3) {
+        return { enabled: false, laneByIndex: new Map(), hiddenIndexes: new Set(), laneCount: 0 }
+      }
+
+      const laneByIndex = new Map()
+      const labelByLane = new Map()
+      laneKeyByIndex.forEach((laneKey, plotIdx) => {
+        const laneIndex = laneKeys.indexOf(laneKey)
+        const lane = laneKeys.length - laneIndex
+        laneByIndex.set(plotIdx, lane)
+        labelByLane.set(lane, laneKey)
+      })
+
+      const hiddenIndexes = new Set()
+      plots.forEach((plot, plotIdx) => {
+        if (isLampSummaryPlot(plot)) hiddenIndexes.add(plotIdx)
+      })
+
+      return { enabled: true, laneByIndex, hiddenIndexes, laneCount: laneKeys.length, labelByLane, laneKeys }
+    }
+
+    const buildCustomPlotFigure = (plot, plotIdx, fallbackName, options = {}) => {
+      const plotName = plot.name || fallbackName || `PLOT_${plotIdx}`
+      const safeKeyBase = String(plotName)
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/^_+|_+$/g, '')
+      const figureKey = safeKeyBase || `plot_${plotIdx}`
+      const figureType = options.forceLamp ? 'bar' : normalizeCustomFigureType(plot.type)
+      const plotColor = plot.color || getIndicatorColor(plotIdx)
+      const pointSize = toPositiveNumber(plot.size ?? plot.radius, ['circle'].includes(figureType) ? 5 : 1.5)
+      const lineSize = toPositiveNumber(plot.lineWidth ?? plot.size, 1.5)
+      const borderSize = toPositiveNumber(plot.borderSize, 1)
+      const styleColor = plotColor
+      const colorKey = `${figureKey}__color`
+      const sizeKey = `${figureKey}__size`
+      const resolveRuntimeStyle = (indicatorData = {}) => {
+        const runtimeColor = indicatorData[colorKey] || styleColor
+        const runtimeSize = toPositiveNumber(indicatorData[sizeKey], pointSize)
+        const style = {
+          color: runtimeColor
+        }
+        const opacity = Number(plot.opacity)
+        if (Number.isFinite(opacity)) {
+          style.opacity = opacity
+        }
+        return { style, runtimeColor, runtimeSize }
+      }
+
+      const figure = {
+        key: figureKey,
+        title: options.forceLamp ? '' : (plot.title === false ? '' : (plot.title || plot.name || plotName)),
+        type: figureType,
+        lamp: options.forceLamp
+          ? {
+              lane: options.lampLane,
+              label: getLampLaneKeyV2(plot, plotIdx),
+              color: resolveLampColor(plotColor),
+              size: pointSize
+            }
+          : null,
+        styles: (data) => {
+          const indicatorData = data?.current?.indicatorData || {}
+          const { style: commonStyle, runtimeColor, runtimeSize } = resolveRuntimeStyle(indicatorData)
+
+          if (figureType === 'circle') {
+            return {
+              ...commonStyle,
+              borderColor: plot.borderColor || runtimeColor,
+              borderSize,
+              r: runtimeSize,
+              radius: runtimeSize
+            }
+          }
+
+          if (figureType === 'bar') {
+            return {
+              ...commonStyle,
+              style: options.forceLamp ? 'fill' : commonStyle.style,
+              borderColor: plot.borderColor || runtimeColor,
+              borderSize: options.forceLamp ? 0 : borderSize
+            }
+          }
+
+          return {
+            ...commonStyle,
+            size: lineSize,
+            style: plot.lineStyle || plot.style || 'solid'
+          }
+        }
+      }
+
+      if (figureType === 'circle') {
+        figure.attrs = ({ coordinate, data }) => {
+          const indicatorData = data?.current || {}
+          const { runtimeSize } = resolveRuntimeStyle(indicatorData)
+          const currentCoordinate = coordinate?.current || {}
+          return {
+            x: currentCoordinate.x,
+            y: currentCoordinate[figureKey],
+            r: runtimeSize
+          }
+        }
+      }
+
+      if (options.forceLamp && figureType === 'bar') {
+        figure.attrs = ({ coordinate, data, barSpace, bounding }) => {
+          const indicatorData = data?.current || {}
+          const currentCoordinate = coordinate?.current || {}
+          const runtimeSize = toPositiveNumber(indicatorData[sizeKey], pointSize)
+          const baseBarWidth = Number(barSpace?.bar ?? barSpace?.gapBar ?? 8)
+          const width = Math.max(3, Math.min(5, (Number.isFinite(baseBarWidth) ? baseBarWidth : 8) * 0.42, runtimeSize * 0.82))
+          const height = Math.max(8, Math.min(12, runtimeSize * 2.15))
+          const reservedLeft = Number(bounding?.left || 0) + 82
+          const x = Number(currentCoordinate.x)
+          if (!Number.isFinite(x) || x < reservedLeft) {
+            return { x: -9999, y: -9999, width: 0, height: 0 }
+          }
+          return {
+            x: x - width / 2,
+            y: currentCoordinate[figureKey] - height / 2,
+            width,
+            height,
+            r: height / 2
+          }
+        }
+      }
+
+      if (figureType === 'bar' && plot.baseValue != null) {
+        figure.baseValue = Number(plot.baseValue)
+      }
+
+      return { figureKey, figure, colorKey, sizeKey }
+    }
+
+    const hasLampStylePlots = (plots, lampBeltMeta = null) => {
+      if (lampBeltMeta?.enabled) return true
+      return Array.isArray(plots) && plots.some(plot => isLampType(plot?.type))
+    }
+
+    const getCustomPaneOptions = (plots, lampBeltMeta = null) => {
+      const lampLaneCount = Number(lampBeltMeta?.laneCount || 0)
+      const lampHeight = Math.max(170, Math.min(280, 82 + lampLaneCount * 22))
+      return {
+        height: hasLampStylePlots(plots, lampBeltMeta) ? lampHeight : 100,
+        dragEnabled: true
+      }
+    }
+
+    const drawRoundedRect = (ctx, x, y, width, height, radius) => {
+      const r = Math.max(0, Math.min(radius, width / 2, height / 2))
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + width - r, y)
+      ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+      ctx.lineTo(x + width, y + height - r)
+      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+      ctx.lineTo(x + r, y + height)
+      ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
+    }
+
+    // Legacy lamp renderer kept for compatibility reference while v2 handles current lamp belts.
+    // eslint-disable-next-line no-unused-vars
+    const createLampBeltDraw = (lampBeltMeta, displayName) => {
+      if (!lampBeltMeta?.enabled) return null
+      return ({ ctx, indicator, visibleRange, bounding, barSpace, xAxis, yAxis }) => {
+        try {
+          const result = indicator.result || []
+          const figures = (indicator.figures || []).filter(figure => figure?.lamp)
+          if (!figures.length || !result.length) return false
+
+          const isDark = chartTheme.value === 'dark'
+          const leftPad = 12
+          const topPad = 26
+          const bottomPad = 8
+          const labelWidth = 76
+          const chartLeft = bounding.left || 0
+          const chartTop = bounding.top || 0
+          const chartWidth = bounding.width || 0
+          const chartHeight = bounding.height || 0
+          const bodyTop = chartTop + topPad
+          const bodyHeight = Math.max(24, chartHeight - topPad - bottomPad)
+          const rowCount = Math.max(1, Number(lampBeltMeta.laneCount || 0))
+          const rowHeight = bodyHeight / rowCount
+          const baseBarWidth = Number(barSpace?.bar ?? barSpace?.gapBar ?? 8)
+          const lampWidth = Math.max(3, Math.min(5, (Number.isFinite(baseBarWidth) ? baseBarWidth : 8) * 0.42))
+          const lampHeight = Math.max(8, Math.min(12, rowHeight * 0.44))
+          const from = Math.max(0, Math.floor(visibleRange?.from ?? visibleRange?.realFrom ?? 0) - 1)
+          const to = Math.min(result.length - 1, Math.ceil(visibleRange?.to ?? visibleRange?.realTo ?? result.length - 1) + 1)
+
+          ctx.save()
+
+          const panelBg = isDark ? 'rgba(255,255,255,0.018)' : 'rgba(17,24,39,0.022)'
+          const rowBg = isDark ? 'rgba(255,255,255,0.026)' : 'rgba(17,24,39,0.03)'
+          const rowLine = isDark ? 'rgba(255,255,255,0.045)' : 'rgba(17,24,39,0.06)'
+          const labelBg = isDark ? 'rgba(8,12,18,0.72)' : 'rgba(255,255,255,0.84)'
+          const labelBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.10)'
+          const textColor = isDark ? 'rgba(220,226,235,0.82)' : 'rgba(45,55,72,0.84)'
+          const mutedText = isDark ? 'rgba(215,222,232,0.86)' : 'rgba(45,55,72,0.88)'
+
+          drawRoundedRect(ctx, chartLeft + 6, chartTop + 7, Math.max(0, chartWidth - 12), Math.max(0, chartHeight - 14), 8)
+          ctx.fillStyle = panelBg
+          ctx.fill()
+
+          ctx.font = '600 12px Inter, Arial, sans-serif'
+          ctx.fillStyle = textColor
+          ctx.fillText(displayName || indicator.shortName || 'Lamp Belt', chartLeft + leftPad, chartTop + 17)
+
+          ctx.font = '700 10px Inter, Arial, sans-serif'
+          const getLaneY = (lane) => {
+            const numericLane = Number(lane)
+            if (!Number.isFinite(numericLane)) return null
+            const clampedLane = Math.max(1, Math.min(rowCount, numericLane))
+            return bodyTop + (rowCount - clampedLane + 0.5) * rowHeight
+          }
+
+          for (let lane = 1; lane <= rowCount; lane++) {
+            const yCenter = getLaneY(lane)
+            if (!Number.isFinite(yCenter)) continue
+            const rowY = yCenter - rowHeight * 0.38
+            if (lane % 2 === 0) {
+              drawRoundedRect(ctx, chartLeft + 8, rowY, Math.max(0, chartWidth - 16), rowHeight * 0.76, 5)
+              ctx.fillStyle = rowBg
+              ctx.fill()
+            }
+            ctx.beginPath()
+            ctx.moveTo(chartLeft + labelWidth + 8, yCenter)
+            ctx.lineTo(chartLeft + chartWidth - 10, yCenter)
+            ctx.strokeStyle = rowLine
+            ctx.lineWidth = 1
+            ctx.stroke()
+
+            const label = lampBeltMeta.labelByLane?.get(lane) || `L${lane}`
+            const normalizedLabel = String(label)
+              .replace(/[_-]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toUpperCase()
+              .slice(0, 8)
+            drawRoundedRect(ctx, chartLeft + 8, yCenter - 9, labelWidth - 16, 18, 5)
+            ctx.fillStyle = labelBg
+            ctx.fill()
+            ctx.strokeStyle = labelBorder
+            ctx.lineWidth = 1
+            ctx.stroke()
+            ctx.fillStyle = mutedText
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(normalizedLabel, chartLeft + labelWidth / 2, yCenter)
+          }
+
+          const minLampX = chartLeft + labelWidth + 12
+          const maxLampX = chartLeft + chartWidth - 10
+          for (let i = from; i <= to; i++) {
+            const x = xAxis.convertToPixel(i)
+            if (!Number.isFinite(x) || x < minLampX || x > maxLampX) continue
+            const item = result[i] || {}
+            for (const figure of figures) {
+              const lane = Number(item[figure.key])
+              if (!Number.isFinite(lane) || lane < 1 || lane > rowCount) continue
+              const yCenter = getLaneY(lane)
+              if (!Number.isFinite(yCenter)) continue
+              const color = resolveLampColor(item[`${figure.key}__color`] || figure.lamp?.color)
+              const x0 = x - lampWidth / 2
+              const y0 = yCenter - lampHeight / 2
+              drawRoundedRect(ctx, x0, y0, lampWidth, lampHeight, lampWidth / 2)
+              ctx.fillStyle = color
+              ctx.fill()
+            }
+          }
+
+          ctx.font = '700 10px Inter, Arial, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          for (let lane = 1; lane <= rowCount; lane++) {
+            const yCenter = getLaneY(lane)
+            if (!Number.isFinite(yCenter)) continue
+            const label = lampBeltMeta.labelByLane?.get(lane) || `L${lane}`
+            const normalizedLabel = String(label)
+              .replace(/[_-]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toUpperCase()
+              .slice(0, 8)
+            drawRoundedRect(ctx, chartLeft + 8, yCenter - 9, labelWidth - 16, 18, 5)
+            ctx.fillStyle = labelBg
+            ctx.fill()
+            ctx.strokeStyle = labelBorder
+            ctx.lineWidth = 1
+            ctx.stroke()
+            ctx.fillStyle = mutedText
+            ctx.fillText(normalizedLabel, chartLeft + labelWidth / 2, yCenter)
+          }
+
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'alphabetic'
+
+          ctx.restore()
+          return true
+        } catch (error) {
+          try {
+            ctx.restore()
+          } catch (_) {}
+          return false
+        }
+      }
+    }
+
+    const createLampBeltDrawV2 = (displayName) => {
+      return ({ ctx, indicator, bounding }) => {
+        const lampBelt = indicator?.extendData?.lampBelt
+        if (!lampBelt?.enabled) return false
+
+        try {
+          const isDark = chartTheme.value === 'dark'
+          const chartLeft = Number(bounding?.left || 0)
+          const chartTop = Number(bounding?.top || 0)
+          const chartWidth = Number(bounding?.width || 0)
+          const chartHeight = Number(bounding?.height || 0)
+          const rowCount = Math.max(1, Number(lampBelt.laneCount || 0))
+          if (!chartWidth || !chartHeight || !rowCount) return false
+
+          const leftPad = 12
+          const topPad = 26
+          const bottomPad = 8
+          const labelWidth = 82
+          const bodyTop = chartTop + topPad
+          const bodyHeight = Math.max(24, chartHeight - topPad - bottomPad)
+          const rowHeight = bodyHeight / rowCount
+          const lanes = Array.isArray(lampBelt.lanes) ? lampBelt.lanes : []
+          const labelByLane = new Map(lanes.map(item => [Number(item.lane), item.label]))
+
+          const panelBg = isDark ? 'rgba(255,255,255,0.018)' : 'rgba(17,24,39,0.022)'
+          const rowBg = isDark ? 'rgba(255,255,255,0.026)' : 'rgba(17,24,39,0.03)'
+          const rowLine = isDark ? 'rgba(255,255,255,0.045)' : 'rgba(17,24,39,0.06)'
+          const labelBg = isDark ? 'rgba(8,12,18,0.84)' : 'rgba(255,255,255,0.9)'
+          const labelBorder = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(15,23,42,0.12)'
+          const titleColor = isDark ? 'rgba(220,226,235,0.78)' : 'rgba(45,55,72,0.78)'
+          const labelColor = isDark ? 'rgba(226,232,240,0.9)' : 'rgba(31,41,55,0.9)'
+
+          const getLaneY = (lane) => {
+            const numericLane = Number(lane)
+            if (!Number.isFinite(numericLane)) return null
+            const clampedLane = Math.max(1, Math.min(rowCount, numericLane))
+            return bodyTop + (rowCount - clampedLane + 0.5) * rowHeight
+          }
+
+          ctx.save()
+          drawRoundedRect(ctx, chartLeft + 6, chartTop + 7, Math.max(0, chartWidth - 12), Math.max(0, chartHeight - 14), 8)
+          ctx.fillStyle = panelBg
+          ctx.fill()
+
+          ctx.font = '600 12px Inter, Arial, sans-serif'
+          ctx.fillStyle = titleColor
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'alphabetic'
+          ctx.fillText(displayName || indicator.shortName || 'Lamp Belt', chartLeft + leftPad, chartTop + 17)
+
+          ctx.font = '700 10px Inter, Arial, sans-serif'
+          for (let lane = 1; lane <= rowCount; lane++) {
+            const yCenter = getLaneY(lane)
+            if (!Number.isFinite(yCenter)) continue
+            const rowY = yCenter - rowHeight * 0.38
+            if (lane % 2 === 0) {
+              drawRoundedRect(ctx, chartLeft + 8, rowY, Math.max(0, chartWidth - 16), rowHeight * 0.76, 5)
+              ctx.fillStyle = rowBg
+              ctx.fill()
+            }
+
+            ctx.beginPath()
+            ctx.moveTo(chartLeft + labelWidth + 8, yCenter)
+            ctx.lineTo(chartLeft + chartWidth - 10, yCenter)
+            ctx.strokeStyle = rowLine
+            ctx.lineWidth = 1
+            ctx.stroke()
+
+            const normalizedLabel = String(labelByLane.get(lane) || `L${lane}`)
+              .replace(/[_-]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toUpperCase()
+              .slice(0, 8)
+            drawRoundedRect(ctx, chartLeft + 8, yCenter - 9, labelWidth - 16, 18, 5)
+            ctx.fillStyle = labelBg
+            ctx.fill()
+            ctx.strokeStyle = labelBorder
+            ctx.lineWidth = 1
+            ctx.stroke()
+            ctx.fillStyle = labelColor
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(normalizedLabel, chartLeft + labelWidth / 2, yCenter)
+          }
+
+          ctx.restore()
+        } catch (error) {
+          try {
+            ctx.restore()
+          } catch (_) {}
+        }
+
+        return false
+      }
+    }
+
+    const createLampBeltExtendData = (lampBeltMeta, figures) => {
+      if (!lampBeltMeta?.enabled) return null
+      const lanes = []
+      if (lampBeltMeta.labelByLane && typeof lampBeltMeta.labelByLane.forEach === 'function') {
+        lampBeltMeta.labelByLane.forEach((label, lane) => {
+          lanes.push({ lane, label })
+        })
+      }
+      return {
+        enabled: true,
+        laneCount: lampBeltMeta.laneCount,
+        lanes,
+        figures: (figures || [])
+          .filter(figure => figure?.lamp)
+          .map(figure => ({
+            key: figure.key,
+            lane: figure.lamp.lane,
+            label: figure.lamp.label,
+            color: figure.lamp.color,
+            size: figure.lamp.size
+          }))
+      }
+    }
+
+    const normalizeLampLaneLabel = (label, lane) => {
+      return String(label || `L${lane}`)
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase()
+        .slice(0, 8)
+    }
+
+    const appendLampLaneLabelFigures = (figures, plotDataMap, lampBeltMeta, dataLength) => {
+      if (!lampBeltMeta?.enabled || !lampBeltMeta.labelByLane) return
+      const total = Math.max(0, Number(dataLength || 0))
+      if (!total) return
+
+      lampBeltMeta.labelByLane.forEach((label, lane) => {
+        const numericLane = Number(lane)
+        if (!Number.isFinite(numericLane)) return
+        const labelText = normalizeLampLaneLabel(label, numericLane)
+        const bgKey = `__lamp_lane_${numericLane}_bg`
+        const textKey = `__lamp_lane_${numericLane}_label`
+
+        plotDataMap[bgKey] = Array(total).fill(numericLane)
+        plotDataMap[textKey] = Array(total).fill(numericLane)
+
+        figures.push({
+          key: bgKey,
+          title: '',
+          type: 'rect',
+          attrs: ({ coordinate, bounding }) => {
+            const y = coordinate?.current?.[bgKey]
+            const left = Number(bounding?.left || 0)
+            if (!Number.isFinite(y)) return { x: -9999, y: -9999, width: 0, height: 0 }
+            return {
+              x: left + 8,
+              y: y - 9,
+              width: 58,
+              height: 18
+            }
+          },
+          styles: () => {
+            const isDark = chartTheme.value === 'dark'
+            return {
+              style: 'stroke_fill',
+              color: isDark ? 'rgba(8,12,18,0.86)' : 'rgba(255,255,255,0.92)',
+              borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.12)',
+              borderSize: 1
+            }
+          }
+        })
+
+        figures.push({
+          key: textKey,
+          title: '',
+          type: 'text',
+          attrs: ({ coordinate, bounding }) => {
+            const y = coordinate?.current?.[textKey]
+            const left = Number(bounding?.left || 0)
+            if (!Number.isFinite(y)) return { x: -9999, y: -9999, text: '' }
+            return {
+              x: left + 14,
+              y,
+              text: labelText,
+              align: 'left',
+              baseline: 'middle'
+            }
+          },
+          styles: () => ({
+            color: chartTheme.value === 'dark' ? 'rgba(226,232,240,0.94)' : 'rgba(31,41,55,0.92)',
+            size: 10,
+            weight: '700'
+          })
+        })
+      })
+    }
+
+    const createLampBeltTooltip = (displayName) => () => ({
+      name: displayName || 'Lamp Belt',
+      calcParamsText: '',
+      icons: [],
+      values: []
+    })
+
+    const registerCustomIndicator = (name, calcFunc, figures, calcParams = [], precision = -1, shouldOverlay = false, displayName = null, extraConfig = {}) => {
       if (precision < 0) precision = pricePrecision.value
       try {
         const indicatorConfig = {
           name,
-          shortName: name, // 添加 shortName
+          shortName: displayName || name,
           calc: calcFunc,
           figures,
           calcParams,
           precision,
-          series: shouldOverlay ? 'price' : 'normal'
+          series: shouldOverlay ? 'price' : 'normal',
+          ...extraConfig
         }
 
         registerIndicator(indicatorConfig)
@@ -2970,8 +4171,41 @@ registerOverlay({
       })
     }
 
+    const renderIndicatorSignals = (signalPoints) => {
+      if (!Array.isArray(signalPoints) || !signalPoints.length) return
+      if (!chartRef.value || typeof chartRef.value.createOverlay !== 'function') return
+
+      for (const point of signalPoints) {
+        try {
+          const overlayId = chartRef.value.createOverlay({
+            name: 'signalTag',
+            points: [
+              { timestamp: point.timestamp, value: point.price },
+              { timestamp: point.timestamp, value: point.anchorPrice }
+            ],
+            extendData: {
+              text: point.text,
+              color: point.color,
+              side: point.side,
+              action: point.action,
+              price: point.price,
+              rawPrice: point.rawPrice
+            },
+            lock: true
+          }, 'candle_pane')
+
+          if (overlayId) {
+            addedSignalOverlayIds.value.push(overlayId)
+          }
+        } catch (overlayErr) {
+          // Drawing overlays are best-effort; one failed marker should not break the chart.
+        }
+      }
+    }
+
     const updateIndicators = async () => {
       if (indicatorsUpdating.value) {
+        indicatorsUpdateQueued.value = true
         return
       }
       if (!chartRef.value || klineData.value.length === 0) {
@@ -2979,43 +4213,12 @@ registerOverlay({
       }
 
       indicatorsUpdating.value = true
+      const renderCycleId = ++indicatorRenderSeq
+      const previousSignalOverlayIds = [...addedSignalOverlayIds.value]
+      const previousIndicatorIds = [...addedIndicatorIds.value]
+      addedSignalOverlayIds.value = []
+      addedIndicatorIds.value = []
       try {
-      try {
-        if (addedSignalOverlayIds.value.length > 0 && chartRef.value) {
-          addedSignalOverlayIds.value.forEach(overlayId => {
-            try {
-              if (typeof chartRef.value.removeOverlay === 'function') {
-                chartRef.value.removeOverlay(overlayId)
-              } else if (typeof chartRef.value.removeOverlayById === 'function') {
-                chartRef.value.removeOverlayById(overlayId)
-              }
-            } catch (err) {
-            }
-          })
-          addedSignalOverlayIds.value = []
-        }
-      } catch (e) {
-      }
-
-      try {
-        if (addedIndicatorIds.value.length > 0) {
-          addedIndicatorIds.value.forEach(info => {
-            const name = typeof info === 'string' ? info : info.name
-            const paneId = typeof info === 'string' ? undefined : info.paneId
-
-            // KLineChart v9: removeIndicator(paneId, name)
-            if (paneId) {
-              chartRef.value.removeIndicator(paneId, name)
-            } else {
-              chartRef.value.removeIndicator('candle_pane', name)
-              chartRef.value.removeIndicator(name)
-            }
-          })
-          addedIndicatorIds.value = []
-        }
-      } catch (e) {
-      }
-
       const internalData = convertToInternalFormat(klineData.value)
       const mainPaneOverlayFigures = []
       const mainPaneOverlayCalcEntries = []
@@ -3045,104 +4248,10 @@ registerOverlay({
               if (indicator.calculate && typeof indicator.calculate === 'function') {
                 const result = await indicator.calculate(internalData, resolvePythonIndicatorParams(indicator))
 
-                let allPlots = []
-                if (result && result.plots && Array.isArray(result.plots)) {
-                  allPlots = [...result.plots]
-                }
-                renderIndicatorLayers(result && result.layers, internalData)
-
-                if (result && result.signals && Array.isArray(result.signals)) {
-                  for (const signal of result.signals) {
-                    if (signal.data && Array.isArray(signal.data) && signal.data.length > 0) {
-                      const sampleValues = []
-                      for (let i = 0; i < Math.min(signal.data.length, 20); i++) {
-                        const val = signal.data[i]
-                        if (val !== null && val !== undefined && !isNaN(val)) {
-                          if (sampleValues.length < 5) {
-                            sampleValues.push({ index: i, value: val })
-                          }
-                        }
-                      }
-
-                      const signalPoints = []
-                      for (let i = 0; i < signal.data.length && i < internalData.length; i++) {
-                        const signalValue = signal.data[i]
-                        if (signalValue !== null && signalValue !== undefined && !isNaN(signalValue)) {
-                          const klineItem = internalData[i]
-                          const timestamp = klineItem.timestamp || klineItem.time
-
-                          const highPrice = klineItem.high
-                          const lowPrice = klineItem.low
-
-                          // Signal type: chart only displays indicator signals (buy/sell).
-                          const signalTypeRaw = (signal.type || 'buy')
-                          const signalType = String(signalTypeRaw).toLowerCase()
-                          // Chart only displays indicator signals (no position mgmt / TP/SL / trailing etc).
-                          const allowedSignalTypes = ['buy', 'sell']
-                          if (!allowedSignalTypes.includes(signalType)) {
-                            continue
-                          }
-                          // Buy-side labels are shown below candles; sell-side labels above candles.
-                          const isBuySignal = signalType === 'buy'
-
-                          // Text: prefer per-point textData, otherwise use signal.text, otherwise fallback to B/S.
-                          let pointText = signal.text || (isBuySignal ? 'B' : 'S')
-                          if (signal.textData && signal.textData[i] != null) {
-                            pointText = signal.textData[i]
-                          }
-
-                          signalPoints.push({
-                            timestamp,
-                            price: signalValue,
-                            anchorPrice: isBuySignal ? lowPrice : highPrice,
-                            // side is used for layout/styling; action preserves the original type (buy/sell).
-                            side: isBuySignal ? 'buy' : 'sell',
-                            action: signalType,
-                            color: signal.color || (isBuySignal ? '#00E676' : '#FF5252'),
-                            text: pointText
-                          })
-                        }
-                      }
-
-                      if (signalPoints.length > 0 && chartRef.value) {
-                        for (const point of signalPoints) {
-                          try {
-                            let timestamp = point.timestamp
-                            if (timestamp < 1e10) {
-                              timestamp = timestamp * 1000
-                            }
-
-                            const displaySimpleText = point.text
-
-                            if (typeof chartRef.value.createOverlay === 'function') {
-                              const overlayId = chartRef.value.createOverlay({
-                                name: 'signalTag',
-                                points: [
-                                  { timestamp: timestamp, value: point.price },
-                                  { timestamp: timestamp, value: point.anchorPrice }
-                                ],
-                                extendData: {
-                                  text: displaySimpleText,
-                                  color: point.color,
-                                  side: point.side,
-                                  action: point.action,
-                                  price: point.price
-                                },
-                                lock: true // 锁定防止拖动
-                              }, 'candle_pane') // 绘制在主图
-
-                              if (overlayId) {
-                                addedSignalOverlayIds.value.push(overlayId)
-                              }
-                            }
-                          } catch (overlayErr) {
-                            // Drawing overlays are best-effort; one failed marker should not break the chart.
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                const renderResult = normalizeIndicatorRenderResult(result, internalData)
+                const allPlots = [...renderResult.plots]
+                renderIndicatorLayers(renderResult.layers, internalData)
+                renderIndicatorSignals(renderResult.signalPoints)
 
                 if (allPlots.length > 0) {
                   const validPlots = allPlots.filter(plot => plot.data && Array.isArray(plot.data) && plot.data.length > 0)
@@ -3150,50 +4259,66 @@ registerOverlay({
                   if (validPlots.length > 0) {
                     const figures = []
                     const plotDataMap = {}
+                    const lampBeltMeta = createLampBeltMeta(validPlots)
+                    const renderPlots = validPlots
+                      .map((plot, plotIdx) => ({ plot, plotIdx }))
+                      .filter(({ plotIdx }) => !lampBeltMeta.hiddenIndexes.has(plotIdx))
 
-                    for (let plotIdx = 0; plotIdx < validPlots.length; plotIdx++) {
-                      const plot = validPlots[plotIdx]
-                      const plotName = plot.name || `PLOT_${plotIdx}_${idx}`
-                      const figureKey = plotName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_')
-                      const plotColor = plot.color || getIndicatorColor(plotIdx)
-
-                      const figureType = plot.type || 'line'
-
-                      figures.push({
-                        key: figureKey,
-                        title: plot.name || plotName,
-                        type: figureType,
-                        color: plotColor
+                    for (const { plot, plotIdx } of renderPlots) {
+                      const forceLamp = lampBeltMeta.laneByIndex.has(plotIdx)
+                      const lampLane = lampBeltMeta.laneByIndex.get(plotIdx)
+                      const { figureKey, figure, colorKey, sizeKey } = buildCustomPlotFigure(plot, plotIdx, `PLOT_${plotIdx}_${idx}`, {
+                        forceLamp,
+                        lampLane
                       })
 
-                      plotDataMap[figureKey] = plot.data
+                      figures.push(figure)
+                      plotDataMap[figureKey] = normalizePlotDataSeries(plot.data, {
+                        forceLamp,
+                        lampLane
+                      })
+                      plotDataMap[colorKey] = extractPlotColorSeries(plot.data)
+                      plotDataMap[sizeKey] = extractPlotSizeSeries(plot.data)
                     }
 
+                    appendLampLaneLabelFigures(figures, plotDataMap, lampBeltMeta, internalData.length)
+                    const lampBeltExtendData = createLampBeltExtendData(lampBeltMeta, figures)
                     const allOverlay = validPlots.every(plot => plot.overlay !== false)
-                    const pyNameKey = String(indicator.instanceId || indicator.id || `py_${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_')
-                    let customIndicatorName = `${pyNameKey}_combined`
-                    if (result && result.name) {
-                      customIndicatorName = `${pyNameKey}_${String(result.name)}`
+                    let customIndicatorDisplayName = 'Custom Indicator'
+                    if (renderResult.name) {
+                      customIndicatorDisplayName = renderResult.name
                     }
+                    const renderSignature = hashCustomIndicatorSignature(JSON.stringify({
+                      version: CUSTOM_INDICATOR_RENDER_VERSION,
+                      code: indicator.code || '',
+                      plots: validPlots.map(plot => ({
+                        name: plot.name,
+                        title: plot.title,
+                        type: plot.type,
+                        overlay: plot.overlay,
+                        color: plot.color
+                      })),
+                      lampLaneCount: lampBeltMeta.laneCount
+                    }))
+                    const customIndicatorName = `${customIndicatorDisplayName}_${CUSTOM_INDICATOR_RENDER_VERSION}_${renderSignature}_${renderCycleId}`
                     try {
                       const registered = registerCustomIndicator(
                         customIndicatorName,
-                        (kLineDataList) => {
-                          const result = []
-                          for (let i = 0; i < kLineDataList.length; i++) {
-                            const dataPoint = {}
-                            for (const figureKey in plotDataMap) {
-                              const plotData = plotDataMap[figureKey]
-                              dataPoint[figureKey] = i < plotData.length ? plotData[i] : null
-                            }
-                            result.push(dataPoint)
-                          }
-                          return result
-                        },
+                        (kLineDataList) => buildAlignedPlotRows(internalData, plotDataMap, kLineDataList),
                         figures,
                         [],
                         2,
-                        allOverlay
+                        allOverlay,
+                        customIndicatorDisplayName,
+                        lampBeltMeta.enabled
+                          ? {
+                              minValue: 1,
+                              maxValue: lampBeltMeta.laneCount,
+                              extendData: { lampBelt: lampBeltExtendData },
+                              draw: createLampBeltDrawV2(customIndicatorDisplayName),
+                              createTooltipDataSource: createLampBeltTooltip(customIndicatorDisplayName)
+                            }
+                          : {}
                       )
 
                       if (registered) {
@@ -3212,7 +4337,7 @@ registerOverlay({
                           const indicatorId = chartRef.value.createIndicator(
                             customIndicatorName,
                             false,
-                            { height: 100, dragEnabled: true }
+                            getCustomPaneOptions(validPlots, lampBeltMeta)
                           )
                           if (indicatorId) {
                             addedIndicatorIds.value.push({ paneId: indicatorId, name: customIndicatorName })
@@ -3225,7 +4350,7 @@ registerOverlay({
                 }
               } else {
                 const decryptInfo = {
-                  id: indicator.originalId || indicator.id, // 优先使用原始数据库ID
+                  id: indicator.originalId || indicator.id,
                   user_id: indicator.user_id || indicator.userId,
                   is_encrypted: indicator.is_encrypted || indicator.isEncrypted || 0
                 }
@@ -3233,105 +4358,13 @@ registerOverlay({
                   indicator.code,
                   internalData,
                   resolvePythonIndicatorParams(indicator),
-                  decryptInfo // 传递解密信息
+                  decryptInfo
                 )
 
-                let allPlots = []
-                if (pythonResult && pythonResult.plots && Array.isArray(pythonResult.plots)) {
-                  allPlots = [...pythonResult.plots]
-                }
-                renderIndicatorLayers(pythonResult && pythonResult.layers, internalData)
-
-                if (pythonResult && pythonResult.signals && Array.isArray(pythonResult.signals)) {
-                  for (const signal of pythonResult.signals) {
-                    if (signal.data && Array.isArray(signal.data) && signal.data.length > 0) {
-                      const sampleValues = []
-                      for (let i = 0; i < Math.min(signal.data.length, 20); i++) {
-                        const val = signal.data[i]
-                        if (val !== null && val !== undefined && !isNaN(val)) {
-                          if (sampleValues.length < 5) {
-                            sampleValues.push({ index: i, value: val })
-                          }
-                        }
-                      }
-
-                      const signalPoints = []
-                      for (let i = 0; i < signal.data.length && i < internalData.length; i++) {
-                        const signalValue = signal.data[i]
-                        if (signalValue !== null && signalValue !== undefined && !isNaN(signalValue)) {
-                          const klineItem = internalData[i]
-                          const timestamp = klineItem.timestamp || klineItem.time
-
-                          const highPrice = klineItem.high
-                          const lowPrice = klineItem.low
-
-                          // Signal type: chart only displays indicator signals (buy/sell).
-                          const signalTypeRaw = (signal.type || 'buy')
-                          const signalType = String(signalTypeRaw).toLowerCase()
-                          // Chart only displays indicator signals (no position mgmt / TP/SL / trailing etc).
-                          const allowedSignalTypes = ['buy', 'sell']
-                          if (!allowedSignalTypes.includes(signalType)) {
-                            continue
-                          }
-                          const isBuySignal = signalType === 'buy'
-
-                          // Text: prefer per-point textData, otherwise use signal.text, otherwise fallback to B/S.
-                          let pointText = signal.text || (isBuySignal ? 'B' : 'S')
-                          if (signal.textData && signal.textData[i] != null) {
-                            pointText = signal.textData[i]
-                          }
-
-                          signalPoints.push({
-                            timestamp,
-                            price: signalValue,
-                            anchorPrice: isBuySignal ? lowPrice : highPrice,
-                            side: isBuySignal ? 'buy' : 'sell',
-                            action: signalType,
-                            color: signal.color || (isBuySignal ? '#00E676' : '#FF5252'),
-                            text: pointText
-                          })
-                        }
-                      }
-
-                      if (signalPoints.length > 0 && chartRef.value) {
-                        for (const point of signalPoints) {
-                          try {
-                            let timestamp = point.timestamp
-                            if (timestamp < 1e10) {
-                              timestamp = timestamp * 1000
-                            }
-
-                            const displaySimpleText = point.text
-
-                            if (typeof chartRef.value.createOverlay === 'function') {
-                              const overlayId = chartRef.value.createOverlay({
-                                name: 'signalTag',
-                                points: [
-                                  { timestamp: timestamp, value: point.price },
-                                  { timestamp: timestamp, value: point.anchorPrice }
-                                ],
-                                extendData: {
-                                  text: displaySimpleText,
-                                  color: point.color,
-                                  side: point.side,
-                                  action: point.action,
-                                  price: point.price
-                                },
-                                lock: true // 锁定防止拖动
-                              }, 'candle_pane') // 绘制在主图
-
-                              if (overlayId) {
-                                addedSignalOverlayIds.value.push(overlayId)
-                              }
-                            }
-                          } catch (overlayErr) {
-                            // Drawing overlays are best-effort; one failed marker should not break the chart.
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                const renderResult = normalizeIndicatorRenderResult(pythonResult, internalData)
+                const allPlots = [...renderResult.plots]
+                renderIndicatorLayers(renderResult.layers, internalData)
+                renderIndicatorSignals(renderResult.signalPoints)
 
                 if (allPlots.length > 0) {
                   const validPlots = allPlots.filter(plot => plot.data && Array.isArray(plot.data) && plot.data.length > 0)
@@ -3339,76 +4372,81 @@ registerOverlay({
                   if (validPlots.length > 0) {
                     const figures = []
                     const plotDataMap = {}
+                    const lampBeltMeta = createLampBeltMeta(validPlots)
+                    const renderPlots = validPlots
+                      .map((plot, plotIdx) => ({ plot, plotIdx }))
+                      .filter(({ plotIdx }) => !lampBeltMeta.hiddenIndexes.has(plotIdx))
 
-                    for (let plotIdx = 0; plotIdx < validPlots.length; plotIdx++) {
-                      const plot = validPlots[plotIdx]
-                      const plotName = plot.name || `PLOT_${plotIdx}`
-                      const figureKey = plotName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_')
-                      const plotColor = plot.color || getIndicatorColor(plotIdx)
-
-                      const figureType = plot.type || 'line'
-
-                      figures.push({
-                        key: figureKey,
-                        title: plot.name || plotName,
-                        type: figureType,
-                        color: plotColor
+                    for (const { plot, plotIdx } of renderPlots) {
+                      const forceLamp = lampBeltMeta.laneByIndex.has(plotIdx)
+                      const lampLane = lampBeltMeta.laneByIndex.get(plotIdx)
+                      const { figureKey, figure, colorKey, sizeKey } = buildCustomPlotFigure(plot, plotIdx, `PLOT_${plotIdx}`, {
+                        forceLamp,
+                        lampLane
                       })
 
-                      plotDataMap[figureKey] = plot.data
+                      figures.push(figure)
+                      plotDataMap[figureKey] = normalizePlotDataSeries(plot.data, {
+                        forceLamp,
+                        lampLane
+                      })
+                      plotDataMap[colorKey] = extractPlotColorSeries(plot.data)
+                      plotDataMap[sizeKey] = extractPlotSizeSeries(plot.data)
                     }
 
+                    appendLampLaneLabelFigures(figures, plotDataMap, lampBeltMeta, internalData.length)
+                    const lampBeltExtendData = createLampBeltExtendData(lampBeltMeta, figures)
                     const allOverlay = validPlots.every(plot => plot.overlay !== false)
-                    const pyNameKey2 = String(indicator.instanceId || indicator.id || `py_${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_')
-                    let customIndicatorName = `${pyNameKey2}_combined`
-                    if (pythonResult && pythonResult.name) {
-                      customIndicatorName = `${pyNameKey2}_${String(pythonResult.name)}`
+                    let customIndicatorDisplayName = 'Custom Indicator'
+                    if (renderResult.name) {
+                      customIndicatorDisplayName = renderResult.name
                     }
+                    const renderSignature = hashCustomIndicatorSignature(JSON.stringify({
+                      version: CUSTOM_INDICATOR_RENDER_VERSION,
+                      code: indicator.code || '',
+                      plots: validPlots.map(plot => ({
+                        name: plot.name,
+                        title: plot.title,
+                        type: plot.type,
+                        overlay: plot.overlay,
+                        color: plot.color
+                      })),
+                      lampLaneCount: lampBeltMeta.laneCount
+                    }))
+                    const customIndicatorName = `${customIndicatorDisplayName}_${CUSTOM_INDICATOR_RENDER_VERSION}_${renderSignature}_${renderCycleId}`
 
                     try {
                       if (allOverlay) {
                         addMainPaneOverlayEntry({
                           signature: `${customIndicatorName}_${idx}`,
                           figures,
-                          calc: () => {
-                            const result = []
-                            for (let i = 0; i < internalData.length; i++) {
-                              const dataPoint = {}
-                              for (const figureKey in plotDataMap) {
-                                const plotData = plotDataMap[figureKey]
-                                dataPoint[figureKey] = i < plotData.length ? plotData[i] : null
-                              }
-                              result.push(dataPoint)
-                            }
-                            return result
-                          }
+                          calc: (kLineDataList) => buildAlignedPlotRows(internalData, plotDataMap, kLineDataList)
                         })
                       } else {
                         const registered = registerCustomIndicator(
                           customIndicatorName,
-                          (kLineDataList) => {
-                            const result = []
-                            for (let i = 0; i < kLineDataList.length; i++) {
-                              const dataPoint = {}
-                              for (const figureKey in plotDataMap) {
-                                const plotData = plotDataMap[figureKey]
-                                dataPoint[figureKey] = i < plotData.length ? plotData[i] : null
-                              }
-                              result.push(dataPoint)
-                            }
-                            return result
-                          },
+                          (kLineDataList) => buildAlignedPlotRows(internalData, plotDataMap, kLineDataList),
                           figures,
                           [],
                           2,
-                          false
+                          false,
+                          customIndicatorDisplayName,
+                          lampBeltMeta.enabled
+                            ? {
+                                minValue: 1,
+                                maxValue: lampBeltMeta.laneCount,
+                                extendData: { lampBelt: lampBeltExtendData },
+                                draw: createLampBeltDrawV2(customIndicatorDisplayName),
+                                createTooltipDataSource: createLampBeltTooltip(customIndicatorDisplayName)
+                              }
+                            : {}
                         )
 
                         if (registered) {
                           const indicatorId = chartRef.value.createIndicator(
                             customIndicatorName,
                             false,
-                            { height: 100, dragEnabled: true }
+                            getCustomPaneOptions(validPlots, lampBeltMeta)
                           )
                           if (indicatorId) {
                             addedIndicatorIds.value.push({ paneId: indicatorId, name: customIndicatorName })
@@ -3429,7 +4467,7 @@ registerOverlay({
           const color = indicatorStyle.color
           const lineWidth = indicatorStyle.lineWidth
           const indicatorInstanceKey = String(indicator.instanceId || `${indicator.id}_${idx}`).replace(/[^a-zA-Z0-9_]/g, '_')
-          const buildUniqueIndicatorName = (baseName) => `${baseName}_${indicatorInstanceKey}`
+          const buildUniqueIndicatorName = (baseName) => `${baseName}_${indicatorInstanceKey}_${renderCycleId}`
           const buildLineFigure = (key, title, figureColor = color, width = lineWidth) => ({
             key,
             title,
@@ -3544,9 +4582,9 @@ registerOverlay({
               addMainPaneOverlayEntry({
                 signature: buildUniqueIndicatorName(`BOLL_${length}_${mult}`),
                 figures: [
-                  buildLineFigure(`upper_${indicatorInstanceKey}`, `上轨(${length},${mult})`, color, lineWidth),
-                  buildLineFigure(`middle_${indicatorInstanceKey}`, `中轨(${length})`, '#8c8c8c', lineWidth),
-                  buildLineFigure(`lower_${indicatorInstanceKey}`, `下轨(${length},${mult})`, color, lineWidth)
+                  buildLineFigure(`upper_${indicatorInstanceKey}`, `Upper(${length},${mult})`, color, lineWidth),
+                  buildLineFigure(`middle_${indicatorInstanceKey}`, `Middle(${length})`, '#8c8c8c', lineWidth),
+                  buildLineFigure(`lower_${indicatorInstanceKey}`, `Lower(${length},${mult})`, color, lineWidth)
                 ],
                 calc: (kLineDataList) => {
                   const currentLength = length
@@ -3853,7 +4891,7 @@ registerOverlay({
       }
       if (mainPaneOverlayFigures.length > 0) {
         try {
-          const combinedName = `QD_MAIN_OVERLAY_${mainPaneOverlaySignatureParts.join('_').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 120)}`
+          const combinedName = `QD_MAIN_OVERLAY_${mainPaneOverlaySignatureParts.join('_').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 120)}_${renderCycleId}`
           const registered = registerCustomIndicator(
             combinedName,
             (kLineDataList) => {
@@ -3884,9 +4922,29 @@ registerOverlay({
         } catch (e) {
         }
       }
+      const renderedCount = addedSignalOverlayIds.value.length + addedIndicatorIds.value.length
+      const activeIndicatorCount = Array.isArray(props.activeIndicators) ? props.activeIndicators.length : 0
+      if (renderedCount > 0 || activeIndicatorCount === 0) {
+        removeSignalOverlayBatch(previousSignalOverlayIds)
+        removeIndicatorBatch(previousIndicatorIds)
+      } else {
+        addedSignalOverlayIds.value = previousSignalOverlayIds
+        addedIndicatorIds.value = previousIndicatorIds
+      }
+      } catch (e) {
+        removeSignalOverlayBatch(addedSignalOverlayIds.value)
+        removeIndicatorBatch(addedIndicatorIds.value)
+        addedSignalOverlayIds.value = previousSignalOverlayIds
+        addedIndicatorIds.value = previousIndicatorIds
       } finally {
         indicatorsUpdating.value = false
         emit('indicators-updated')
+        if (indicatorsUpdateQueued.value) {
+          indicatorsUpdateQueued.value = false
+          setTimeout(() => {
+            updateIndicators()
+          }, 0)
+        }
       }
     }
 
@@ -3922,11 +4980,13 @@ registerOverlay({
       loadKlineData()
     }
 
-    watch(() => props.symbol, () => {
-      if (props.symbol) {
-        loadKlineData()
-      }
-    })
+    watch(
+      () => [props.market, props.symbol, props.timeframe, props.exchangeId, props.marketType, props.instrumentId, props.initialBeforeTime, props.initialLimit],
+      () => {
+        if (props.symbol) loadKlineData()
+      },
+      { immediate: true }
+    )
     watch(() => props.theme, (newTheme) => {
       chartTheme.value = newTheme
       if (chartRef.value) {
@@ -3934,18 +4994,6 @@ registerOverlay({
         updateIndicators()
       }
       nextTick(() => _ensureWmLayer())
-    })
-
-    watch(() => props.market, () => {
-      if (props.symbol) {
-        loadKlineData()
-      }
-    })
-
-    watch(() => props.timeframe, () => {
-      if (props.symbol) {
-        loadKlineData()
-      }
     })
 
     watch(() => props.activeIndicators, (newVal, oldVal) => {
@@ -4016,7 +5064,7 @@ registerOverlay({
       })
     })
 
-    // ── Watermark (multi-layer, tamper-resistant) ──
+    // Watermark layer with a lightweight tamper check.
     const _wmText = [81, 117, 97, 110, 116, 68, 105, 110, 103, 101, 114].map(c => String.fromCharCode(c)).join('')
     const _wmSub = [113, 117, 97, 110, 116, 100, 105, 110, 103, 101, 114, 46, 99, 111, 109].map(c => String.fromCharCode(c)).join('')
 
@@ -4200,6 +5248,13 @@ registerOverlay({
   }
 }
 
+.chart-left.chart-left--full {
+  width: 100% !important;
+  min-width: 100% !important;
+  flex: 1 1 100% !important;
+  border-right: none;
+}
+
 .chart-wrapper {
   width: 100%;
   height: 100%;
@@ -4299,7 +5354,7 @@ registerOverlay({
 }
 
 .indicator-toolbar::-webkit-scrollbar {
-  display: none; /* Chrome Safari */
+  display: none;
   width: 0;
   height: 0;
 }
@@ -4558,7 +5613,7 @@ registerOverlay({
 .kline-chart-container {
   flex: 1;
   width: 100%;
-  min-width: 0; /* 防止 flex 子元素溢出 */
+  min-width: 0;
   background: #fff;
   transition: background-color 0.3s;
   touch-action: pan-x pan-y;
@@ -4586,6 +5641,28 @@ registerOverlay({
 
 .chart-left.theme-dark .chart-overlay {
   background: rgba(20, 20, 20, 0.95);
+}
+
+.chart-refresh-indicator {
+  position: absolute;
+  top: 92px;
+  right: 16px;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.chart-left.theme-dark .chart-refresh-indicator {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(32, 32, 32, 0.9);
 }
 
 .error-box {
@@ -4715,41 +5792,41 @@ registerOverlay({
 
 @media (max-width: 768px) {
   .drawing-toolbar {
-    display: none; /* 移动端隐藏画线工具栏 */
+    display: none;
   }
 
   .indicator-toolbar {
-    padding-left: 12px; /* 移动端恢复原始padding */
-    flex-wrap: nowrap; /* 手机端不换行，只显示一行 */
-    overflow-x: auto; /* 允许横向滚动 */
-    overflow-y: hidden; /* 禁止纵向滚动 */
-    scrollbar-width: none; /* Firefox 隐藏滚动条 */
-    -ms-overflow-style: none; /* IE 10+ 隐藏滚动条 */
-    -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+    padding-left: 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   .indicator-toolbar::-webkit-scrollbar {
-    display: none; /* Chrome Safari 隐藏滚动条 */
+    display: none;
     width: 0;
     height: 0;
   }
 
   .indicator-btn {
-    flex-shrink: 0; /* 按钮不收缩，保持原始大小 */
+    flex-shrink: 0;
   }
 }
 
 @media (max-width: 1200px) {
   .drawing-toolbar {
-    display: none; /* 移动端隐藏画线工具栏 */
+    display: none;
   }
 
   .indicator-toolbar {
-    padding-left: 12px; /* 移动端恢复原始padding */
+    padding-left: 12px;
   }
 
   .kline-chart-container {
-    margin-left: 0; /* 移动端恢复原始margin */
+    margin-left: 0;
   }
 
   .chart-left {
@@ -4803,7 +5880,7 @@ registerOverlay({
   }
 
   .kline-chart-container {
-    height: calc(100% - 45px) !important; /* 减去工具栏高度 */
+    height: calc(100% - 45px) !important;
     min-height: 350px !important;
     max-height: calc(100% - 45px) !important;
   }
@@ -4823,7 +5900,7 @@ registerOverlay({
   }
 
   .kline-chart-container {
-    height: calc(100% - 45px) !important; /* 减去工具栏高度 */
+    height: calc(100% - 45px) !important;
     min-height: 300px !important;
     max-height: calc(100% - 45px) !important;
   }

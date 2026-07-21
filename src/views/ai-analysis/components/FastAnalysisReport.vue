@@ -82,7 +82,7 @@
         <div class="decision-main">
           <div class="decision-badge">
             <a-icon :type="decisionIcon" />
-            <span class="decision-text">{{ result.decision }}</span>
+            <span class="decision-text">{{ decisionDisplayText }}</span>
           </div>
           <div class="confidence-ring">
             <a-progress
@@ -99,7 +99,7 @@
           </div>
         </div>
         <div class="decision-summary">
-          {{ result.summary }}
+          {{ displaySummary }}
         </div>
         <div v-if="consensusBlock" class="consensus-strip">
           <div class="consensus-strip-title">
@@ -109,7 +109,7 @@
           <div class="consensus-strip-metrics">
             <span class="cm-item">
               <em>{{ $t('fastAnalysis.consensusDecision') }}</em>
-              {{ consensusBlock.consensus_decision }}
+              {{ formatDecisionLabel(consensusBlock.consensus_decision) }}
             </span>
             <span class="cm-item">
               <em>{{ $t('fastAnalysis.consensusScore') }}</em>
@@ -186,7 +186,7 @@
         </div>
         <div v-show="!sectionCollapsed.trendOutlook">
           <div v-if="trendOutlookSummaryText" class="trend-outlook-summary">
-            {{ trendOutlookSummaryText }}
+            {{ neutralizeDecisionText(trendOutlookSummaryText) }}
           </div>
           <div v-if="trendOutlookBlocks.length" class="trend-outlook-grid">
             <div v-for="row in trendOutlookBlocks" :key="row.key" class="trend-outlook-item">
@@ -266,7 +266,7 @@
               </span>
             </div>
             <div class="crypto-factor-summary__text">
-              {{ result.crypto_factor_summary || '--' }}
+              {{ neutralizeDecisionText(result.crypto_factor_summary || '--') }}
             </div>
             <div v-if="cryptoSignals.length" class="crypto-factor-signals">
               <a-tag v-for="item in cryptoSignals" :key="item.key" :color="item.color">{{ item.label }}</a-tag>
@@ -296,7 +296,7 @@
                 <span>{{ $t('fastAnalysis.technicalAnalysis') }}</span>
                 <a-tag :color="getScoreTagColor(result.scores?.technical)">{{ result.scores?.technical || 50 }}分</a-tag>
               </div>
-              <div class="analysis-card-content">{{ result.detailed_analysis.technical }}</div>
+              <div class="analysis-card-content">{{ neutralizeDecisionText(result.detailed_analysis.technical) }}</div>
             </div>
             <div class="analysis-card fundamental" v-if="result.detailed_analysis.fundamental">
               <div class="analysis-card-header">
@@ -304,7 +304,7 @@
                 <span>{{ $t('fastAnalysis.fundamentalAnalysis') }}</span>
                 <a-tag :color="getScoreTagColor(result.scores?.fundamental)">{{ result.scores?.fundamental || 50 }}分</a-tag>
               </div>
-              <div class="analysis-card-content">{{ result.detailed_analysis.fundamental }}</div>
+              <div class="analysis-card-content">{{ neutralizeDecisionText(result.detailed_analysis.fundamental) }}</div>
             </div>
             <div class="analysis-card sentiment" v-if="result.detailed_analysis.sentiment">
               <div class="analysis-card-header">
@@ -312,7 +312,7 @@
                 <span>{{ $t('fastAnalysis.sentimentAnalysis') }}</span>
                 <a-tag :color="getScoreTagColor(result.scores?.sentiment)">{{ result.scores?.sentiment || 50 }}分</a-tag>
               </div>
-              <div class="analysis-card-content">{{ result.detailed_analysis.sentiment }}</div>
+              <div class="analysis-card-content">{{ neutralizeDecisionText(result.detailed_analysis.sentiment) }}</div>
             </div>
           </div>
         </div>
@@ -332,7 +332,7 @@
                 <span>{{ $t('fastAnalysis.keyReasons') }}</span>
               </div>
               <ul class="detail-list">
-                <li v-for="(reason, idx) in result.reasons" :key="'r-'+idx">{{ reason }}</li>
+                <li v-for="(reason, idx) in result.reasons" :key="'r-'+idx">{{ neutralizeDecisionText(reason) }}</li>
               </ul>
             </div>
             <div class="detail-section risks">
@@ -341,7 +341,7 @@
                 <span>{{ $t('fastAnalysis.risks') }}</span>
               </div>
               <ul class="detail-list">
-                <li v-for="(risk, idx) in result.risks" :key="'k-'+idx">{{ risk }}</li>
+                <li v-for="(risk, idx) in result.risks" :key="'k-'+idx">{{ neutralizeDecisionText(risk) }}</li>
               </ul>
             </div>
           </div>
@@ -563,6 +563,12 @@ export default {
     },
     isCryptoResult () {
       return String(this.result?.market || '').toLowerCase() === 'crypto'
+    },
+    decisionDisplayText () {
+      return this.formatDecisionLabel(this.result?.decision)
+    },
+    displaySummary () {
+      return this.neutralizeDecisionText(this.result?.summary || '')
     },
     decisionClass () {
       if (!this.result) return ''
@@ -847,11 +853,30 @@ export default {
       const num = parseFloat(value) || 0
       return num % 1 === 0 ? num.toFixed(0) : num.toFixed(1)
     },
-    formatOutlookTrend (trend) {
-      const t = String(trend || 'HOLD').toUpperCase()
-      if (t === 'BUY') return this.$t('fastAnalysis.outlookBull')
-      if (t === 'SELL') return this.$t('fastAnalysis.outlookBear')
+    formatDecisionLabel (decision) {
+      const d = String(decision || 'HOLD').toUpperCase()
+      if (d === 'BUY') return this.$t('fastAnalysis.outlookBull')
+      if (d === 'SELL') return this.$t('fastAnalysis.outlookBear')
       return this.$t('fastAnalysis.outlookNeutral')
+    },
+    neutralizeDecisionText (text) {
+      if (text === undefined || text === null) return ''
+      const buy = this.formatDecisionLabel('BUY')
+      const sell = this.formatDecisionLabel('SELL')
+      const hold = this.formatDecisionLabel('HOLD')
+      return String(text)
+        .replace(/建议\s*BUY/gi, `倾向${buy}`)
+        .replace(/建议\s*SELL/gi, `倾向${sell}`)
+        .replace(/建议\s*HOLD/gi, `倾向${hold}`)
+        .replace(/suggested\s+decision\s+BUY/gi, `outlook ${buy}`)
+        .replace(/suggested\s+decision\s+SELL/gi, `outlook ${sell}`)
+        .replace(/suggested\s+decision\s+HOLD/gi, `outlook ${hold}`)
+        .replace(/\bBUY\b/gi, buy)
+        .replace(/\bSELL\b/gi, sell)
+        .replace(/\bHOLD\b/gi, hold)
+    },
+    formatOutlookTrend (trend) {
+      return this.formatDecisionLabel(trend)
     },
     outlookTrendClass (trend) {
       const t = String(trend || '').toUpperCase()

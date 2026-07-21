@@ -1,5 +1,5 @@
 /**
- * Heuristic overfitting-risk score (0–100) from community indicator backtest KPIs.
+ * Heuristic overfitting-risk score (0–100) from community strategy KPIs.
  * Higher = more suspicious (returns too good, drawdown too shallow, etc.).
  */
 export function computeOverfitRisk (indicator) {
@@ -59,7 +59,7 @@ export function getOverfitRiskLevel (score) {
   return 'low'
 }
 
-/** Show gauge whenever card has backtest KPI evidence (parent also gates on hasKpi). */
+/** Show gauge whenever card has strategy KPI evidence (parent also gates on hasKpi). */
 export function shouldShowOverfitGauge (indicator) {
   const sampleSize = parseInt(indicator && indicator.sample_size, 10) || 0
   const totalReturn = parseFloat(indicator && indicator.total_return) || 0

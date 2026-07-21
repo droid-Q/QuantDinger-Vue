@@ -14,12 +14,6 @@
         <a-button :loading="loading" @click="loadCredentials">
           <a-icon type="reload" /> {{ $t('brokerAccounts.refresh') }}
         </a-button>
-        <a-button class="crypto-open-account-btn" @click="signupModalVisible = true">
-          <a-icon type="rocket" /> {{ $t('profile.exchange.openAccount') }}
-        </a-button>
-        <a-button type="primary" @click="openAddModal">
-          <a-icon type="plus" /> {{ $t('brokerAccounts.cryptoSection.addAccount') }}
-        </a-button>
       </div>
     </div>
 
@@ -27,9 +21,7 @@
       <div v-if="!loading && filteredItems.length === 0" class="crypto-empty">
         <a-icon type="inbox" />
         <div class="crypto-empty-text">{{ $t('brokerAccounts.cryptoSection.empty') }}</div>
-        <a-button type="link" @click="openAddModal">
-          {{ $t('brokerAccounts.cryptoSection.emptyCta') }} →
-        </a-button>
+        <div class="crypto-empty-hint">{{ $t('brokerAccounts.cryptoSection.emptyHint') }}</div>
       </div>
 
       <div v-else class="crypto-grid">
@@ -89,11 +81,6 @@
       :credential="renameTarget"
       @success="onCredentialRenamed"
     />
-    <exchange-signup-modal
-      :visible.sync="signupModalVisible"
-      :is-dark-theme="isDarkTheme"
-    />
-
     <a-modal
       :visible="snapshotModalVisible"
       :title="snapshotModalTitle"
@@ -190,9 +177,8 @@
 import { listExchangeCredentials, deleteExchangeCredential } from '@/api/credentials'
 import { getAccountSnapshot } from '@/api/strategy'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
-import ExchangeSignupModal from '@/components/ExchangeSignupModal/ExchangeSignupModal.vue'
 import RenameCredentialModal from '@/components/RenameCredentialModal/RenameCredentialModal.vue'
-import { CRYPTO_EXCHANGE_IDS, getExchangeDisplayName } from '@/utils/exchangeCredential'
+import { filterCryptoExchangeCredentials, getExchangeDisplayName } from '@/utils/exchangeCredential'
 import moment from 'moment'
 
 const DISPLAY_NAMES = {
@@ -200,11 +186,7 @@ const DISPLAY_NAMES = {
   okx: 'OKX',
   bitget: 'Bitget',
   bybit: 'Bybit',
-  coinbaseexchange: 'Coinbase',
-  kraken: 'Kraken',
-  kucoin: 'KuCoin',
   gate: 'Gate.io',
-  bitfinex: 'Bitfinex',
   htx: 'HTX',
   mt5: 'MetaTrader 5',
   cptmarkets: 'CPT Markets',
@@ -216,11 +198,7 @@ const ICON_COLORS = {
   okx: '#000',
   bitget: '#00D1FF',
   bybit: '#F7A600',
-  coinbaseexchange: '#1652F0',
-  kraken: '#5741D9',
-  kucoin: '#24AE8F',
   gate: '#17E1A4',
-  bitfinex: '#16B157',
   htx: '#1B2C3B',
   mt5: '#13C2C2',
   cptmarkets: '#08979C',
@@ -229,16 +207,16 @@ const ICON_COLORS = {
 
 export default {
   name: 'CryptoExchangeAccountsCard',
-  components: { ExchangeAccountModal, ExchangeSignupModal, RenameCredentialModal },
+  components: { ExchangeAccountModal, RenameCredentialModal },
   props: {
-    isDarkTheme: { type: Boolean, default: false }
+    isDarkTheme: { type: Boolean, default: false },
+    exchangeId: { type: String, default: '' }
   },
   data () {
     return {
       items: [],
       loading: false,
       addModalVisible: false,
-      signupModalVisible: false,
       renameModalVisible: false,
       renameTarget: null,
       snapshotModalVisible: false,
@@ -255,7 +233,7 @@ export default {
   },
   computed: {
     filteredItems () {
-      return this.items.filter(it => CRYPTO_EXCHANGE_IDS.has(String(it.exchange_id || '').toLowerCase()))
+      return filterCryptoExchangeCredentials(this.items, this.exchangeId)
     },
     snapshotModalTitle () {
       const item = this.snapshotTarget
@@ -310,11 +288,20 @@ export default {
     this.loadCredentials()
   },
   methods: {
-    exchangeDisplayName (id) {
-      return getExchangeDisplayName(id) || DISPLAY_NAMES[id] || (id ? id.toUpperCase() : '--')
-    },
     isMt5Credential (item) {
       return ['mt5', 'cptmarkets', 'cpt_markets'].includes(String((item && item.exchange_id) || '').toLowerCase())
+    },
+    emitSummary () {
+      this.$emit('summary-change', {
+        items: this.items.map(item => ({
+          id: item.id,
+          exchange_id: item.exchange_id,
+          name: item.name || ''
+        }))
+      })
+    },
+    exchangeDisplayName (id) {
+      return getExchangeDisplayName(id) || DISPLAY_NAMES[id] || (id ? id.toUpperCase() : '--')
     },
     credentialAlias (item) {
       const alias = (item && item.name && String(item.name).trim()) || ''
@@ -394,6 +381,7 @@ export default {
         this.items = []
       } finally {
         this.loading = false
+        this.emitSummary()
       }
     },
     openAddModal () {
@@ -476,8 +464,21 @@ export default {
   margin-bottom: 16px;
 }
 .crypto-card.theme-dark {
-  background: #1f1f1f;
+  background: #111;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+
+  ::v-deep .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link) {
+    background: #181818;
+    border-color: #3a3a3a;
+    color: rgba(255, 255, 255, 0.76);
+  }
+
+  ::v-deep .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link):hover,
+  ::v-deep .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link):focus {
+    border-color: var(--primary-color, #1890ff);
+    color: var(--primary-color, #1890ff);
+    background: color-mix(in srgb, var(--primary-color, #1890ff) 10%, #181818);
+  }
 }
 .crypto-card-header {
   display: flex;
@@ -513,24 +514,19 @@ export default {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.crypto-open-account-btn {
-  border-color: #d9d9d9;
-  color: #3f4a5a;
-  background: #fff;
-}
-.crypto-open-account-btn:hover,
-.crypto-open-account-btn:focus {
-  border-color: var(--primary-color, #1890ff);
-  color: var(--primary-color-active, #096dd9);
-  background: color-mix(in srgb, var(--primary-color, #1890ff) 8%, #ffffff);
-}
 .crypto-empty {
   text-align: center;
   padding: 32px 16px;
   color: #8c8c8c;
   i { font-size: 28px; color: #d9d9d9; display: block; margin-bottom: 10px; }
 }
+.crypto-card.theme-dark .crypto-empty {
+  color: rgba(255, 255, 255, 0.5);
+  i { color: rgba(255, 255, 255, 0.25); }
+}
 .crypto-empty-text { font-size: 13px; margin-bottom: 6px; }
+.crypto-empty-hint { font-size: 12px; color: #a0a8b5; }
+.crypto-card.theme-dark .crypto-empty-hint { color: rgba(255, 255, 255, 0.38); }
 .crypto-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -552,7 +548,7 @@ export default {
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.08);
 }
 .crypto-card.theme-dark .crypto-item {
-  background: linear-gradient(135deg, #262626 0%, #1f1f1f 100%);
+  background: #181818;
   border-color: #303030;
 }
 .crypto-item-top {
@@ -627,17 +623,6 @@ export default {
   color: #fff;
 }
 .crypto-card.theme-dark {
-  .crypto-open-account-btn {
-    border-color: #3a3a3a;
-    color: rgba(255, 255, 255, 0.78);
-    background: #262626;
-  }
-  .crypto-open-account-btn:hover,
-  .crypto-open-account-btn:focus {
-    border-color: var(--primary-color, #1890ff);
-    color: var(--primary-color, #1890ff);
-    background: color-mix(in srgb, var(--primary-color, #1890ff) 12%, transparent);
-  }
   .crypto-view-account-btn {
     border-color: color-mix(in srgb, var(--primary-color, #1890ff) 55%, transparent);
     background: color-mix(in srgb, var(--primary-color, #1890ff) 16%, transparent);

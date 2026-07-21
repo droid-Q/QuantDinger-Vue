@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/brokermr810/QuantDinger"><img src="https://img.shields.io/badge/Main_Repo-QuantDinger-blue?logo=github" alt="Main Repo" /></a>
+  <a href="https://github.com/OpenByteInc/QuantDinger"><img src="https://img.shields.io/badge/Main_Repo-QuantDinger-blue?logo=github" alt="Main Repo" /></a>
   <img src="https://img.shields.io/badge/Vue-2.7-4FC08D?logo=vue.js" alt="Vue 2.7" />
   <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite" alt="Vite 5" />
   <img src="https://img.shields.io/badge/UI-Ant_Design_Vue-1890ff?logo=ant-design" alt="Ant Design Vue" />
@@ -22,14 +22,14 @@
 
 ## What this repo is
 
-This repository contains the Vue desktop web frontend for [QuantDinger](https://github.com/brokermr810/QuantDinger), a product of **Open Byte Inc**.
+This repository contains the Vue desktop web frontend for [QuantDinger](https://github.com/OpenByteInc/QuantDinger), a product of **Open Byte Inc**.
 
 QuantDinger is better described as an **AI Trading OS** than a narrow "quant platform": it combines AI-assisted market analysis, strategy creation, backtesting, simulated trading, live execution workflows, exchange API management, billing, and operations tools. This repo is the main browser interface for those workflows.
 
 For backend APIs, Docker Compose deployment, database services, and project-level documentation, start from the main repository:
 
-- [QuantDinger main repository](https://github.com/brokermr810/QuantDinger)
-- [Cloud deployment guide](https://github.com/brokermr810/QuantDinger/tree/main/docs)
+- [QuantDinger main repository](https://github.com/OpenByteInc/QuantDinger)
+- [Cloud deployment guide](https://github.com/OpenByteInc/QuantDinger/tree/main/docs)
 
 ## Feature areas
 
@@ -50,13 +50,13 @@ Most users should deploy the full QuantDinger stack from the main repo. You do *
 Linux or macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.ps1 | iex
 ```
 
 The main stack serves the desktop web app at:
@@ -68,8 +68,8 @@ http://localhost:8888
 ### GHCR Compose without cloning the repo
 
 ```bash
-curl -O https://raw.githubusercontent.com/brokermr810/QuantDinger/main/docker-compose.ghcr.yml
-curl -o backend.env https://raw.githubusercontent.com/brokermr810/QuantDinger/main/backend_api_python/env.example
+curl -O https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/docker-compose.ghcr.yml
+curl -o backend.env https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/backend_api_python/env.example
 # edit backend.env before public deployment
 docker compose -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.ghcr.yml up -d
@@ -78,7 +78,7 @@ docker compose -f docker-compose.ghcr.yml up -d
 The frontend image used by the stack is:
 
 ```text
-ghcr.io/brokermr810/quantdinger-frontend
+ghcr.io/openbyteinc/quantdinger-frontend
 ```
 
 Common tags are `latest`, semantic versions such as `4.0.4`, and major/minor tags such as `4.0`. Pin a release in the main repo `.env` with `IMAGE_TAG`, or override only this service with `FRONTEND_TAG`.
@@ -91,7 +91,7 @@ Use this when the backend is already running somewhere else:
 docker run -d --name quantdinger-frontend \
   -p 8888:80 \
   -e BACKEND_URL=http://host.docker.internal:5000 \
-  ghcr.io/brokermr810/quantdinger-frontend:latest
+  ghcr.io/openbyteinc/quantdinger-frontend:latest
 ```
 
 `BACKEND_URL` controls the Nginx `/api/` proxy inside the container. In the main Compose stack it normally stays as `http://backend:5000`.
@@ -111,7 +111,7 @@ Use `pnpm install` with the committed `pnpm-lock.yaml`. Avoid committing `packag
 ### Start the app
 
 ```bash
-git clone https://github.com/brokermr810/QuantDinger-Vue.git
+git clone https://github.com/OpenByteInc/QuantDinger-Vue.git
 cd QuantDinger-Vue
 corepack enable
 pnpm install
@@ -211,9 +211,9 @@ QuantDinger-Vue/
 
 | Repository | Role |
 |------------|------|
-| [QuantDinger](https://github.com/brokermr810/QuantDinger) | Backend API, Docker Compose, database services, deployment docs |
+| [QuantDinger](https://github.com/OpenByteInc/QuantDinger) | Backend API, Docker Compose, database services, deployment docs |
 | **QuantDinger-Vue** | This repository: desktop web frontend source |
-| [QuantDinger-Mobile](https://github.com/brokermr810/QuantDinger-Mobile) | Mobile and H5 frontend |
+| [QuantDinger-Mobile](https://github.com/OpenByteInc/QuantDinger-Mobile) | Mobile and H5 frontend |
 
 ## License
 

@@ -8,7 +8,7 @@
       :handleMediaQuery="handleMediaQuery"
       :handleCollapse="handleCollapse"
       :i18nRender="i18nRender"
-      v-bind="settings"
+      v-bind="proLayoutSettings"
     >
 
       <template #menuHeaderRender>
@@ -99,7 +99,30 @@
         </div>
       </setting-drawer>
       <template #rightContentRender>
-        <right-content :top-menu="settings.layout === 'topmenu'" :is-mobile="isMobile" :theme="settings.theme" />
+        <div class="layout-top-actions">
+          <a-dropdown
+            v-if="showTopAdminShortcut"
+            placement="bottomRight"
+            overlayClassName="top-admin-shortcut-dropdown"
+          >
+            <button
+              class="top-admin-shortcut"
+              :class="{ 'top-admin-shortcut--active': topAdminShortcutActive }"
+              type="button"
+            >
+              <a-icon type="setting" />
+              <span>{{ topAdminTitle }}</span>
+              <a-icon type="down" class="top-admin-shortcut__arrow" />
+            </button>
+            <a-menu slot="overlay" :selected-keys="[$route.path]" @click="handleTopAdminMenuClick">
+              <a-menu-item v-for="route in topAdminRoutes" :key="route.path">
+                <a-icon :type="(route.meta && route.meta.icon) || 'setting'" />
+                <span>{{ route.meta && route.meta.title ? $t(route.meta.title) : route.name }}</span>
+              </a-menu-item>
+            </a-menu>
+          </a-dropdown>
+          <right-content :top-menu="settings.layout === 'topmenu'" :is-mobile="isMobile" :theme="settings.theme" />
+        </div>
       </template>
       <!-- custom footer removed -->
       <template #footerRender>
@@ -110,6 +133,16 @@
         <route-view :key="refreshKey" :keep-alive="multiTab" />
       </div>
     </pro-layout>
+
+    <button
+      v-if="isMobile && isDrawerOpen"
+      type="button"
+      class="mobile-menu-close"
+      :aria-label="$t('common.close')"
+      @click="closeMobileMenu"
+    >
+      <a-icon type="close" />
+    </button>
 
     <div v-if="false" class="custom-menu-footer" :class="{ 'collapsed': collapsed, 'drawer-open': isMobile && isDrawerOpen, 'drawer-animating': isMobile && isDrawerAnimating }">
       <div v-if="!collapsed" class="menu-footer-content">
@@ -180,6 +213,7 @@
 </template>
 
 <script>
+/* global APP_VERSION */
 import { updateTheme } from '@/components/SettingDrawer/settingConfig'
 import { i18nRender } from '@/locales'
 import { mapState } from 'vuex'
@@ -267,6 +301,15 @@ export default {
       }
       return this.buildTopMenuGroups(children)
     },
+    proLayoutSettings () {
+      const theme = this.settings.theme === 'realdark'
+        ? 'dark'
+        : (this.settings.theme === 'dark' ? 'dark' : 'light')
+      return {
+        ...this.settings,
+        theme
+      }
+    },
     showAdminMenuDivider () {
       const routes = this.mainMenu.find(item => item.path === '/')
       const children = (routes && routes.children) || []
@@ -293,6 +336,37 @@ export default {
     },
     collapsedLogo () {
       return (this.brandConfig.logos && this.brandConfig.logos.collapsed) || slogoImg
+    },
+    topAdminPaths () {
+      return ['/user-manage', '/agent-tokens', '/ai-skills', '/settings']
+    },
+    topAdminRoutes () {
+      const routes = this.mainMenu.find(item => item.path === '/')
+      const children = (routes && routes.children) || []
+      const routeMap = children.reduce((map, route) => {
+        map[route.path] = route
+        return map
+      }, {})
+      return this.topAdminPaths
+        .map(path => routeMap[path])
+        .filter(route => route && !route.hidden)
+    },
+    showTopAdminShortcut () {
+      return this.settings.layout === 'topmenu' && !this.isMobile && this.topAdminRoutes.length > 0
+    },
+    topAdminTitle () {
+      return this.$t('menu.group.admin') || this.$t('menu.settings') || 'Admin'
+    },
+    topAdminShortcutActive () {
+      return this.topAdminRoutes.some(route => this.$route.path === route.path)
+    },
+    activeTopMenuKey () {
+      const match = this.menus.find(route => {
+        if (route.path === this.$route.path) return true
+        const children = route.children || []
+        return children.some(child => child.path === this.$route.path)
+      })
+      return match ? match.path : this.$route.path
     }
   },
   created () {
@@ -309,9 +383,11 @@ export default {
       this.settings.theme = val
       if (val === 'dark' || val === 'realdark') {
         document.body.classList.add('dark')
+        document.body.classList.toggle('realdark', val === 'realdark')
         document.body.classList.remove('light')
       } else {
         document.body.classList.remove('dark')
+        document.body.classList.remove('realdark')
         document.body.classList.add('light')
       }
     }, { immediate: true })
@@ -330,9 +406,11 @@ export default {
     this.$watch('settings.theme', (val) => {
       if (val === 'dark' || val === 'realdark') {
         document.body.classList.add('dark')
+        document.body.classList.toggle('realdark', val === 'realdark')
         document.body.classList.remove('light')
       } else {
         document.body.classList.remove('dark')
+        document.body.classList.remove('realdark')
         document.body.classList.add('light')
       }
     }, { immediate: true })
@@ -378,7 +456,7 @@ export default {
         this.updateMenuFooterPosition()
         this.updateAdminMenuDivider()
         this.setupAdminMenuDividerObserver()
-      }, 200)
+      }, 0)
     })
 
     window.addEventListener('resize', this.updateMenuFooterPosition)
@@ -475,11 +553,10 @@ export default {
     i18nRender,
     buildTopMenuGroups (routes) {
       const accountMenuPaths = ['/billing', '/profile']
-      const strategyDetailPaths = ['/strategy-live', '/strategy-script']
+      const topAdminMenuPaths = ['/user-manage', '/agent-tokens', '/ai-skills', '/settings']
       const visibleRoutes = routes.filter(route => {
         return !route.hidden &&
-          !accountMenuPaths.includes(route.path) &&
-          !strategyDetailPaths.includes(route.path)
+          !accountMenuPaths.includes(route.path)
       })
       const groups = [
         {
@@ -491,18 +568,36 @@ export default {
           singleAsItem: true
         },
         {
-          name: 'MenuGroupMarket',
-          path: '/menu-group/market-data',
-          title: this.$t('menu.group.marketData') || 'Market & Data',
-          icon: 'database',
-          paths: []
+          name: 'MenuGroupCommunity',
+          path: '/menu-group/indicator-community',
+          title: this.$t('menu.dashboard.community') || 'Marketplace',
+          icon: 'shop',
+          paths: ['/indicator-community'],
+          singleAsItem: true
+        },
+        {
+          name: 'MenuGroupIndicator',
+          path: '/menu-group/indicator-chart',
+          title: this.$t('menu.dashboard.indicatorIde') || 'Indicators',
+          icon: 'line-chart',
+          paths: ['/indicator-ide'],
+          singleAsItem: true
         },
         {
           name: 'MenuGroupStrategy',
           path: '/menu-group/strategy-lab',
           title: this.$t('menu.group.strategyLab') || 'Strategy Lab',
           icon: 'experiment',
-          paths: ['/strategy-ide', '/trading-bot', '/indicator-community']
+          paths: ['/strategy-ide'],
+          singleAsItem: true
+        },
+        {
+          name: 'MenuGroupBacktest',
+          path: '/menu-group/backtest-center',
+          title: this.$t('menu.dashboard.backtestCenter') || 'Backtest Center',
+          icon: 'bar-chart',
+          paths: ['/backtest-center'],
+          singleAsItem: true
         },
         {
           name: 'MenuGroupLiveMonitor',
@@ -519,13 +614,6 @@ export default {
           icon: 'bank',
           paths: ['/broker-accounts'],
           singleAsItem: true
-        },
-        {
-          name: 'MenuGroupAdmin',
-          path: '/menu-group/admin',
-          title: this.$t('menu.group.admin') || 'Admin',
-          icon: 'setting',
-          paths: ['/user-manage', '/agent-tokens', '/ai-skills', '/settings']
         }
       ]
       const routeMap = visibleRoutes.reduce((map, route) => {
@@ -565,8 +653,18 @@ export default {
           }
         })
         .filter(Boolean)
+      topAdminMenuPaths.forEach(path => used.add(path))
       const leftovers = visibleRoutes.filter(route => !used.has(route.path))
       return groupedRoutes.concat(leftovers)
+    },
+    handleTopAdminMenuClick ({ key }) {
+      if (!key || key === this.$route.path) return
+      this.$router.push({ path: key }).catch(() => {})
+    },
+    resolveMenuTitle (route) {
+      const title = (route && route.meta && route.meta.title) || (route && route.title) || (route && route.name) || ''
+      if (!title) return ''
+      return this.$te && this.$te(title) ? this.$t(title) : title
     },
     updateAdminMenuDivider () {
       this.$nextTick(() => {
@@ -748,6 +846,9 @@ export default {
         this.updateMenuFooterPosition()
       })
     },
+    closeMobileMenu () {
+      this.handleCollapse(true)
+    },
     handleMobileMenuToggle () {
       this.$nextTick(() => {
         setTimeout(() => {
@@ -770,8 +871,9 @@ export default {
             this.settings.contentWidth = CONTENT_WIDTH_TYPE.Fluid
           } else {
             this.settings.fixSiderbar = false
-            this.settings.contentWidth = CONTENT_WIDTH_TYPE.Fixed
+            this.settings.contentWidth = CONTENT_WIDTH_TYPE.Fluid
           }
+          this.$store.commit(TOGGLE_CONTENT_WIDTH, this.settings.contentWidth)
           break
         case 'contentWidth':
           this.settings[type] = value
@@ -925,7 +1027,6 @@ export default {
                     opacity 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86) 0.1s; /* 延迟 0.1s 显示，确保 drawer 先出现 */
       }
     }
-
 
     .menu-footer-content {
       padding: 12px 16px;

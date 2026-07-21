@@ -289,7 +289,10 @@
                     <div class="mfa-copy">
                       <div class="mfa-title">
                         <span>{{ $t('profile.mfa.title') }}</span>
-                        <a-tag :color="mfaStatus.enabled ? 'green' : 'default'" class="mfa-status-tag">
+                        <a-tag
+                          class="mfa-status-tag"
+                          :class="mfaStatus.enabled ? 'is-enabled' : 'is-disabled'"
+                        >
                           {{ mfaStatus.enabled ? $t('profile.mfa.enabled') : $t('profile.mfa.disabled') }}
                         </a-tag>
                       </div>
@@ -1294,7 +1297,7 @@ export default {
           this.mfaStatus = { ...this.mfaStatus, ...res.data }
         }
       } catch (error) {
-        this.$message.error(error.response?.data?.msg || 'Failed to load MFA status')
+        this.$message.error(error.response?.data?.msg || this.$t('profile.mfa.loadStatusFailed'))
       }
     },
 
@@ -1307,10 +1310,10 @@ export default {
           this.mfaSetupCode = ''
           this.showMfaSetupModal = true
         } else {
-          this.$message.error(res.msg || 'Failed to start MFA setup')
+          this.$message.error(res.msg || this.$t('profile.mfa.setupStartFailed'))
         }
       } catch (error) {
-        this.$message.error(error.response?.data?.msg || 'Failed to start MFA setup')
+        this.$message.error(error.response?.data?.msg || this.$t('profile.mfa.setupStartFailed'))
       } finally {
         this.mfaLoading = false
       }
@@ -1319,23 +1322,23 @@ export default {
     async handleConfirmMfaSetup () {
       const code = (this.mfaSetupCode || '').trim()
       if (!code) {
-        this.$message.error(this.$t('profile.mfa.codeRequired') || '请输入验证码')
+        this.$message.error(this.$t('profile.mfa.codeRequired'))
         return
       }
       this.mfaConfirming = true
       try {
         const res = await confirmMfaSetup({ code })
         if (res.code === 1) {
-          this.$message.success(res.msg || 'MFA enabled successfully')
+          this.$message.success(res.msg || this.$t('profile.mfa.enabledSuccess'))
           this.mfaRecoveryCodes = (res.data && res.data.recovery_codes) || []
           this.resetMfaSetup()
           this.showMfaRecoveryModal = this.mfaRecoveryCodes.length > 0
           this.loadMfaStatus()
         } else {
-          this.$message.error(res.msg || 'MFA verification failed')
+          this.$message.error(res.msg || this.$t('profile.mfa.verificationFailed'))
         }
       } catch (error) {
-        this.$message.error(error.response?.data?.msg || 'MFA verification failed')
+        this.$message.error(error.response?.data?.msg || this.$t('profile.mfa.verificationFailed'))
       } finally {
         this.mfaConfirming = false
       }
@@ -1344,22 +1347,22 @@ export default {
     async handleDisableMfa () {
       const code = (this.mfaDisableCode || '').trim()
       if (!code) {
-        this.$message.error(this.$t('profile.mfa.codeRequired') || '请输入验证码')
+        this.$message.error(this.$t('profile.mfa.codeRequired'))
         return
       }
       this.mfaDisabling = true
       try {
         const res = await disableMfa({ code })
         if (res.code === 1) {
-          this.$message.success(res.msg || 'MFA disabled successfully')
+          this.$message.success(res.msg || this.$t('profile.mfa.disabledSuccess'))
           this.showDisableMfaModal = false
           this.mfaDisableCode = ''
           this.loadMfaStatus()
         } else {
-          this.$message.error(res.msg || 'Failed to disable MFA')
+          this.$message.error(res.msg || this.$t('profile.mfa.disableFailed'))
         }
       } catch (error) {
-        this.$message.error(error.response?.data?.msg || 'Failed to disable MFA')
+        this.$message.error(error.response?.data?.msg || this.$t('profile.mfa.disableFailed'))
       } finally {
         this.mfaDisabling = false
       }
@@ -2001,6 +2004,23 @@ export default {
 
     .mfa-status-tag {
       margin-left: 0;
+      padding: 1px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 20px;
+
+      &.is-enabled {
+        border-color: color-mix(in srgb, var(--primary-color, @primary-color) 34%, #d9d9d9);
+        background: color-mix(in srgb, var(--primary-color, @primary-color) 10%, #fff);
+        color: var(--primary-color, @primary-color);
+      }
+
+      &.is-disabled {
+        border-color: #d9e0e8;
+        background: #f3f6f9;
+        color: #64748b;
+      }
     }
 
     .mfa-desc,
@@ -2093,7 +2113,32 @@ export default {
       }
 
       ::v-deep .ant-checkbox-wrapper {
+        width: 100%;
+        min-height: 42px;
         margin-bottom: 8px;
+        padding: 10px 12px;
+        border: 1px solid #e6ebf2;
+        border-radius: 8px;
+        background: #fbfdff;
+        display: inline-flex;
+        align-items: center;
+        transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+        &:hover {
+          border-color: color-mix(in srgb, var(--primary-color, #1890ff) 44%, #e6ebf2);
+          background: color-mix(in srgb, var(--primary-color, #1890ff) 6%, #fff);
+        }
+
+        .anticon {
+          margin: 0 6px 0 2px;
+          color: var(--primary-color, #1890ff);
+        }
+      }
+
+      ::v-deep .ant-checkbox-wrapper-checked {
+        border-color: color-mix(in srgb, var(--primary-color, #1890ff) 56%, #e6ebf2);
+        background: color-mix(in srgb, var(--primary-color, #1890ff) 10%, #fff);
+        box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-color, #1890ff) 12%, transparent);
       }
     }
   }
@@ -2454,6 +2499,20 @@ export default {
         color: #e6edf3;
       }
 
+      .mfa-status-tag {
+        &.is-enabled {
+          border-color: color-mix(in srgb, var(--primary-color, @primary-color) 36%, #30363d);
+          background: color-mix(in srgb, var(--primary-color, @primary-color) 14%, #161b22);
+          color: var(--primary-color-hover, var(--primary-color, @primary-color));
+        }
+
+        &.is-disabled {
+          border-color: #3a424c;
+          background: #252b33;
+          color: #a8b3c1;
+        }
+      }
+
       .mfa-desc,
       .mfa-meta {
         color: #8b949e;
@@ -2615,6 +2674,22 @@ export default {
 
       .email-warning {
         color: #f5222d;
+      }
+
+      ::v-deep .ant-checkbox-wrapper {
+        border-color: #2a2a2a;
+        background: #171717;
+
+        &:hover {
+          border-color: color-mix(in srgb, var(--primary-color, #1890ff) 52%, #2a2a2a);
+          background: #1e1e1e;
+        }
+      }
+
+      ::v-deep .ant-checkbox-wrapper-checked {
+        border-color: color-mix(in srgb, var(--primary-color, #1890ff) 62%, #2a2a2a);
+        background: color-mix(in srgb, var(--primary-color, #1890ff) 13%, #171717);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26);
       }
     }
 

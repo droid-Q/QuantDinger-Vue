@@ -37,12 +37,8 @@
             </a-select-option>
           </a-select-opt-group>
           <a-select-opt-group :label="$t('profile.exchange.typeMT5')">
-            <a-select-option value="cptmarkets">
-              CPT Markets (MT5)
-            </a-select-option>
-            <a-select-option value="mt5">
-              MetaTrader 5
-            </a-select-option>
+            <a-select-option value="cptmarkets">CPT Markets (MT5)</a-select-option>
+            <a-select-option value="mt5">MetaTrader 5</a-select-option>
           </a-select-opt-group>
         </a-select>
       </a-form-item>
@@ -53,6 +49,32 @@
           :placeholder="$t('profile.exchange.accountNamePlaceholder')"
         />
       </a-form-item>
+
+      <template v-if="addExchangeType === 'crypto'">
+        <a-form-item :label="$t('profile.exchange.environment')">
+          <a-select
+            :key="`environment-${selectedExchangeId}`"
+            v-decorator="['environment', { initialValue: 'live' }]"
+            @change="handleEnvironmentChange"
+          >
+            <a-select-option v-for="option in cryptoEnvironmentOptions" :key="option.value" :value="option.value">
+              {{ $t(option.labelKey) }}
+            </a-select-option>
+          </a-select>
+          <div class="field-hint">
+            <a-icon type="info-circle" />
+            <span>{{ $t(selectedEnvironmentHintKey) }}</span>
+          </div>
+        </a-form-item>
+
+        <a-form-item :label="$t('profile.exchange.marketScope')">
+          <a-select v-decorator="['market_scope', { initialValue: 'both' }]">
+            <a-select-option v-for="option in marketScopeOptions" :key="option.value" :value="option.value">
+              {{ $t(option.labelKey) }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+      </template>
 
       <a-form-item v-if="addExchangeType === 'crypto'" :label="$t('profile.exchange.whitelistIpLabel')">
         <div class="egress-ip-block">
@@ -104,45 +126,38 @@
         </div>
         <a-form-item :label="$t('profile.exchange.apiKey')">
           <a-input-password
-            v-decorator="['api_key', { rules: [{ required: true, message: 'API Key is required' }] }]"
-            placeholder="API Key"
+            v-decorator="['api_key', { rules: [{ required: true, message: $t('trading-assistant.validation.apiKeyRequired') }] }]"
+            :placeholder="$t('profile.exchange.apiKey')"
             autocomplete="new-password"
           />
         </a-form-item>
         <a-form-item :label="$t('profile.exchange.secretKey')">
           <a-input-password
-            v-decorator="['secret_key', { rules: [{ required: true, message: 'Secret Key is required' }] }]"
-            placeholder="Secret Key"
+            v-decorator="['secret_key', { rules: [{ required: true, message: $t('trading-assistant.validation.secretKeyRequired') }] }]"
+            :placeholder="$t('profile.exchange.secretKey')"
             autocomplete="new-password"
           />
         </a-form-item>
         <a-form-item v-if="addExchangeNeedsPassphrase" :label="$t('profile.exchange.passphrase')">
           <a-input-password
             v-decorator="['passphrase']"
-            placeholder="Passphrase"
+            :placeholder="$t('profile.exchange.passphrase')"
             autocomplete="new-password"
           />
         </a-form-item>
       </template>
 
       <template v-if="addExchangeType === 'alpaca'">
-        <a-alert
-          type="info"
-          showIcon
-          style="margin-bottom: 16px"
-          :message="$t('profile.exchange.alpacaNoLocalTitle')"
-          :description="$t('profile.exchange.alpacaNoLocalHint')"
-        />
         <a-form-item :label="$t('profile.exchange.apiKey')">
           <a-input-password
-            v-decorator="['api_key', { rules: [{ required: true, message: 'API Key is required' }] }]"
+            v-decorator="['api_key', { rules: [{ required: true, message: $t('trading-assistant.validation.apiKeyRequired') }] }]"
             :placeholder="$t('profile.exchange.alpacaApiKeyPh')"
             autocomplete="new-password"
           />
         </a-form-item>
         <a-form-item :label="$t('profile.exchange.secretKey')">
           <a-input-password
-            v-decorator="['secret_key', { rules: [{ required: true, message: 'Secret Key is required' }] }]"
+            v-decorator="['secret_key', { rules: [{ required: true, message: $t('trading-assistant.validation.secretKeyRequired') }] }]"
             :placeholder="$t('profile.exchange.alpacaSecretKeyPh')"
             autocomplete="new-password"
           />
@@ -218,10 +233,7 @@
           />
         </a-form-item>
         <a-form-item :label="$t('profile.exchange.mt5PathOptional')">
-          <a-input
-            v-decorator="['mt5_path']"
-            placeholder="C:\\Program Files\\MetaTrader 5\\terminal64.exe"
-          />
+          <a-input v-decorator="['mt5_path']" placeholder="C:\\Program Files\\MetaTrader 5\\terminal64.exe" />
         </a-form-item>
         <a-form-item :label="$t('profile.exchange.mt5Timeout')">
           <a-input-number
@@ -234,7 +246,7 @@
         <a-row :gutter="12">
           <a-col :xs="12">
             <a-form-item :label="$t('profile.exchange.mt5SymbolPrefix')">
-              <a-input v-decorator="['symbol_prefix']" placeholder="" />
+              <a-input v-decorator="['symbol_prefix']" />
             </a-form-item>
           </a-col>
           <a-col :xs="12">
@@ -266,8 +278,14 @@
 
 <script>
 import { mapState } from 'vuex'
-import { createExchangeCredential, getCredentialsEgressIp } from '@/api/credentials'
-import { testExchangeConnection } from '@/api/strategy'
+import { createExchangeCredential, getCredentialsEgressIp, getDesktopBrokersPolicy, testExchangeCredential } from '@/api/credentials'
+import { getCryptoEnvironmentValues, normalizeCryptoExchangeId } from './environmentOptions'
+
+const CRYPTO_ENVIRONMENT_LABEL_KEYS = Object.freeze({
+  live: 'profile.exchange.environmentLive',
+  demo: 'profile.exchange.environmentDemo',
+  testnet: 'profile.exchange.environmentTestnet'
+})
 
 export default {
   name: 'ExchangeAccountModal',
@@ -282,19 +300,17 @@ export default {
       exchangeTestResult: null,
       addExchangeType: '',
       selectedExchangeId: '',
+      selectedEnvironment: 'live',
       egressServerIpv4: '',
       egressServerIpv6: '',
       egressIpLoading: false,
+      desktopBrokersAllowed: true,
       cryptoExchangeList: [
         { id: 'binance', name: 'Binance', docsUrl: 'https://www.binance.com/en/support/faq/detail/360002502072' },
         { id: 'okx', name: 'OKX', docsUrl: 'https://www.okx.com/docs-v5/zh/#overview-v5-api-key-creation' },
         { id: 'bitget', name: 'Bitget', docsUrl: 'https://www.bitget.com/api-doc/common/quick-start' },
         { id: 'bybit', name: 'Bybit', docsUrl: 'https://www.bybit.com/en/help-center/article/How-to-create-your-API-key/' },
-        { id: 'coinbaseexchange', name: 'Coinbase', docsUrl: 'https://docs.cdp.coinbase.com/exchange/rest-api/authentication' },
-        { id: 'kraken', name: 'Kraken', docsUrl: 'https://support.kraken.com/articles/360000919966-how-to-create-an-api-key' },
-        { id: 'kucoin', name: 'KuCoin', docsUrl: 'https://www.kucoin.com/docs-new/authentication' },
         { id: 'gate', name: 'Gate.io', docsUrl: 'https://www.gate.com/docs/developers/apiv4/' },
-        { id: 'bitfinex', name: 'Bitfinex', docsUrl: 'https://docs.bitfinex.com/docs/create-an-api-key' },
         { id: 'htx', name: 'HTX', docsUrl: 'https://www.htx.com/en-us/opend/newApiPages/?id=414' }
       ]
     }
@@ -315,7 +331,10 @@ export default {
       return this.isDarkTheme ? `${base} profile-exchange-select-dropdown-dark` : base
     },
     addExchangeNeedsPassphrase () {
-      return ['okx', 'bitget', 'kucoin'].includes(this.selectedExchangeId)
+      return ['okx', 'bitget'].includes(this.selectedExchangeId)
+    },
+    testingDesktopBlocked () {
+      return this.selectedExchangeId === 'ibkr' && !this.desktopBrokersAllowed
     },
     selectedCryptoExchangeMeta () {
       return this.cryptoExchangeList.find(item => item.id === this.selectedExchangeId) || null
@@ -324,16 +343,41 @@ export default {
       return this.selectedCryptoExchangeMeta ? this.selectedCryptoExchangeMeta.name : this.getExchangeDisplayName(this.selectedExchangeId)
     },
     selectedExchangeApiDocUrl () {
+      if (this.selectedExchangeId === 'binance' && this.selectedEnvironment === 'demo') {
+        return 'https://developers.binance.com/docs/binance-spot-api-docs/demo-mode/general-info'
+      }
       return this.selectedCryptoExchangeMeta ? this.selectedCryptoExchangeMeta.docsUrl : ''
     },
-    testingDesktopBlocked () {
-      return false
+    cryptoEnvironmentOptions () {
+      return getCryptoEnvironmentValues(this.selectedExchangeId).map(value => ({
+        value,
+        labelKey: CRYPTO_ENVIRONMENT_LABEL_KEYS[value]
+      }))
+    },
+    marketScopeOptions () {
+      const options = [
+        { value: 'spot', labelKey: 'profile.exchange.marketScopeSpot' },
+        { value: 'swap', labelKey: 'profile.exchange.marketScopeSwap' },
+        { value: 'both', labelKey: 'profile.exchange.marketScopeBoth' }
+      ]
+      return options
+    },
+    selectedEnvironmentHintKey () {
+      const id = this.selectedExchangeId || 'default'
+      if (id === 'binance') {
+        const suffix = this.selectedEnvironment === 'demo' ? 'Demo' : 'Live'
+        return `profile.exchange.environmentHint.binance${suffix}`
+      }
+      const key = `profile.exchange.environmentHint.${id}`
+      return this.$te(key) ? key : 'profile.exchange.demoTradingHint'
     }
   },
   watch: {
     visible (open) {
       if (open) {
+        this.resetExchangeFormState()
         this.fetchEgressIp()
+        this.loadDesktopPolicy()
       }
     }
   },
@@ -341,6 +385,18 @@ export default {
     this.exchangeForm = this.$form.createForm(this, { name: 'exchangeAccountModal' })
   },
   methods: {
+    async loadDesktopPolicy () {
+      try {
+        const res = await getDesktopBrokersPolicy()
+        const payload = (res && (res.data || res)) || {}
+        const flag = payload.allow_local_desktop_brokers
+        this.desktopBrokersAllowed = flag === undefined || flag === null
+          ? Boolean(payload.allowed || payload.allow || payload.enabled)
+          : Boolean(flag)
+      } catch (_) {
+        this.desktopBrokersAllowed = true
+      }
+    },
     exchangeModalGetContainer () {
       if (typeof this.overlayMount === 'function') {
         const n = this.overlayMount()
@@ -352,7 +408,15 @@ export default {
       return this.exchangeModalGetContainer()
     },
     handleCancel () {
+      this.resetExchangeFormState()
       this.$emit('update:visible', false)
+    },
+    resetExchangeFormState () {
+      this.exchangeForm.resetFields()
+      this.addExchangeType = ''
+      this.selectedExchangeId = ''
+      this.selectedEnvironment = 'live'
+      this.exchangeTestResult = null
     },
     getExchangeDisplayName (id) {
       const names = {
@@ -360,11 +424,7 @@ export default {
         okx: 'OKX',
         bitget: 'Bitget',
         bybit: 'Bybit',
-        coinbaseexchange: 'Coinbase',
-        kraken: 'Kraken',
-        kucoin: 'KuCoin',
         gate: 'Gate.io',
-        bitfinex: 'Bitfinex',
         htx: 'HTX',
         ibkr: 'IBKR',
         alpaca: 'Alpaca',
@@ -379,7 +439,7 @@ export default {
       // passes back the fields listed here — omitting name caused empty DB names).
       const f = ['exchange_id', 'name']
       if (this.addExchangeType === 'crypto') {
-        f.push('api_key', 'secret_key')
+        f.push('api_key', 'secret_key', 'environment', 'market_scope')
         if (this.addExchangeNeedsPassphrase) f.push('passphrase')
       } else if (this.addExchangeType === 'alpaca') {
         f.push('api_key', 'secret_key', 'base_url')
@@ -392,7 +452,7 @@ export default {
     },
     _validateFieldNamesForTest () {
       if (this.addExchangeType === 'crypto') {
-        const f = ['exchange_id', 'api_key', 'secret_key']
+        const f = ['exchange_id', 'api_key', 'secret_key', 'environment', 'market_scope']
         if (this.addExchangeNeedsPassphrase) f.push('passphrase')
         return f
       }
@@ -415,7 +475,12 @@ export default {
       if (p.exchange_id === 'alpaca') {
         if (typeof p.base_url === 'string') p.base_url = p.base_url.trim()
       }
-      if (['mt5', 'cptmarkets', 'cpt_markets'].includes(String(p.exchange_id || '').toLowerCase())) {
+      if (this.addExchangeType === 'crypto') {
+        p.environment = p.environment || 'live'
+        p.market_scope = p.market_scope || 'both'
+        p.enable_demo_trading = p.environment !== 'live'
+      }
+      if (this.addExchangeType === 'mt5') {
         const keys = ['mt5_login', 'mt5_password', 'mt5_server', 'mt5_path', 'symbol_prefix', 'symbol_suffix']
         keys.forEach(key => {
           if (typeof p[key] === 'string') p[key] = p[key].trim()
@@ -477,20 +542,38 @@ export default {
       }
     },
     handleExchangeTypeChange (val) {
-      this.selectedExchangeId = val
+      const exchangeId = normalizeCryptoExchangeId(val)
+      this.selectedExchangeId = exchangeId
+      this.selectedEnvironment = 'live'
       this.exchangeTestResult = null
       const cryptoIds = this.cryptoExchangeList.map(e => e.id)
-      if (cryptoIds.includes(val)) {
+      if (cryptoIds.includes(exchangeId)) {
         this.addExchangeType = 'crypto'
-      } else if (val === 'alpaca') {
+      } else if (exchangeId === 'alpaca') {
         this.addExchangeType = 'alpaca'
-      } else if (val === 'ibkr') {
+      } else if (exchangeId === 'ibkr') {
         this.addExchangeType = 'ibkr'
-      } else if (val === 'mt5' || val === 'cptmarkets' || val === 'cpt_markets') {
+      } else if (['mt5', 'cptmarkets', 'cpt_markets'].includes(exchangeId)) {
         this.addExchangeType = 'mt5'
       } else {
         this.addExchangeType = ''
       }
+      if (this.addExchangeType === 'crypto') {
+        this.$nextTick(() => {
+          this.exchangeForm.setFieldsValue({ environment: 'live', market_scope: 'both' })
+        })
+      }
+    },
+    handleEnvironmentChange (value) {
+      this.selectedEnvironment = value || 'live'
+    },
+    credentialTestMessage (message) {
+      const text = String(message || '')
+      if (text.includes('BINANCE_SPOT_AUTH_MISMATCH')) {
+        return this.$t('profile.exchange.errors.BINANCE_SPOT_AUTH_MISMATCH')
+      }
+      const key = `profile.exchange.errors.${text}`
+      return this.$te(key) ? this.$t(key) : text
     },
     openSelectedExchangeApiDoc () {
       const url = this.selectedExchangeApiDocUrl
@@ -507,10 +590,7 @@ export default {
           if (res.code === 1) {
             this.$message.success(this.$t('profile.exchange.saveSuccess'))
             this.$emit('update:visible', false)
-            this.exchangeForm.resetFields()
-            this.addExchangeType = ''
-            this.selectedExchangeId = ''
-            this.exchangeTestResult = null
+            this.resetExchangeFormState()
             this.$emit('success', res.data)
           } else {
             this.$message.error(res.msg || this.$t('profile.exchange.saveFailed'))
@@ -533,23 +613,26 @@ export default {
         this.exchangeTestResult = null
         try {
           const payload = this._normalizeCredentialPayload(values)
-          const res = await testExchangeConnection(payload)
+          const res = await testExchangeCredential(payload)
           if (res.code === 1) {
             this.exchangeTestResult = {
               success: true,
-              message: res.msg || this.$t('profile.exchange.testSuccess')
+              message: this.$t('profile.exchange.testSuccess')
             }
           } else {
             const hint = (res.data && res.data.hint_cn) ? ` ${res.data.hint_cn}` : ''
             this.exchangeTestResult = {
               success: false,
-              message: `${this.$t('profile.exchange.testFailed')}: ${res.msg || 'Unknown error'}${hint}`
+              message: `${this.$t('profile.exchange.testFailed')}: ${this.credentialTestMessage(res.msg)}${hint}`
             }
           }
         } catch (e) {
+          const errorMessage = e && e.message
+            ? this.credentialTestMessage(e.message)
+            : this.$t('profile.exchange.errors.NETWORK_ERROR')
           this.exchangeTestResult = {
             success: false,
-            message: `${this.$t('profile.exchange.testFailed')}: ${e.message || 'Network error'}`
+            message: `${this.$t('profile.exchange.testFailed')}: ${errorMessage}`
           }
         } finally {
           this.testingExchange = false

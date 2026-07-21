@@ -149,21 +149,21 @@ export default {
 .metric-sub { margin-top: 4px; font-size: 11px; color: #8c8c8c; }
 .account-grid.theme-dark {
   .metric-card {
-    background: linear-gradient(165deg, #1b1f24 0%, #151719 100%);
-    border-color: #30363d;
+    background: #181818;
+    border-color: #303030;
 
     &.accent {
-      background: linear-gradient(165deg, color-mix(in srgb, var(--primary-color, #1890ff) 14%, transparent) 0%, #171b20 100%);
+      background: color-mix(in srgb, var(--primary-color, #1890ff) 10%, #181818);
       border-color: color-mix(in srgb, var(--primary-color, #1890ff) 45%, transparent);
     }
 
     &.positive {
-      background: linear-gradient(165deg, rgba(82, 196, 26, 0.12) 0%, #171b18 100%);
+      background: color-mix(in srgb, #52c41a 9%, #181818);
       border-color: rgba(82, 196, 26, 0.35);
     }
 
     &.negative {
-      background: linear-gradient(165deg, rgba(245, 34, 45, 0.12) 0%, #1d1718 100%);
+      background: color-mix(in srgb, #f5222d 9%, #181818);
       border-color: rgba(245, 34, 45, 0.35);
     }
   }

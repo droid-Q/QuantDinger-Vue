@@ -2,8 +2,8 @@ import request from '@/utils/request'
 
 const api = {
   list: '/api/credentials/list',
-  get: '/api/credentials/get',
   create: '/api/credentials/create',
+  test: '/api/credentials/test',
   delete: '/api/credentials/delete',
   updateName: '/api/credentials/update-name',
   egressIp: '/api/credentials/egress-ip',
@@ -18,17 +18,17 @@ export function listExchangeCredentials (params = {}) {
   })
 }
 
-export function getExchangeCredential (id, params = {}) {
-  return request({
-    url: api.get,
-    method: 'get',
-    params: { id, ...params }
-  })
-}
-
 export function createExchangeCredential (data) {
   return request({
     url: api.create,
+    method: 'post',
+    data
+  })
+}
+
+export function testExchangeCredential (data) {
+  return request({
+    url: api.test,
     method: 'post',
     data
   })

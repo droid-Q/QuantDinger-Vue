@@ -226,11 +226,12 @@ export default {
         </span>)
       })
 
-      const clearItem = (typeof this.alert.clear === 'boolean' && this.alert.clear) ? (
-        this.renderClear(this.clearSelected)
-      ) : (this.alert !== null && typeof this.alert.clear === 'function') ? (
-        this.renderClear(this.alert.clear)
-      ) : null
+      let clearItem = null
+      if (typeof this.alert.clear === 'boolean' && this.alert.clear) {
+        clearItem = this.renderClear(this.clearSelected)
+      } else if (this.alert !== null && typeof this.alert.clear === 'function') {
+        clearItem = this.renderClear(this.alert.clear)
+      }
 
       return (
         <a-alert showIcon={true} style="margin-bottom: 16px">

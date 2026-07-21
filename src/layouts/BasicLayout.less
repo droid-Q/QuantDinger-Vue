@@ -1,6 +1,186 @@
 @import '@/styles/antd-vars.less';
 
 /* Header theme overrides. */
+.basic-layout-wrapper .ant-layout-header {
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+  overflow: hidden !important;
+}
+
+.basic-layout-wrapper .ant-layout-header.ant-pro-top-menu,
+.basic-layout-wrapper .ant-layout-header.ant-pro-fixed-header.ant-pro-top-menu {
+  left: 0 !important;
+  right: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+}
+
+.basic-layout-wrapper .ant-pro-top-nav-header,
+.basic-layout-wrapper .ant-pro-top-nav-header-main {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+}
+
+.basic-layout-wrapper .ant-pro-top-nav-header-main.wide {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.basic-layout-wrapper .ant-pro-top-nav-header-left {
+  flex: 0 0 204px !important;
+  width: 204px !important;
+  min-width: 204px !important;
+}
+
+.basic-layout-wrapper .ant-pro-top-nav-header-menu {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.basic-layout-wrapper .ant-pro-global-header {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+  overflow: hidden !important;
+}
+
+.basic-layout-wrapper .ant-pro-global-header-content {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+}
+
+.basic-layout-wrapper .ant-pro-global-header-logo,
+.basic-layout-wrapper .ant-layout-header .ant-pro-sider-menu-logo {
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 0 204px !important;
+  width: 204px !important;
+  min-width: 204px !important;
+  height: @layout-header-height !important;
+  padding: 0 24px 0 32px !important;
+  line-height: @layout-header-height !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.basic-layout-wrapper .ant-pro-global-header-logo img,
+.basic-layout-wrapper .ant-layout-header .ant-pro-sider-menu-logo img,
+.basic-layout-wrapper .ant-layout-header .sidebar-logo-wrapper .sidebar-logo {
+  display: block !important;
+  width: 152px !important;
+  height: 36px !important;
+  max-width: 152px !important;
+  max-height: 36px !important;
+  object-fit: contain !important;
+}
+
+.basic-layout-wrapper .ant-layout-header .ant-pro-top-menu,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu {
+  top: 0 !important;
+  height: @layout-header-height !important;
+  margin-top: 0 !important;
+  padding: 0 18px !important;
+  line-height: @layout-header-height !important;
+}
+
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item > a,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu .ant-menu-submenu-title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+}
+
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected,
+.basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected {
+  background: var(--primary-color-soft, color-mix(in srgb, var(--primary-color, #1890ff) 10%, transparent)) !important;
+}
+
+.basic-layout-wrapper .ant-pro-global-header-index-right,
+.basic-layout-wrapper .layout-top-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  height: @layout-header-height !important;
+  line-height: @layout-header-height !important;
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+  white-space: nowrap !important;
+}
+
+.mobile-menu-close {
+  position: fixed;
+  top: 10px;
+  left: min(220px, calc(100vw - 44px));
+  z-index: 1102;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  background: #1f1f1f;
+  cursor: pointer;
+}
+
+@media (min-width: 769px) and (max-width: 1366px) {
+  .basic-layout-wrapper .ant-pro-top-nav-header-left,
+  .basic-layout-wrapper .ant-pro-global-header-logo,
+  .basic-layout-wrapper .ant-layout-header .ant-pro-sider-menu-logo {
+    flex-basis: 168px !important;
+    width: 168px !important;
+    min-width: 168px !important;
+    padding-right: 12px !important;
+    padding-left: 20px !important;
+  }
+
+  .basic-layout-wrapper .ant-pro-global-header-logo img,
+  .basic-layout-wrapper .ant-layout-header .ant-pro-sider-menu-logo img,
+  .basic-layout-wrapper .ant-layout-header .sidebar-logo-wrapper .sidebar-logo {
+    width: 136px !important;
+    max-width: 136px !important;
+  }
+
+  .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-item,
+  .basic-layout-wrapper .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu {
+    padding-right: 9px !important;
+    padding-left: 9px !important;
+  }
+
+  .top-admin-shortcut span,
+  .top-admin-shortcut__arrow,
+  .account-name {
+    display: none !important;
+  }
+}
+
 :global {
   /* Apply header colors based on body or layout theme classes. */
   .ant-layout-footer,
@@ -389,7 +569,7 @@
       background: #111111 !important;
     }
     :global(.ant-menu-dark .ant-menu-item-selected) {
-      background: rgba(24, 144, 255, 0.25) !important;
+      background: var(--primary-color-soft-strong, color-mix(in srgb, var(--primary-color, #1890ff) 18%, transparent)) !important;
     }
     :global(.ant-menu-dark .ant-menu-item:hover),
     :global(.ant-menu-dark .ant-menu-submenu-title:hover) {
@@ -432,7 +612,7 @@
 }
 
 .ant-pro-global-header-index-right {
-  margin-right: 8px;
+  margin-right: 4px;
 
   &.ant-pro-global-header-index-dark {
     .ant-pro-global-header-index-action {
@@ -472,7 +652,7 @@
     .antd-pro-global-header-index-avatar {
       margin: ~'calc((@{layout-header-height} - 24px) / 2)' 0;
       margin-right: 8px;
-      color: @primary-color;
+      color: var(--primary-color, @primary-color);
       vertical-align: top;
       background: rgb(255 255 255 / 85%);
     }
@@ -540,7 +720,7 @@
       background: #111111 !important;
     }
     .ant-menu-dark .ant-menu-item-selected {
-      background: rgba(24, 144, 255, 0.25) !important;
+      background: var(--primary-color-soft-strong, color-mix(in srgb, var(--primary-color, #1890ff) 18%, transparent)) !important;
     }
     /* Logo surface. */
     .ant-pro-sider-menu-logo {
@@ -607,6 +787,103 @@
       padding-right: 0 !important;
       padding-top: 0 !important;
       padding-bottom: 0 !important;
+    }
+  }
+}
+
+.layout-top-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: @layout-header-height;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.layout-top-actions .ant-pro-global-header-index-right {
+  margin-left: 8px;
+}
+
+.top-admin-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: @layout-header-height;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 14px;
+  line-height: @layout-header-height;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease;
+
+  &:hover,
+  &--active {
+    color: var(--primary-color, #1890ff);
+    background: color-mix(in srgb, var(--primary-color, #1890ff) 7%, transparent);
+  }
+
+  .anticon {
+    font-size: 15px;
+  }
+}
+
+.top-admin-shortcut__arrow {
+  font-size: 11px !important;
+  opacity: 0.78;
+}
+
+.top-admin-shortcut-dropdown {
+  padding-top: 6px;
+
+  .ant-dropdown-menu {
+    min-width: 176px;
+    padding: 8px 6px;
+    border-radius: 6px;
+  }
+
+  .ant-dropdown-menu-item {
+    display: flex;
+    align-items: center;
+    min-width: 164px;
+    min-height: 40px;
+    margin: 2px 0;
+    padding: 0 12px;
+    border-radius: 5px;
+    font-size: 14px;
+    line-height: 40px;
+
+    .anticon {
+      flex: 0 0 16px;
+      width: 16px;
+      margin-right: 10px;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    span {
+      line-height: 1;
+    }
+  }
+}
+
+body.dark,
+body.realdark,
+.ant-layout.dark,
+.ant-layout.realdark,
+.ant-pro-layout.dark,
+.ant-pro-layout.realdark {
+  .top-admin-shortcut {
+    color: rgba(255, 255, 255, 0.72);
+
+    &:hover,
+    &--active {
+      color: var(--primary-color, #1890ff);
+      background: color-mix(in srgb, var(--primary-color, #1890ff) 12%, transparent);
     }
   }
 }
@@ -680,21 +957,7 @@
   body.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-item-selected .ant-menu-title-content,
   body.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected > .ant-menu-submenu-title,
   body.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected > .ant-menu-submenu-title > span,
-  body.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected .ant-menu-title-content,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected > a,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected > a > span,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected > span,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected > .ant-menu-submenu-title,
-  .basic-layout-wrapper.dark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected > .ant-menu-submenu-title > span,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected > a,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected > a > span,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-item-selected > span,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected > .ant-menu-submenu-title,
-  .basic-layout-wrapper.realdark .ant-pro-top-nav-header .ant-menu-horizontal > .ant-menu-submenu-selected > .ant-menu-submenu-title > span {
+  body.realdark .ant-layout-header .ant-menu-horizontal > .ant-menu-submenu-selected .ant-menu-title-content {
     color: var(--primary-color, #1890ff) !important;
   }
 }

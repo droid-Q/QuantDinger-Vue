@@ -68,6 +68,18 @@ export default {
     size: {
       type: String,
       default: 'normal' // 'normal', 'compact'
+    },
+    appearance: {
+      type: String,
+      default: 'always'
+    },
+    execution: {
+      type: String,
+      default: 'render'
+    },
+    executeTimeoutMs: {
+      type: Number,
+      default: 30000
     }
   },
 
@@ -76,6 +88,9 @@ export default {
       widgetId: null,
       token: null,
       error: null,
+      pendingResolve: null,
+      pendingReject: null,
+      pendingTimer: null,
       containerId: `turnstile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     }
   },
@@ -133,14 +148,24 @@ export default {
         sitekey: this.siteKey,
         theme: this.theme,
         size: this.size,
+        appearance: this.appearance,
+        execution: this.execution,
         callback: (token) => {
           this.token = token
           this.error = null
+          if (this.pendingResolve) {
+            this.pendingResolve(token)
+            this.clearPending()
+          }
           this.$emit('success', token)
         },
         'error-callback': (code) => {
           this.token = null
           this.error = this.translate('user.security.verificationFailed', 'Verification failed')
+          if (this.pendingReject) {
+            this.pendingReject(code)
+            this.clearPending()
+          }
           if (code) {
             console.warn('Turnstile verification error:', code)
           }
@@ -148,7 +173,57 @@ export default {
         },
         'expired-callback': () => {
           this.token = null
+          if (this.pendingReject) {
+            this.pendingReject(new Error('expired'))
+            this.clearPending()
+          }
           this.$emit('expired')
+        }
+      })
+    },
+
+    clearPending () {
+      if (this.pendingTimer) {
+        clearTimeout(this.pendingTimer)
+        this.pendingTimer = null
+      }
+      this.pendingResolve = null
+      this.pendingReject = null
+    },
+
+    async execute () {
+      if (!this.enabled) {
+        return Promise.resolve('')
+      }
+      if (!window.turnstile || this.widgetId === null) {
+        await this.initTurnstile()
+      }
+      if (!window.turnstile || this.widgetId === null) {
+        return Promise.reject(new Error('turnstile_unavailable'))
+      }
+      if (this.pendingReject) {
+        this.pendingReject(new Error('replaced'))
+      }
+      this.clearPending()
+      this.token = null
+      this.error = null
+      return new Promise((resolve, reject) => {
+        this.pendingResolve = resolve
+        this.pendingReject = reject
+        this.pendingTimer = setTimeout(() => {
+          const err = new Error('turnstile_timeout')
+          this.error = this.translate('user.security.verificationFailed', 'Verification failed')
+          this.clearPending()
+          reject(err)
+          this.$emit('error', err)
+        }, Math.max(5000, this.executeTimeoutMs))
+        try {
+          if (this.execution === 'execute') {
+            window.turnstile.execute(this.widgetId)
+          }
+        } catch (e) {
+          this.clearPending()
+          reject(e)
         }
       })
     },
@@ -156,6 +231,10 @@ export default {
     reset () {
       this.token = null
       this.error = null
+      if (this.pendingReject) {
+        this.pendingReject(new Error('reset'))
+        this.clearPending()
+      }
       if (window.turnstile && this.widgetId !== null) {
         window.turnstile.reset(this.widgetId)
       } else {

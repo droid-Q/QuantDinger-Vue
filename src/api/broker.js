@@ -73,8 +73,8 @@ function makeBrokerClient (id) {
     positions () {
       return request({ url: ep.positions, method: 'get' })
     },
-    orders () {
-      return request({ url: ep.orders, method: 'get' })
+    orders (params = {}) {
+      return request({ url: ep.orders, method: 'get', params })
     },
     placeOrder (data = {}) {
       return request({ url: ep.order, method: 'post', data })

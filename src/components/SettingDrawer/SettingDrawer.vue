@@ -1,12 +1,14 @@
 <template>
   <div class="setting-drawer" :class="{ 'setting-drawer--dark': isDarkDrawer }">
     <a-drawer
+      v-if="visible"
       width="300"
       placement="right"
       @close="onClose"
       :closable="true"
       :visible="visible"
       :get-container="false"
+      :destroy-on-close="true"
     >
       <div class="setting-drawer-index-content">
 
@@ -18,9 +20,9 @@
               <template slot="title">
                 {{ $t('app.setting.pagestyle.dark') }}
               </template>
-              <div class="setting-drawer-index-item" @click="handleMenuTheme('dark')">
+              <div class="setting-drawer-index-item" @click="handleMenuTheme('realdark')">
                 <img src="https://gw.alipayobjects.com/zos/rmsportal/LCkqqYNmvBEbokSDscrm.svg" alt="dark" />
-                <div class="setting-drawer-index-selectIcon" v-if="currentNavTheme === 'dark'">
+                <div class="setting-drawer-index-selectIcon" v-if="isDarkNavTheme">
                   <a-icon type="check"/>
                 </div>
               </div>
@@ -32,7 +34,7 @@
               </template>
               <div class="setting-drawer-index-item" @click="handleMenuTheme('light')">
                 <img src="https://gw.alipayobjects.com/zos/rmsportal/jpRkZQMyYRryryPNtyIC.svg" alt="light" />
-                <div class="setting-drawer-index-selectIcon" v-if="currentNavTheme !== 'dark'">
+                <div class="setting-drawer-index-selectIcon" v-if="currentNavTheme === 'light'">
                   <a-icon type="check"/>
                 </div>
               </div>
@@ -193,10 +195,10 @@ export default {
       return this.settings.fixSiderbar !== undefined ? this.settings.fixSiderbar : (this.fixedSidebar || false)
     },
     currentNavTheme () {
-      return this.settings.theme || this.navTheme || 'light'
+      return this.settings.theme || this.navTheme || config.navTheme || 'realdark'
     },
     currentPrimaryColor () {
-      return this.settings.primaryColor || this.primaryColor || 'var(--primary-color, #1890ff)'
+      return this.settings.primaryColor || this.primaryColor || config.primaryColor || '#1890ff'
     },
     currentFixedHeader () {
       return this.settings.fixedHeader !== undefined ? this.settings.fixedHeader : (this.fixedHeader || false)
@@ -214,6 +216,9 @@ export default {
       return this.settings.multiTab !== undefined ? this.settings.multiTab : (this.multiTab || false)
     },
     isDarkDrawer () {
+      return this.isDarkNavTheme
+    },
+    isDarkNavTheme () {
       return this.currentNavTheme === 'dark' || this.currentNavTheme === 'realdark'
     }
   },

@@ -18,7 +18,14 @@
 
       <!-- Symbol & Price Bar -->
       <div class="qt-symbol-bar">
-        <div class="qt-symbol-selector">
+        <div v-if="symbolLocked" class="qt-symbol-summary">
+          <div class="qt-symbol-summary-main">
+            <span class="qt-symbol-label">{{ $t('quickTrade.syncedWithChart') }}</span>
+            <strong class="qt-symbol-name">{{ currentSymbol || '-' }}</strong>
+          </div>
+          <a-tag class="qt-market-tag">{{ priceMarketParam }}</a-tag>
+        </div>
+        <div v-else class="qt-symbol-selector">
           <a-select
             v-model="currentSymbol"
             show-search
@@ -47,6 +54,7 @@
           </a-select>
         </div>
         <div class="qt-price-display" :class="priceChangeClass">
+          <span class="qt-price-label">{{ $t('quickTrade.syncedPrice') }}</span>
           <span class="qt-current-price">${{ formatPrice(currentPrice) }}</span>
         </div>
       </div>
@@ -56,48 +64,56 @@
 
           <!-- Credential Selector -->
           <div class="qt-section">
-            <div class="qt-label">{{ $t('quickTrade.exchange') }} <span class="qt-crypto-hint">{{ $t('quickTrade.liveAccountsHint') }}</span></div>
+            <div class="qt-label">{{ accountLabel }} <span class="qt-crypto-hint">{{ accountHint }}</span></div>
             <a-select
               v-model="selectedCredentialId"
-              :placeholder="$t('quickTrade.selectExchange')"
+              :placeholder="accountPlaceholder"
               style="width: 100%"
               :get-popup-container="qtSelectPopupContainer"
               :dropdown-class-name="qtSelectDropdownClass"
               @change="onCredentialChange"
               :loading="credLoading"
-              :notFoundContent="$t('quickTrade.noExchange')"
+              :notFoundContent="isStockMarket ? $t('quickTrade.noBrokerAccount') : $t('quickTrade.noExchange')"
             >
               <a-select-option v-for="c in credentials" :key="c.id" :value="c.id">
                 {{ formatCredentialOptionLabel(c) }}
-                <a-tag v-if="c.enable_demo_trading" color="orange" size="small" style="margin-left: 6px;">{{ $t('quickTrade.testnetTag') }}</a-tag>
+                <a-tag v-if="c.enable_demo_trading" color="orange" size="small" style="margin-left: 6px;">{{ credentialEnvironmentLabel(c) }}</a-tag>
                 <a-tag v-if="c.market_type" size="small" style="margin-left: 6px;">{{ c.market_type }}</a-tag>
               </a-select-option>
             </a-select>
             <div class="qt-account-actions">
-              <a-button type="primary" block size="small" class="qt-add-account-btn" @click="showAddExchangeModal = true">
+              <a-button type="primary" block size="small" class="qt-add-account-btn" @click="handleAddAccountClick">
                 <a-icon type="plus" /> {{ $t('quickTrade.addAccountInline') }}
               </a-button>
             </div>
             <div class="qt-balance" v-if="selectedCredentialId">
               <template v-if="balanceLoading">
                 <a-spin size="small" />
-                <span class="qt-balance-label qt-balance-loading-text">{{ $t('quickTrade.available') }}…</span>
+                <span class="qt-balance-label qt-balance-loading-text">{{ $t('quickTrade.available') }}...</span>
               </template>
               <template v-else>
-                <div
-                  class="qt-balance-line"
-                  :class="{ 'qt-balance-line--active': isSwapMode }"
-                >
-                  <span class="qt-balance-label">{{ $t('quickTrade.swapAvailable') }}</span>
-                  <span class="qt-balance-value">${{ formatPrice(swapBalanceAvailable) }}</span>
-                </div>
-                <div
-                  class="qt-balance-line"
-                  :class="{ 'qt-balance-line--active': !isSwapMode }"
-                >
-                  <span class="qt-balance-label">{{ $t('quickTrade.spotAvailable') }}</span>
-                  <span class="qt-balance-value">${{ formatPrice(spotBalanceAvailable) }}</span>
-                </div>
+                <template v-if="isStockMarket">
+                  <div class="qt-balance-line qt-balance-line--active">
+                    <span class="qt-balance-label">{{ $t('quickTrade.buyingPower') }}</span>
+                    <span class="qt-balance-value">${{ formatPrice(activeBalanceAvailable) }}</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <div
+                    class="qt-balance-line"
+                    :class="{ 'qt-balance-line--active': isSwapMode }"
+                  >
+                    <span class="qt-balance-label">{{ $t('quickTrade.swapAvailable') }}</span>
+                    <span class="qt-balance-value">${{ formatPrice(swapBalanceAvailable) }}</span>
+                  </div>
+                  <div
+                    class="qt-balance-line"
+                    :class="{ 'qt-balance-line--active': !isSwapMode }"
+                  >
+                    <span class="qt-balance-label">{{ $t('quickTrade.spotAvailable') }}</span>
+                    <span class="qt-balance-value">${{ formatPrice(spotBalanceAvailable) }}</span>
+                  </div>
+                </template>
                 <div
                   v-if="balanceErrorMessage"
                   class="qt-balance-error-hint"
@@ -107,29 +123,6 @@
                 </div>
               </template>
             </div>
-          </div>
-
-          <!-- Direction Toggle -->
-          <div class="qt-section">
-            <div class="qt-direction-toggle" :class="{ 'qt-direction-toggle--spot': !isSwapMode }">
-              <div
-                class="qt-dir-btn qt-dir-long"
-                :class="{ active: side === 'buy', 'qt-dir-btn--solo': !isSwapMode }"
-                @click="setTradeSide('buy')"
-              >
-                <a-icon type="arrow-up" />
-                {{ canOpenShort ? $t('quickTrade.long') : $t('quickTrade.buySpot') }}
-              </div>
-              <div
-                v-if="canOpenShort"
-                class="qt-dir-btn qt-dir-short"
-                :class="{ active: side === 'sell' }"
-                @click="setTradeSide('sell')"
-              >
-                <a-icon type="arrow-down" /> {{ $t('quickTrade.short') }}
-              </div>
-            </div>
-            <div v-if="!canOpenShort" class="qt-hint-text qt-hint-inline">{{ $t('quickTrade.spotBuyOnlyHint') }}</div>
           </div>
 
           <!-- Order Type -->
@@ -159,7 +152,7 @@
 
           <!-- Amount (USDT) -->
           <div class="qt-section qt-amount-block">
-            <div class="qt-label">{{ $t('quickTrade.amount') }} ({{ amountUnitLabel }})</div>
+            <div class="qt-label">{{ amountLabel }} ({{ amountUnitLabel }})</div>
             <a-input-number
               v-model="amount"
               :min="amountMin"
@@ -179,13 +172,21 @@
                 {{ pct }}%
               </a-button>
             </div>
+            <div v-if="isSwapMode" class="qt-notional-summary">
+              {{ $t('quickTrade.marginNotionalFormula', {
+                margin: formatPrice(amount),
+                leverage: leverage,
+                notional: formatPrice(estimatedNotionalUsdt),
+                currency: orderCurrency
+              }) }}
+            </div>
           </div>
 
           <!-- Mode & Leverage -->
-          <div class="qt-section qt-card qt-mode-card">
+          <div v-if="isCryptoMarket" class="qt-section qt-card qt-mode-card">
             <div class="qt-section-title-row">
               <span class="qt-section-title">{{ isSwapMode ? $t('quickTrade.leverage') : $t('quickTrade.spotModeTitle') }}</span>
-              <div v-if="!isMt5Credential" class="qt-mode-toggle">
+              <div class="qt-mode-toggle">
                 <div
                   class="qt-mode-toggle-item"
                   :class="{ active: tradeMode === 'swap' }"
@@ -228,9 +229,29 @@
             <template v-else>
               <div class="qt-spot-info">
                 <a-icon type="wallet" class="qt-spot-info-icon" />
-                <span class="qt-hint-text">{{ isMt5Credential ? $t('quickTrade.mt5ModeHint') : $t('quickTrade.spotModeHint') }}</span>
+                <span class="qt-hint-text">{{ $t('quickTrade.spotModeHint') }}</span>
               </div>
             </template>
+          </div>
+          <div v-else-if="isForexMarket" class="qt-section qt-card qt-mode-card qt-stock-mode-card">
+            <div class="qt-section-title-row">
+              <span class="qt-section-title">MT5 / CPT Markets</span>
+              <span class="qt-optional-tag">1x</span>
+            </div>
+            <div class="qt-spot-info">
+              <a-icon type="desktop" class="qt-spot-info-icon" />
+              <span class="qt-hint-text">{{ $t('quickTrade.mt5ModeHint') }}</span>
+            </div>
+          </div>
+          <div v-else class="qt-section qt-card qt-mode-card qt-stock-mode-card">
+            <div class="qt-section-title-row">
+              <span class="qt-section-title">{{ $t('quickTrade.alpacaAccount') }}</span>
+              <span class="qt-optional-tag">1x</span>
+            </div>
+            <div class="qt-spot-info">
+              <a-icon type="bank" class="qt-spot-info-icon" />
+              <span class="qt-hint-text">{{ $t('quickTrade.stockSpotModeHint') }}</span>
+            </div>
           </div>
 
           <!-- TP / SL (optional, always expanded) -->
@@ -264,23 +285,29 @@
             <div class="qt-hint-text qt-tpsl-record-hint">{{ $t('quickTrade.tpslRecordOnlyHint') }}</div>
           </div>
 
-          <!-- Submit Button (embedded: half-width inside left col) -->
+          <!-- Submit Buttons -->
           <div class="qt-submit-section qt-submit-section--embedded-left">
             <a-button
-              :type="side === 'buy' ? 'primary' : 'danger'"
+              type="primary"
               size="large"
-              block
-              :loading="submitting"
+              :loading="submittingSide === 'buy'"
               :disabled="!canSubmit"
-              @click="handleSubmit"
-              class="qt-submit-btn"
-              :class="[side === 'buy' ? 'qt-btn-long' : 'qt-btn-short']"
+              @click="handleSubmit('buy')"
+              class="qt-submit-btn qt-btn-long"
             >
-              <a-icon :type="side === 'buy' ? 'arrow-up' : 'arrow-down'" />
-              {{ canOpenShort
-                ? (side === 'buy' ? $t('quickTrade.buyLong') : $t('quickTrade.sellShort'))
-                : $t('quickTrade.buySpot') }}
-              {{ symbol }}
+              <a-icon type="arrow-up" />
+              {{ buyActionText }}
+            </a-button>
+            <a-button
+              type="danger"
+              size="large"
+              :loading="submittingSide === 'sell'"
+              :disabled="!canSubmit"
+              @click="handleSubmit('sell')"
+              class="qt-submit-btn qt-btn-short"
+            >
+              <a-icon type="arrow-down" />
+              {{ sellActionText }}
             </a-button>
           </div>
 
@@ -318,6 +345,10 @@
                 <div class="qt-pos-row">
                   <span>{{ $t('quickTrade.posSize') }}</span>
                   <span>{{ pos.size }}</span>
+                </div>
+                <div class="qt-pos-row">
+                  <span>{{ $t('quickTrade.positionValue') }}</span>
+                  <span>{{ formatPrice(pos.notional_usdt) }} USDT</span>
                 </div>
                 <div class="qt-pos-row">
                   <span>{{ $t('quickTrade.entryPrice') }}</span>
@@ -409,6 +440,7 @@ import { searchSymbols, getWatchlist } from '@/api/market'
 import { getUserInfo } from '@/api/login'
 import request from '@/utils/request'
 import { createVisibilityPolling } from '@/utils/visibilityPolling'
+import { broker } from '@/api/broker'
 
 export default {
   name: 'QuickTradePanel',
@@ -416,10 +448,12 @@ export default {
   props: {
     visible: { type: Boolean, default: false },
     symbol: { type: String, default: '' },
-    presetSide: { type: String, default: '' }, // 'buy' or 'sell' — pre-filled from AI signal
+    presetSide: { type: String, default: '' }, // 'buy' or 'sell' 閳?pre-filled from AI signal
     presetPrice: { type: Number, default: 0 },
     source: { type: String, default: 'manual' }, // ai_radar / ai_analysis / indicator / manual
     marketType: { type: String, default: 'swap' }, // swap / spot
+    market: { type: String, default: 'Crypto' },
+    symbolLocked: { type: Boolean, default: false },
     embedded: { type: Boolean, default: false },
     embeddedIde: { type: Boolean, default: false },
     overlayGetContainer: { type: Function, default: null }
@@ -449,19 +483,19 @@ export default {
       slPrice: null,
       // state
       submitting: false,
-      closingPositionSide: null, // 'long' | 'short' | null — which leg is closing
+      submittingSide: '',
+      closingPositionSide: null, // 'long' | 'short' | null
       currentPrice: 0,
       currentPositions: [],
       recentTrades: [],
-      historyCollapsed: true, // 交易记录默认折叠
-      closeScope: 'full', // full | system_tracked（合约一键平仓范围）
+      historyCollapsed: true,
+      closeScope: 'full', // full | system_tracked
       // symbol search
       currentSymbol: '',
       symbolSuggestions: [],
       symbolSearching: false,
       symbolSearchTimer: null,
-      userId: null, // 用户ID，用于获取自选列表
-      // constants
+      userId: null,
       quickAmountPcts: [10, 25, 50, 75, 100],
       // polling
       pollTimer: null,
@@ -480,23 +514,34 @@ export default {
     qtSelectDropdownClass () {
       return this.embeddedIde ? 'ide-qt-select-dropdown' : ''
     },
-    isSwapMode () {
-      return this.tradeMode === 'swap'
+    normalizedMarket () {
+      return String(this.market || '').trim() || 'Crypto'
     },
-    selectedCredentialExchangeId () {
-      return String((this.selectedCredential && this.selectedCredential.exchange_id) || '').trim().toLowerCase()
+    isStockMarket () {
+      return ['USStock', 'Stock', 'Stocks'].includes(this.normalizedMarket)
     },
-    isMt5Credential () {
-      return ['mt5', 'cptmarkets', 'cpt_markets'].includes(this.selectedCredentialExchangeId)
+    isCryptoMarket () {
+      return this.normalizedMarket === 'Crypto'
     },
-    quickTradeMarket () {
-      return this.isMt5Credential ? 'MT5' : 'Crypto'
+    isForexMarket () {
+      return ['Forex', 'MT5'].includes(this.normalizedMarket)
     },
-    canOpenShort () {
-      return this.isSwapMode || this.isMt5Credential
+    tradableMarketSupported () {
+      return this.isCryptoMarket || this.isStockMarket || this.isForexMarket
+    },
+    priceMarketParam () {
+      if (this.isForexMarket && this.isMt5Credential) return 'MT5'
+      if (this.isForexMarket) return this.normalizedMarket
+      return this.isStockMarket ? 'USStock' : 'Crypto'
+    },
+    orderCurrency () {
+      return this.isStockMarket ? 'USD' : 'USDT'
+    },
+    amountLabel () {
+      return this.$t(this.isSwapMode ? 'quickTrade.marginAmount' : 'quickTrade.amount')
     },
     amountUnitLabel () {
-      return this.isMt5Credential ? this.$t('quickTrade.lotsUnit') : 'USDT'
+      return this.isMt5Credential ? this.$t('quickTrade.lotsUnit') : this.orderCurrency
     },
     amountMin () {
       return this.isMt5Credential ? 0.01 : 1
@@ -505,7 +550,33 @@ export default {
       return this.isMt5Credential ? 0.01 : 10
     },
     amountPrecision () {
-      return this.isMt5Credential ? 2 : 2
+      return 2
+    },
+    estimatedNotionalUsdt () {
+      const amount = Math.max(0, Number(this.amount) || 0)
+      return this.isSwapMode ? amount * Math.max(1, Number(this.leverage) || 1) : amount
+    },
+    accountLabel () {
+      return this.isStockMarket ? this.$t('quickTrade.brokerAccount') : this.$t('quickTrade.exchange')
+    },
+    accountPlaceholder () {
+      return this.isStockMarket ? this.$t('quickTrade.selectBrokerAccount') : this.$t('quickTrade.selectExchange')
+    },
+    accountHint () {
+      if (this.isForexMarket) return this.$t('quickTrade.liveAccountsHint')
+      return this.isStockMarket ? this.$t('quickTrade.usStockSpotOnly') : this.$t('quickTrade.cryptoAccountHint')
+    },
+    isSwapMode () {
+      return this.isCryptoMarket && this.tradeMode === 'swap'
+    },
+    selectedCredentialExchangeId () {
+      return String((this.selectedCredential && this.selectedCredential.exchange_id) || '').trim().toLowerCase()
+    },
+    isMt5Credential () {
+      return ['mt5', 'cptmarkets', 'cpt_markets'].includes(this.selectedCredentialExchangeId)
+    },
+    canOpenShort () {
+      return this.isSwapMode || this.isMt5Credential
     },
     leverageMarks () {
       const keys = this.embeddedIde ? [1, 50, 125] : [1, 25, 50, 100, 125]
@@ -515,7 +586,7 @@ export default {
       }, {})
     },
     effectiveMarketType () {
-      return this.isMt5Credential ? 'spot' : this.tradeMode
+      return (this.isStockMarket || this.isForexMarket) ? 'spot' : this.tradeMode
     },
     swapBalanceAvailable () {
       const leg = this.balance && this.balance.swap
@@ -537,13 +608,13 @@ export default {
       if (!err) return ''
       if (/40018|Invalid IP|invalid ip/i.test(err)) {
         const ip = (this.balance && this.balance.request_ip) || ''
-        return this.$t('quickTrade.errorBitgetIpWhitelist', { ip: ip || '—' })
+        return this.$t('quickTrade.errorBitgetIpWhitelist', { ip: ip || '-' })
       }
       if (this.balance && this.balance.error_hint_key) {
         const key = this.balance.error_hint_key
         if (this.$te && this.$te(key)) return this.$t(key)
       }
-      return err.length > 120 ? `${err.slice(0, 120)}…` : err
+      return err.length > 120 ? `${err.slice(0, 120)}...` : err
     },
     priceStep () {
       if (this.currentPrice > 10000) return 1
@@ -558,13 +629,19 @@ export default {
       return 4
     },
     canSubmit () {
-      return this.selectedCredentialId && this.selectedCredential && this.currentSymbol && this.amount > 0 && !this.submitting
+      return this.tradableMarketSupported && this.selectedCredentialId && this.selectedCredential && this.currentSymbol && this.amount > 0 && !this.submitting
     },
     selectedCredential () {
       return this.credentials.find(c => c.id === this.selectedCredentialId)
     },
     priceChangeClass () {
       return ''
+    },
+    buyActionText () {
+      return this.canOpenShort ? this.$t('quickTrade.buyLong') : this.$t('quickTrade.buySpot')
+    },
+    sellActionText () {
+      return this.canOpenShort ? this.$t('quickTrade.sellShort') : this.$t('quickTrade.sellSpot')
     },
     collapseStyle () {
       return { background: 'transparent', borderRadius: '4px', border: 0, overflow: 'hidden' }
@@ -611,14 +688,21 @@ export default {
           this.loadPosition()
         }
         // Emit symbol change to parent
-        this.$emit('update:symbol', val)
+        if (!this.symbolLocked) this.$emit('update:symbol', val)
       }
+    },
+    market () {
+      this.tradeMode = (this.isStockMarket || this.isForexMarket) ? 'spot' : (this.marketType === 'spot' ? 'spot' : 'swap')
+      this.selectedCredentialId = undefined
+      this.resetBalance()
+      this.currentPositions = []
+      this.recentTrades = []
+      this.loadCredentials()
+      this.loadWatchlistSymbols()
+      if (this.currentSymbol) this.loadPrice()
     },
     selectedCredentialId (val) {
       // Reload position when credential changes
-      if (this.isMt5Credential) {
-        this.tradeMode = 'spot'
-      }
       if (val && this.currentSymbol) {
         this.loadPosition()
       }
@@ -641,8 +725,9 @@ export default {
       })
     },
     tradeMode (val) {
-      if (val === 'spot' && this.side === 'sell' && !this.canOpenShort) {
-        this.side = 'buy'
+      if ((this.isStockMarket || this.isForexMarket) && val !== 'spot') {
+        this.tradeMode = 'spot'
+        return
       }
       this.$nextTick(() => {
         if (this.selectedCredentialId) {
@@ -660,7 +745,19 @@ export default {
     }
   },
   methods: {
+    isMt5ExchangeId (value) {
+      return ['mt5', 'cptmarkets', 'cpt_markets'].includes(String(value || '').trim().toLowerCase())
+    },
+    credentialEnvironmentLabel (credential) {
+      const environment = String((credential && credential.environment) || '').toLowerCase()
+      return this.$t(environment === 'testnet'
+        ? 'profile.exchange.environmentTestnet'
+        : 'profile.exchange.environmentDemo')
+    },
     formatCredentialOptionLabel (cred) {
+      if (cred && cred.type === 'broker') {
+        return cred.name || this.$t('quickTrade.alpacaAccount')
+      }
       return formatExchangeCredentialLabel(cred, {
         unnamed: this.$t('brokerAccounts.cryptoSection.unnamed')
       })
@@ -684,20 +781,11 @@ export default {
       if (el && fs && typeof fs.contains === 'function' && fs.contains(el)) return fs
       return document.body
     },
-    setTradeSide (s) {
-      if (s === 'sell' && !this.canOpenShort) {
-        this.$message.warning(this.$t('quickTrade.shortDisabledSpot'))
-        return
-      }
-      this.side = s
-    },
     async init () {
       // Initialize current symbol from prop
       this.currentSymbol = this.symbol || ''
       if (this.presetSide) this.side = this.presetSide
-      if (this.marketType === 'spot') {
-        this.tradeMode = 'spot'
-      }
+      this.tradeMode = (this.isStockMarket || this.isForexMarket) ? 'spot' : (this.marketType === 'spot' ? 'spot' : 'swap')
       if (this.presetPrice > 0) {
         this.currentPrice = this.presetPrice
         this.limitPrice = this.presetPrice
@@ -740,6 +828,125 @@ export default {
         console.warn('loadUserInfo error:', e)
       }
     },
+    apiPayload (res) {
+      if (!res) return {}
+      if (res.data && typeof res.data === 'object') return res.data.data || res.data
+      return res
+    },
+    apiSuccess (res) {
+      return !!(res && (res.success === true || res.code === 1 || (res.data && res.data.success === true)))
+    },
+    normalizeBrokerSymbol (symbol) {
+      return String(symbol || '').replace(/^USStock:/i, '').trim()
+    },
+    resetBalance () {
+      this.balance = {
+        available: 0,
+        total: 0,
+        swap: { available: 0, total: 0 },
+        spot: { available: 0, total: 0 }
+      }
+    },
+    toFiniteNumber (value, fallback = 0) {
+      const n = parseFloat(value)
+      return Number.isFinite(n) ? n : fallback
+    },
+    pickNumber (source, keys, fallback = 0) {
+      const obj = source || {}
+      for (const key of keys) {
+        if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+          return this.toFiniteNumber(obj[key], fallback)
+        }
+      }
+      return fallback
+    },
+    pickOptionalNumber (source, keys) {
+      const obj = source || {}
+      for (const key of keys) {
+        if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+          return this.toFiniteNumber(obj[key], 0)
+        }
+      }
+      return null
+    },
+    inferPositionSide (position, rawQty) {
+      const rawSide = String(
+        position.side ||
+        position.position_side ||
+        position.positionSide ||
+        position.pos_side ||
+        position.holdSide ||
+        ''
+      ).toLowerCase()
+      if (rawSide.includes('short') || rawSide.includes('sell')) return 'short'
+      if (rawSide.includes('long') || rawSide.includes('buy')) return 'long'
+      return rawQty < 0 ? 'short' : 'long'
+    },
+    calculatePositionPnl (side, size, entryPrice, markPrice) {
+      if (!(size > 0 && entryPrice > 0 && markPrice > 0)) return null
+      return side === 'short'
+        ? (entryPrice - markPrice) * size
+        : (markPrice - entryPrice) * size
+    },
+    normalizePosition (position, options = {}) {
+      const rawQty = this.pickNumber(position, ['size', 'qty', 'quantity', 'position', 'positionAmt', 'contracts'], 0)
+      const size = Math.abs(rawQty)
+      const side = this.inferPositionSide(position, rawQty)
+      const entryPrice = this.pickNumber(position, ['entry_price', 'avg_entry_price', 'avgEntryPrice', 'entryPrice', 'average_price', 'avgPrice'], 0)
+      const markPrice = this.pickNumber(position, ['mark_price', 'markPrice', 'current_price', 'currentPrice', 'last_price', 'lastPrice'], this.currentPrice || 0)
+      const providedNotional = this.pickOptionalNumber(position, ['notional_usdt', 'notionalUsd', 'notional_usd', 'notional', 'positionValue', 'position_value', 'value'])
+      const notionalUsdt = providedNotional !== null && Math.abs(providedNotional) > 0
+        ? Math.abs(providedNotional)
+        : (size > 0 && markPrice > 0 ? size * markPrice : 0)
+      const providedPnl = this.pickOptionalNumber(position, ['unrealized_pnl', 'unrealizedPnl', 'unrealized_pl', 'unrealizedPL', 'profit', 'pnl'])
+      const computedPnl = this.calculatePositionPnl(side, size, entryPrice, markPrice)
+      const shouldPreferComputed = options.preferComputedPnl || this.isStockMarket ||
+        (this.effectiveMarketType === 'spot' && !this.isMt5Credential)
+      const unrealizedPnl = shouldPreferComputed
+        ? (computedPnl !== null ? computedPnl : (providedPnl !== null ? providedPnl : 0))
+        : (providedPnl !== null ? providedPnl : (computedPnl !== null ? computedPnl : 0))
+      return {
+        ...position,
+        side,
+        size,
+        entry_price: entryPrice,
+        mark_price: markPrice,
+        notional_usdt: notionalUsdt,
+        unrealized_pnl: unrealizedPnl,
+        leverage: this.pickNumber(position, ['leverage'], position.leverage || 1)
+      }
+    },
+    refreshPositionMarks (price = this.currentPrice) {
+      const mark = this.toFiniteNumber(price, 0)
+      if (!(mark > 0) || !Array.isArray(this.currentPositions) || this.currentPositions.length === 0) return
+      this.currentPositions = this.currentPositions.map(pos => this.normalizePosition({
+        ...pos,
+        mark_price: mark,
+        current_price: mark,
+        unrealized_pnl: undefined,
+        unrealizedPnl: undefined,
+        unrealized_pl: undefined,
+        unrealizedPL: undefined
+      }, { preferComputedPnl: true }))
+    },
+    applyNewPrice (price) {
+      const parsed = parseFloat(price || 0)
+      if (parsed > 0) {
+        const oldPrice = this.currentPrice
+        this.currentPrice = parsed
+        if (this.limitPrice === 0 || this.limitPrice === this.presetPrice || this.limitPrice === oldPrice) {
+          this.limitPrice = parsed
+        }
+        this.refreshPositionMarks(parsed)
+      }
+    },
+    handleAddAccountClick () {
+      if (this.isStockMarket) {
+        this.$router.push('/broker-accounts')
+        return
+      }
+      this.showAddExchangeModal = true
+    },
     async loadWatchlistSymbols () {
       if (!this.userId) {
         // If no userId, try to load it first
@@ -750,11 +957,11 @@ export default {
         }
       }
       try {
-        const market = this.quickTradeMarket.toLowerCase()
+        const targetMarket = this.priceMarketParam.toLowerCase()
         const res = await getWatchlist({ userid: this.userId })
         if (res && res.code === 1 && res.data) {
           const symbols = (res.data || []).filter(item =>
-            (item.market || '').toLowerCase() === market
+            (item.market || '').toLowerCase() === targetMarket
           ).map(item => ({
             value: item.symbol || '',
             symbol: item.symbol || '',
@@ -783,7 +990,7 @@ export default {
       this.symbolSearchTimer = setTimeout(async () => {
         this.symbolSearching = true
         try {
-          const res = await searchSymbols({ market: this.quickTradeMarket, keyword: value.trim(), limit: 20 })
+          const res = await searchSymbols({ market: this.priceMarketParam, keyword: value.trim(), limit: 20 })
           if (res && res.code === 1 && res.data) {
             this.symbolSuggestions = (res.data.items || res.data || []).map(item => ({
               value: item.symbol || '',
@@ -811,7 +1018,7 @@ export default {
           this.loadPosition()
         }
         // Emit to parent
-        this.$emit('update:symbol', value)
+        if (!this.symbolLocked) this.$emit('update:symbol', value)
       }
     },
     async loadPrice () {
@@ -820,27 +1027,34 @@ export default {
         return
       }
       try {
-        // Use market API to get current price
         const res = await request({
           url: '/api/market/price',
           method: 'get',
           params: {
-            market: this.quickTradeMarket,
+            market: this.priceMarketParam,
             symbol: this.currentSymbol
           }
         })
         if (res && res.code === 1 && res.data) {
-          const price = parseFloat(res.data.price || 0)
-          if (price > 0) {
-            this.currentPrice = price
-            // Update limit price if it's 0 or same as old price
-            if (this.limitPrice === 0 || this.limitPrice === this.presetPrice) {
-              this.limitPrice = price
-            }
-          }
+          this.applyNewPrice(res.data.price || res.data.latest || res.data.last)
+          return
+        }
+        if (this.isStockMarket) {
+          const quote = await broker.alpaca.quote(this.normalizeBrokerSymbol(this.currentSymbol), { marketType: 'USStock' })
+          const data = this.apiPayload(quote)
+          this.applyNewPrice(data.price || data.latest || data.last || data.ask || data.bid)
         }
       } catch (e) {
         console.warn('loadPrice error:', e)
+        if (this.isStockMarket) {
+          try {
+            const quote = await broker.alpaca.quote(this.normalizeBrokerSymbol(this.currentSymbol), { marketType: 'USStock' })
+            const data = this.apiPayload(quote)
+            this.applyNewPrice(data.price || data.latest || data.last || data.ask || data.bid)
+          } catch (stockErr) {
+            console.warn('load stock price error:', stockErr)
+          }
+        }
         // Don't reset price on error, keep current value
       }
     },
@@ -853,18 +1067,41 @@ export default {
     async loadCredentials () {
       this.credLoading = true
       try {
+        if (this.isStockMarket) {
+          const status = await broker.alpaca.status()
+          const payload = this.apiPayload(status)
+          const connected = !!(payload.connected || payload.isConnected || payload.status === 'connected')
+          this.credentials = connected
+            ? [{
+                id: 'alpaca',
+                type: 'broker',
+                broker_id: 'alpaca',
+                exchange_id: 'alpaca',
+                name: this.$t('quickTrade.alpacaAccount'),
+                market_type: 'USStock'
+              }]
+            : []
+          if (this.selectedCredentialId && !this.credentials.some(c => c.id === this.selectedCredentialId)) {
+            this.selectedCredentialId = undefined
+            this.resetBalance()
+            this.currentPositions = []
+          }
+          if (!this.selectedCredentialId && this.credentials.length > 0) {
+            this.selectedCredentialId = this.credentials[0].id
+            this.onCredentialChange(this.selectedCredentialId)
+          }
+          return
+        }
         const res = await listExchangeCredentials()
         if (res.code === 1 && res.data) {
           const all = res.data.items || res.data || []
-          this.credentials = all.filter(isQuickTradeExchangeCredential)
+          this.credentials = all.filter(isQuickTradeExchangeCredential).filter(credential => {
+            const mt5 = this.isMt5ExchangeId(credential && credential.exchange_id)
+            return this.isForexMarket ? mt5 : !mt5
+          })
           if (this.selectedCredentialId && !this.credentials.some(c => c.id === this.selectedCredentialId)) {
             this.selectedCredentialId = undefined
-            this.balance = {
-              available: 0,
-              total: 0,
-              swap: { available: 0, total: 0 },
-              spot: { available: 0, total: 0 }
-            }
+            this.resetBalance()
             this.currentPositions = []
           }
           // Auto-select first if none selected
@@ -896,14 +1133,13 @@ export default {
     async onCredentialChange (credId) {
       if (!this.credentials.some(c => c.id === credId)) {
         this.selectedCredentialId = undefined
-        this.$message.warning(this.$t('quickTrade.noExchange'))
+        this.$message.warning(this.isStockMarket ? this.$t('quickTrade.noBrokerAccount') : this.$t('quickTrade.noExchange'))
         return
       }
       this.selectedCredentialId = credId
-      if (this.isMt5Credential) {
-        this.tradeMode = 'spot'
-      }
+      if (this.isMt5Credential) this.tradeMode = 'spot'
       await this.loadWatchlistSymbols()
+      await this.loadPrice()
       await this.loadBalance()
       await this.loadPosition()
     },
@@ -911,6 +1147,20 @@ export default {
       if (!this.selectedCredentialId) return
       this.balanceLoading = true
       try {
+        if (this.isStockMarket) {
+          const res = await broker.alpaca.account()
+          const d = this.apiPayload(res)
+          const available = parseFloat(d.buying_power || d.buyingPower || d.cash || 0) || 0
+          const total = parseFloat(d.equity || d.portfolio_value || d.portfolioValue || d.cash || available) || available
+          this.balance = {
+            available,
+            total,
+            currency: 'USD',
+            swap: { available: 0, total: 0 },
+            spot: { available, total }
+          }
+          return
+        }
         const res = await getQuickTradeBalance({
           credential_id: this.selectedCredentialId,
           market_type: this.effectiveMarketType
@@ -942,12 +1192,7 @@ export default {
             this.$message.warning(this.balanceErrorMessage || d.error, 6)
           }
         } else {
-          this.balance = {
-            available: 0,
-            total: 0,
-            swap: { available: 0, total: 0 },
-            spot: { available: 0, total: 0 }
-          }
+          this.resetBalance()
         }
       } catch (e) {
         console.warn('loadBalance error:', e)
@@ -968,6 +1213,19 @@ export default {
         return
       }
       try {
+        if (this.isStockMarket) {
+          const res = await broker.alpaca.positions()
+          const payload = this.apiPayload(res)
+          const items = Array.isArray(payload) ? payload : (payload.positions || payload.items || payload.data || [])
+          const target = this.normalizeBrokerSymbol(this.currentSymbol).toUpperCase()
+          const matched = (items || []).filter(p => this.normalizeBrokerSymbol(p.symbol || p.asset_symbol || '').toUpperCase() === target)
+          this.currentPositions = matched.map(p => this.normalizePosition({
+            ...p,
+            side: 'long',
+            leverage: 1
+          }, { preferComputedPnl: true }))
+          return this.currentPositions.length > 0
+        }
         console.log('Loading position:', { credential_id: this.selectedCredentialId, symbol: this.currentSymbol, market_type: this.effectiveMarketType })
         const res = await getQuickTradePosition({
           credential_id: this.selectedCredentialId,
@@ -976,7 +1234,7 @@ export default {
         })
         console.log('Position response:', res)
         if (res.code === 1 && res.data && res.data.positions && res.data.positions.length > 0) {
-          this.currentPositions = res.data.positions
+          this.currentPositions = res.data.positions.map(p => this.normalizePosition(p))
           console.log('Positions loaded:', this.currentPositions.length)
           return true
         } else {
@@ -1008,6 +1266,20 @@ export default {
     },
     async loadHistory () {
       try {
+        if (this.isStockMarket) {
+          const res = await broker.alpaca.orders({ limit: 5, status: 'all' })
+          const payload = this.apiPayload(res)
+          const items = Array.isArray(payload) ? payload : (payload.orders || payload.items || payload.data || [])
+          this.recentTrades = (items || []).slice(0, 5).map(o => ({
+            id: o.id || o.order_id || `${o.symbol}-${o.created_at || Date.now()}`,
+            symbol: o.symbol || this.currentSymbol,
+            side: o.side || 'buy',
+            amount: parseFloat(o.notional || o.filled_avg_price || o.limit_price || 0) || 0,
+            status: o.status || '',
+            created_at: o.created_at || o.submitted_at || o.updated_at
+          }))
+          return
+        }
         const res = await getQuickTradeHistory({ limit: 5 })
         if (res.code === 1 && res.data) {
           this.recentTrades = res.data.trades || []
@@ -1022,14 +1294,20 @@ export default {
         this.amount = Math.floor(avail * pct / 100 * 100) / 100
       }
     },
-    async handleSubmit () {
+    async handleSubmit (side = 'buy') {
       if (!this.canSubmit) return
+      this.side = side
       this.submitting = true
+      this.submittingSide = side
       try {
+        if (this.isStockMarket) {
+          await this.submitAlpacaOrder(side)
+          return
+        }
         const payload = {
           credential_id: this.selectedCredentialId,
           symbol: this.currentSymbol,
-          side: this.side,
+          side,
           order_type: this.orderType,
           amount: this.amount,
           price: this.orderType === 'limit' ? this.limitPrice : 0,
@@ -1067,6 +1345,47 @@ export default {
         })
       } finally {
         this.submitting = false
+        this.submittingSide = ''
+      }
+    },
+    async submitAlpacaOrder (side) {
+      const price = this.orderType === 'limit' ? parseFloat(this.limitPrice || 0) : parseFloat(this.currentPrice || 0)
+      if (!(price > 0)) {
+        this.$notification.error({
+          message: this.$t('quickTrade.orderFailed'),
+          description: this.$t('quickTrade.enterPrice')
+        })
+        return
+      }
+      const quantity = Number((parseFloat(this.amount || 0) / price).toFixed(6))
+      if (!(quantity > 0)) {
+        this.$notification.error({
+          message: this.$t('quickTrade.orderFailed'),
+          description: this.$t('quickTrade.errorHints.invalidSize')
+        })
+        return
+      }
+      const payload = {
+        symbol: this.normalizeBrokerSymbol(this.currentSymbol),
+        side,
+        quantity,
+        marketType: 'USStock',
+        orderType: this.orderType,
+        price: this.orderType === 'limit' ? price : undefined,
+        source: this.source
+      }
+      const res = await broker.alpaca.placeOrder(payload)
+      if (this.apiSuccess(res)) {
+        this.$emit('order-success', this.apiPayload(res))
+        await this.loadBalance()
+        await this.loadHistory()
+        await this.loadPositionWithRetry()
+      } else {
+        const data = this.apiPayload(res)
+        this.$notification.error({
+          message: this.$t('quickTrade.orderFailed'),
+          description: data.msg || data.message || ''
+        })
       }
     },
     async handleClosePosition (pos) {
@@ -1074,12 +1393,37 @@ export default {
       const leg = (pos.side || '').toLowerCase()
       this.closingPositionSide = leg || null
       try {
+        if (this.isStockMarket) {
+          const qty = parseFloat(pos.size || pos.qty || 0) || 0
+          if (!(qty > 0)) return
+          const res = await broker.alpaca.placeOrder({
+            symbol: this.normalizeBrokerSymbol(this.currentSymbol),
+            side: 'sell',
+            quantity: Number(qty.toFixed(6)),
+            marketType: 'USStock',
+            orderType: 'market',
+            source: 'manual'
+          })
+          if (this.apiSuccess(res)) {
+            this.$message.success(this.$t('quickTrade.positionClosed'))
+            await this.loadBalance()
+            await this.loadHistory()
+            await this.loadPositionWithRetry()
+          } else {
+            const data = this.apiPayload(res)
+            this.$notification.error({
+              message: this.$t('quickTrade.orderFailed'),
+              description: data.msg || data.message || ''
+            })
+          }
+          return
+        }
         const payload = {
           credential_id: this.selectedCredentialId,
           symbol: this.currentSymbol,
           market_type: this.effectiveMarketType,
           size: 0,
-          close_scope: this.isSwapMode ? this.closeScope : 'full',
+          close_scope: this.canOpenShort ? this.closeScope : 'full',
           position_side: leg,
           source: 'manual'
         }
@@ -1414,9 +1758,53 @@ export default {
       border: 1px solid #d9d9d9;
     }
   }
+  .qt-symbol-summary {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  .qt-symbol-summary-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .qt-symbol-label {
+    font-size: 10px;
+    color: #8c8c8c;
+  }
+  .qt-symbol-name {
+    color: #262626;
+    font-size: 14px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .qt-market-tag {
+    flex-shrink: 0;
+    margin-right: 0;
+    border-radius: 999px;
+    font-size: 11px;
+  }
   .qt-price-display {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
     justify-content: flex-end;
+    gap: 2px;
+    white-space: nowrap;
+    .qt-price-label {
+      font-size: 10px;
+      color: #8c8c8c;
+    }
     .qt-current-price {
       font-size: 16px;
       font-weight: 600;
@@ -1581,6 +1969,16 @@ export default {
   margin-top: 8px;
   margin-bottom: 4px;
   button { flex: 1; font-size: 12px; }
+}
+
+.qt-notional-summary {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: #389e0d;
+  background: rgba(82, 196, 26, 0.08);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .qt-leverage-row {
@@ -1823,7 +2221,10 @@ export default {
 
 .qt-submit-section {
   padding: 12px 20px;
+  display: flex;
+  gap: 10px;
   .qt-submit-btn {
+    flex: 1;
     height: 48px;
     font-size: 16px;
     font-weight: 700;
@@ -1842,6 +2243,11 @@ export default {
     &:hover { background: #ff4d4f !important; }
     &:active { background: #cf1322 !important; }
   }
+}
+
+.qt-stock-mode-card {
+  border-color: rgba(45, 140, 255, 0.18);
+  background: linear-gradient(135deg, rgba(45, 140, 255, 0.08), rgba(82, 196, 26, 0.06));
 }
 
 .qt-position-section {
@@ -2004,6 +2410,22 @@ export default {
   }
   .qt-symbol-bar {
     background: linear-gradient(180deg, #262626 0%, #1f1f1f 100%);
+    .qt-symbol-summary {
+      background: rgba(20, 20, 20, 0.64);
+      border-color: #363636;
+    }
+    .qt-symbol-label,
+    .qt-price-label {
+      color: #8c8c8c;
+    }
+    .qt-symbol-name {
+      color: #f0f0f0;
+    }
+    .qt-market-tag {
+      background: #2a2a2a;
+      color: #d9d9d9;
+      border-color: #434343;
+    }
     .qt-current-price { color: #e0e0e0; }
     ::v-deep .ant-select-selection {
       background: #262626;

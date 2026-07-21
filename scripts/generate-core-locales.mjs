@@ -380,8 +380,7 @@ const translationPacks = {
   }
 }
 
-function extractLocaleObject(source, fileName) {
-  const marker = 'const locale ='
+function extractObjectSource(source, fileName, marker) {
   const markerIndex = source.indexOf(marker)
   if (markerIndex < 0) throw new Error(`${fileName}: missing "const locale ="`)
 
@@ -449,11 +448,29 @@ function extractLocaleObject(source, fileName) {
   throw new Error(`${fileName}: missing locale object end`)
 }
 
+function extractLocaleObject(source, fileName) {
+  return extractObjectSource(source, fileName, 'const locale =')
+}
+
+function extractComponentMessages(source, fileName) {
+  const objectSource = extractObjectSource(source, fileName, 'const components =')
+  const messages = {}
+  const linePattern = /^\s*("(?:[^"\\]|\\.)*")\s*:\s*("(?:[^"\\]|\\.)*")\s*,?\s*$/gm
+  let match
+  while ((match = linePattern.exec(objectSource)) !== null) {
+    messages[JSON.parse(match[1])] = JSON.parse(match[2])
+  }
+  return messages
+}
+
 function loadLocale(localeName) {
   const fileName = `${localeName}.js`
   const source = readFileSync(join(langDir, fileName), 'utf8')
   const objectSource = extractLocaleObject(source, fileName)
-  return vm.runInNewContext(`(${objectSource})`, {}, { filename: fileName })
+  return {
+    ...extractComponentMessages(source, fileName),
+    ...vm.runInNewContext(`(${objectSource})`, {}, { filename: fileName })
+  }
 }
 
 function escapeKey(key) {

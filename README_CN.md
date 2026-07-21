@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/brokermr810/QuantDinger"><img src="https://img.shields.io/badge/Main_Repo-QuantDinger-blue?logo=github" alt="Main Repo" /></a>
+  <a href="https://github.com/OpenByteInc/QuantDinger"><img src="https://img.shields.io/badge/Main_Repo-QuantDinger-blue?logo=github" alt="Main Repo" /></a>
   <img src="https://img.shields.io/badge/Vue-2.7-4FC08D?logo=vue.js" alt="Vue 2.7" />
   <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite" alt="Vite 5" />
   <img src="https://img.shields.io/badge/UI-Ant_Design_Vue-1890ff?logo=ant-design" alt="Ant Design Vue" />
@@ -22,14 +22,14 @@
 
 ## 这个仓库是什么
 
-这是 [QuantDinger](https://github.com/brokermr810/QuantDinger) 的桌面端 Vue 前端源码仓库。QuantDinger 是 **Open Byte Inc** 的产品。
+这是 [QuantDinger](https://github.com/OpenByteInc/QuantDinger) 的桌面端 Vue 前端源码仓库。QuantDinger 是 **Open Byte Inc** 的产品。
 
 从产品定位上看，QuantDinger 更适合叫 **AI Trading OS**，也就是面向自动化交易的 AI 操作系统，而不是单纯的“量化平台”。它把 AI 市场分析、策略生成、回测、模拟盘交易、实盘执行工作流、交易所 API 管理、计费和运营后台放在同一套系统里。这个仓库负责其中的桌面浏览器界面。
 
 如果你要部署整套系统、查看后端接口、数据库、Docker Compose 或云端部署文档，请优先看主仓库：
 
-- [QuantDinger 主仓库](https://github.com/brokermr810/QuantDinger)
-- [云端部署文档](https://github.com/brokermr810/QuantDinger/tree/main/docs)
+- [QuantDinger 主仓库](https://github.com/OpenByteInc/QuantDinger)
+- [云端部署文档](https://github.com/OpenByteInc/QuantDinger/tree/main/docs)
 
 ## 主要能力
 
@@ -50,13 +50,13 @@
 Linux 或 macOS：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/brokermr810/QuantDinger/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/install.ps1 | iex
 ```
 
 桌面端默认访问地址：
@@ -68,8 +68,8 @@ http://localhost:8888
 ### 不克隆仓库，直接用 GHCR Compose
 
 ```bash
-curl -O https://raw.githubusercontent.com/brokermr810/QuantDinger/main/docker-compose.ghcr.yml
-curl -o backend.env https://raw.githubusercontent.com/brokermr810/QuantDinger/main/backend_api_python/env.example
+curl -O https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/docker-compose.ghcr.yml
+curl -o backend.env https://raw.githubusercontent.com/OpenByteInc/QuantDinger/main/backend_api_python/env.example
 # 对外部署前先编辑 backend.env
 docker compose -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.ghcr.yml up -d
@@ -78,7 +78,7 @@ docker compose -f docker-compose.ghcr.yml up -d
 前端镜像地址：
 
 ```text
-ghcr.io/brokermr810/quantdinger-frontend
+ghcr.io/openbyteinc/quantdinger-frontend
 ```
 
 常用标签包括 `latest`、`4.0.4` 这样的语义化版本，以及 `4.0` 这样的主次版本标签。需要固定版本时，在主仓库 `.env` 中设置 `IMAGE_TAG`；只想单独固定桌面端前端时，设置 `FRONTEND_TAG`。
@@ -91,7 +91,7 @@ ghcr.io/brokermr810/quantdinger-frontend
 docker run -d --name quantdinger-frontend \
   -p 8888:80 \
   -e BACKEND_URL=http://host.docker.internal:5000 \
-  ghcr.io/brokermr810/quantdinger-frontend:latest
+  ghcr.io/openbyteinc/quantdinger-frontend:latest
 ```
 
 `BACKEND_URL` 用来控制容器内 Nginx 的 `/api/` 反向代理目标。主仓库 Compose 中通常保持为 `http://backend:5000`。
@@ -111,7 +111,7 @@ docker run -d --name quantdinger-frontend \
 ### 启动开发服务
 
 ```bash
-git clone https://github.com/brokermr810/QuantDinger-Vue.git
+git clone https://github.com/OpenByteInc/QuantDinger-Vue.git
 cd QuantDinger-Vue
 corepack enable
 pnpm install
@@ -211,9 +211,9 @@ QuantDinger-Vue/
 
 | 仓库 | 作用 |
 |------|------|
-| [QuantDinger](https://github.com/brokermr810/QuantDinger) | 后端 API、Docker Compose、数据库服务和部署文档 |
+| [QuantDinger](https://github.com/OpenByteInc/QuantDinger) | 后端 API、Docker Compose、数据库服务和部署文档 |
 | **QuantDinger-Vue** | 本仓库：桌面端 Web 前端源码 |
-| [QuantDinger-Mobile](https://github.com/brokermr810/QuantDinger-Mobile) | 手机端和 H5 前端 |
+| [QuantDinger-Mobile](https://github.com/OpenByteInc/QuantDinger-Mobile) | 手机端和 H5 前端 |
 
 ## 许可协议
 

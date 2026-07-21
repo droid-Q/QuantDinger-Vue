@@ -84,7 +84,7 @@ export default {
     align-items: center;
     justify-content: center;
     height: @layout-header-height;
-    padding: 0 12px;
+    padding: 0 9px;
     color: rgba(0, 0, 0, 0.65);
     transition: all 0.3s;
     cursor: pointer;
@@ -154,4 +154,3 @@ body.realdark,
   }
 }
 </style>
-

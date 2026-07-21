@@ -15,18 +15,25 @@ import defaultSettings from '@/config/defaultSettings'
 export default function Initializer () {
   printANSI() // 请自行移除该行.  please remove this line
 
+  const legacyDefaultColor = '#13C2C2'
   const savedLayout = storage.get(TOGGLE_LAYOUT, defaultSettings.layout)
   const nextLayout = defaultSettings.layout === 'topmenu' && savedLayout === 'sidemenu'
     ? defaultSettings.layout
     : savedLayout
+  const savedTheme = storage.get(TOGGLE_NAV_THEME)
+  const savedColor = storage.get(TOGGLE_COLOR)
+  const validThemes = ['light', 'dark', 'realdark']
+  const nextTheme = validThemes.includes(savedTheme) ? savedTheme : defaultSettings.navTheme
+  const nextColor = !savedColor || String(savedColor).toUpperCase() === legacyDefaultColor ? defaultSettings.primaryColor : savedColor
   store.commit(TOGGLE_LAYOUT, nextLayout)
   store.commit(TOGGLE_FIXED_HEADER, storage.get(TOGGLE_FIXED_HEADER, defaultSettings.fixedHeader))
   store.commit(TOGGLE_FIXED_SIDEBAR, storage.get(TOGGLE_FIXED_SIDEBAR, defaultSettings.fixSiderbar))
-  store.commit(TOGGLE_CONTENT_WIDTH, storage.get(TOGGLE_CONTENT_WIDTH, defaultSettings.contentWidth))
+  const savedContentWidth = storage.get(TOGGLE_CONTENT_WIDTH, defaultSettings.contentWidth)
+  store.commit(TOGGLE_CONTENT_WIDTH, nextLayout === 'topmenu' ? defaultSettings.contentWidth : savedContentWidth)
   store.commit(TOGGLE_HIDE_HEADER, storage.get(TOGGLE_HIDE_HEADER, defaultSettings.autoHideHeader))
-  store.commit(TOGGLE_NAV_THEME, storage.get(TOGGLE_NAV_THEME, defaultSettings.navTheme))
+  store.commit(TOGGLE_NAV_THEME, nextTheme)
   store.commit(TOGGLE_WEAK, storage.get(TOGGLE_WEAK, defaultSettings.colorWeak))
-  store.commit(TOGGLE_COLOR, storage.get(TOGGLE_COLOR, defaultSettings.primaryColor))
+  store.commit(TOGGLE_COLOR, nextColor)
   store.commit(TOGGLE_MULTI_TAB, storage.get(TOGGLE_MULTI_TAB, defaultSettings.multiTab))
   let token = storage.get(ACCESS_TOKEN)
   if (token && typeof token !== 'string') {

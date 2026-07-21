@@ -6,4 +6,3 @@ export function getMarketModules () {
     method: 'get'
   })
 }
-

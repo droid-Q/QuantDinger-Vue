@@ -24,8 +24,20 @@ export function getSecurityConfig () {
 }
 
 /**
+ * Exchange a Turnstile token for a short-lived local clearance.
+ * @param {Object} data - { turnstile_token }
+ */
+export function issueTurnstileClearance (data) {
+  return request({
+    url: '/api/auth/turnstile-clearance',
+    method: 'post',
+    data
+  })
+}
+
+/**
  * User login
- * @param {Object} data - { username, password, turnstile_token }
+ * @param {Object} data - { username, password, turnstile_token | turnstile_clearance }
  */
 export function login (data) {
   return request({

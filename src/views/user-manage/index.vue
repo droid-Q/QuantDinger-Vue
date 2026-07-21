@@ -128,6 +128,29 @@
               <a-icon type="reload" />
               {{ $t('common.refresh') || 'Refresh' }}
             </a-button>
+            <a-divider type="vertical" class="toolbar-divider" />
+            <span v-if="selectedUserRowKeys.length" class="batch-selected-count">
+              {{ selectedCountText }}
+            </span>
+            <a-popconfirm
+              :title="batchBanConfirmText"
+              :ok-text="$t('userManage.batchBan') || 'Batch ban'"
+              :cancel-text="$t('common.cancel') || 'Cancel'"
+              placement="bottomLeft"
+              @confirm="handleBatchBanUsers"
+            >
+              <a-button
+                type="danger"
+                :disabled="!batchBannableUsers.length"
+                :loading="batchBanLoading"
+              >
+                <a-icon type="stop" />
+                {{ $t('userManage.batchBan') || 'Batch ban' }}
+              </a-button>
+            </a-popconfirm>
+            <a-button v-if="selectedUserRowKeys.length" @click="clearSelectedUsers">
+              {{ $t('userManage.clearSelection') || 'Clear selection' }}
+            </a-button>
           </div>
           <div class="toolbar-right toolbar-filters">
             <a-input
@@ -167,6 +190,7 @@
             :loading="loading"
             :pagination="pagination"
             :rowKey="record => record.id"
+            :rowSelection="userRowSelection"
             :scroll="{ x: 1420 }"
             @change="handleTableChange"
           >
@@ -281,60 +305,77 @@
 
       <!-- Tab 2: System Strategy Overview (forceRender keeps pane mounted for programmatic filters) -->
       <a-tab-pane key="strategies" forceRender :tab="$t('systemOverview.tabTitle') || 'System Overview'">
+        <section class="strategy-contract-banner">
+          <div class="strategy-contract-copy">
+            <span class="strategy-contract-icon"><a-icon type="deployment-unit" /></span>
+            <div>
+              <div class="strategy-contract-title">{{ $t('systemOverview.contractTitle') }}</div>
+              <p>{{ $t('systemOverview.contractDesc') }}</p>
+            </div>
+          </div>
+          <div class="strategy-contract-status">
+            <a-tag color="green">Strategy API V2</a-tag>
+            <span>{{ $t('systemOverview.contractReady') }} <strong>{{ strategySummary ? strategySummary.contract_ready_strategies || 0 : 0 }}</strong></span>
+            <span v-if="strategySummary && strategySummary.legacy_strategies">
+              {{ $t('systemOverview.legacyRecords') }} <strong>{{ strategySummary.legacy_strategies }}</strong>
+            </span>
+          </div>
+        </section>
+
         <!-- Summary Cards -->
         <div class="summary-cards" v-if="strategySummary">
           <div class="summary-card">
-            <div class="summary-icon" style="background: linear-gradient(135deg, #667eea, #764ba2)">
-              <a-icon type="fund" />
+            <div class="summary-icon summary-icon-v2">
+              <a-icon type="code" />
             </div>
             <div class="summary-info">
-              <div class="summary-value">{{ strategySummary.total_strategies || 0 }}</div>
-              <div class="summary-label">{{ $t('systemOverview.totalStrategies') || 'Total Strategies' }}</div>
+              <div class="summary-value">{{ strategySummary.v2_strategies || 0 }}</div>
+              <div class="summary-sub strategy-class-breakdown">
+                <span>{{ $t('systemOverview.cta') }} {{ strategySummary.cta_strategies || 0 }}</span>
+                <span>{{ $t('systemOverview.portfolio') }} {{ strategySummary.portfolio_strategies || 0 }}</span>
+                <span>{{ $t('systemOverview.robot') }} {{ strategySummary.robot_strategies || 0 }}</span>
+              </div>
+              <div class="summary-label">{{ $t('systemOverview.v2Deployments') }}</div>
             </div>
           </div>
           <div class="summary-card">
-            <div class="summary-icon" style="background: linear-gradient(135deg, #11998e, #38ef7d)">
+            <div class="summary-icon summary-icon-running">
               <a-icon type="play-circle" />
             </div>
             <div class="summary-info">
               <div class="summary-value">{{ strategySummary.running_strategies || 0 }}</div>
               <div class="summary-sub">
-                {{ $t('systemOverview.live') || '实盘' }}: {{ strategySummary.running_live_strategies || 0 }}
+                {{ $t('systemOverview.live') }}: {{ strategySummary.running_live_strategies || 0 }}
                 /
-                {{ $t('systemOverview.signal') || '仅通知' }}: {{ strategySummary.running_signal_strategies || 0 }}
+                {{ $t('systemOverview.signal') }}: {{ strategySummary.running_signal_strategies || 0 }}
               </div>
-              <div class="summary-label">{{ $t('systemOverview.runningStrategies') || 'Running' }}</div>
+              <div class="summary-label">{{ $t('systemOverview.runningStrategies') }}</div>
             </div>
           </div>
           <div class="summary-card">
-            <div class="summary-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c)">
-              <a-icon type="dollar" />
+            <div class="summary-icon summary-icon-capital">
+              <a-icon type="bank" />
             </div>
             <div class="summary-info">
-              <div class="summary-value">{{ formatNumber(strategySummary.total_capital) }}</div>
+              <div class="summary-value">{{ formatNumber(strategySummary.live_capital) }}</div>
               <div class="summary-sub">
-                {{ $t('systemOverview.live') || '实盘' }}: {{ formatNumber(strategySummary.live_capital) }}
-                /
-                {{ $t('systemOverview.signal') || '仅通知' }}: {{ formatNumber(strategySummary.signal_capital) }}
+                {{ $t('systemOverview.live') }}: {{ strategySummary.live_strategies || 0 }}
+                · {{ $t('systemOverview.signalCapitalExcluded') }}
               </div>
-              <div class="summary-label">{{ $t('systemOverview.totalCapital') || 'Total Capital' }}</div>
+              <div class="summary-label">{{ $t('systemOverview.liveCapital') }}</div>
             </div>
           </div>
           <div class="summary-card">
-            <div class="summary-icon" :style="{ background: (strategySummary.total_pnl || 0) >= 0 ? 'linear-gradient(135deg, #11998e, #38ef7d)' : 'linear-gradient(135deg, #ff416c, #ff4b2b)' }">
+            <div class="summary-icon" :class="(strategySummary.live_pnl || 0) >= 0 ? 'summary-icon-profit' : 'summary-icon-loss'">
               <a-icon type="rise" />
             </div>
             <div class="summary-info">
-              <div class="summary-value" :class="(strategySummary.total_pnl || 0) >= 0 ? 'text-profit' : 'text-loss'">
-                {{ formatPnl(strategySummary.total_pnl) }}
-                <span class="roi-badge">{{ strategySummary.total_roi || 0 }}%</span>
+              <div class="summary-value" :class="(strategySummary.live_pnl || 0) >= 0 ? 'text-profit' : 'text-loss'">
+                {{ formatPnl(strategySummary.live_pnl) }}
+                <span class="roi-badge">{{ strategySummary.live_roi || 0 }}%</span>
               </div>
-              <div class="summary-sub">
-                {{ $t('systemOverview.live') || '实盘' }}: {{ formatPnl(strategySummary.live_pnl) }}
-                /
-                {{ $t('systemOverview.signal') || '仅通知' }}: {{ formatPnl(strategySummary.signal_pnl) }}
-              </div>
-              <div class="summary-label">{{ $t('systemOverview.totalPnl') || 'Total PnL' }}</div>
+              <div class="summary-sub">{{ $t('systemOverview.livePnlDesc') }}</div>
+              <div class="summary-label">{{ $t('systemOverview.livePnl') }}</div>
             </div>
           </div>
         </div>
@@ -355,6 +396,12 @@
               <a-select-option value="all">{{ $t('systemOverview.filterExecAll') || 'All modes' }}</a-select-option>
               <a-select-option value="live">{{ $t('systemOverview.live') || 'Live' }}</a-select-option>
               <a-select-option value="signal">{{ $t('systemOverview.signal') || 'Signal' }}</a-select-option>
+            </a-select>
+            <a-select v-model="strategyClassFilter" class="toolbar-select" @change="handleStrategyClassFilterChange">
+              <a-select-option value="all">{{ $t('systemOverview.filterClassAll') }}</a-select-option>
+              <a-select-option value="cta">{{ $t('systemOverview.cta') }}</a-select-option>
+              <a-select-option value="portfolio">{{ $t('systemOverview.portfolio') }}</a-select-option>
+              <a-select-option value="robot">{{ $t('systemOverview.robot') }}</a-select-option>
             </a-select>
           </div>
           <div class="toolbar-right toolbar-filters">
@@ -405,6 +452,9 @@
           <a-tag v-if="strategyExecutionFilter !== 'all'" closable @close="clearStrategyExecutionFilter">
             {{ $t('systemOverview.colExecutionMode') || 'Mode' }}: {{ strategyExecutionFilter }}
           </a-tag>
+          <a-tag v-if="strategyClassFilter !== 'all'" closable @close="clearStrategyClassFilter">
+            {{ $t('systemOverview.colStrategyClass') }}: {{ $t(`systemOverview.${strategyClassFilter}`) }}
+          </a-tag>
         </div>
 
         <!-- Strategy Table -->
@@ -415,7 +465,7 @@
             :loading="strategyLoading"
             :pagination="strategyPagination"
             :rowKey="record => record.id"
-            :scroll="{ x: 2100 }"
+            :scroll="{ x: 1880 }"
             @change="handleStrategyTableChange"
           >
             <!-- Strategy ID -->
@@ -459,20 +509,41 @@
               </a-tooltip>
             </template>
 
+            <template slot="strategySourceInfo" slot-scope="text, record">
+              <div class="strategy-source-cell">
+                <a-tooltip :title="record.strategy_name || record.source_name || '-'">
+                  <strong>{{ record.strategy_name || record.source_name || '-' }}</strong>
+                </a-tooltip>
+                <div class="strategy-source-meta">
+                  <a-tag :color="record.contract_ready ? 'green' : 'orange'">
+                    {{ record.contract_ready ? $t('systemOverview.contractV2') : $t('systemOverview.contractIncomplete') }}
+                  </a-tag>
+                  <button v-if="record.source_id" type="button" class="source-id-link" @click="copyText(record.source_id)">
+                    {{ $t('systemOverview.sourceId') }} #{{ record.source_id }}
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <template slot="strategyClassInfo" slot-scope="text">
+              <a-tag :color="strategyClassColor(text)">{{ $t(`systemOverview.${text || 'cta'}`) }}</a-tag>
+            </template>
+
             <!-- Symbol Column -->
             <template slot="symbolInfo" slot-scope="text, record">
-              <div>
-                <span class="symbol-text">{{ record.symbol || '-' }}</span>
-                <a-tag v-if="record.cs_strategy_type === 'cross_sectional'" color="purple" size="small" style="margin-left: 4px">CS</a-tag>
-              </div>
-              <div v-if="record.cs_strategy_type === 'cross_sectional' && record.symbol_list && record.symbol_list.length" class="symbol-count text-muted">
-                {{ record.symbol_list.length }} {{ $t('systemOverview.symbols') || 'symbols' }}
+              <div class="universe-cell">
+                <strong>{{ formatStrategyUniverse(record) }}</strong>
+                <span>
+                  {{ formatStrategyMarket(record) }}
+                  <template v-if="record.primary_frequency"> · {{ record.primary_frequency }}</template>
+                </span>
               </div>
             </template>
 
             <!-- Capital Column -->
-            <template slot="capitalInfo" slot-scope="text">
-              <span>{{ formatNumber(text) }}</span>
+            <template slot="capitalInfo" slot-scope="text, record">
+              <span v-if="record.execution_mode === 'live'">{{ formatNumber(text) }}</span>
+              <span v-else class="text-muted">{{ $t('systemOverview.notApplicable') }}</span>
             </template>
 
             <!-- Execution mode -->
@@ -490,13 +561,29 @@
 
             <!-- PnL Column -->
             <template slot="pnlInfo" slot-scope="text, record">
-              <div :class="record.total_pnl >= 0 ? 'text-profit' : 'text-loss'">
+              <div v-if="record.execution_mode === 'live'" :class="record.total_pnl >= 0 ? 'text-profit' : 'text-loss'">
                 <span class="pnl-value">{{ formatPnl(record.total_pnl) }}</span>
                 <span class="roi-text">({{ record.roi >= 0 ? '+' : '' }}{{ record.roi }}%)</span>
               </div>
-              <div class="pnl-detail text-muted">
+              <div v-if="record.execution_mode === 'live'" class="pnl-detail text-muted">
                 <span>{{ $t('systemOverview.realized') || 'Real' }}: {{ formatPnl(record.total_realized_pnl) }}</span>
                 <span style="margin-left: 8px">{{ $t('systemOverview.unrealized') || 'Unreal' }}: {{ formatPnl(record.total_unrealized_pnl) }}</span>
+              </div>
+              <span v-else class="text-muted">{{ $t('systemOverview.signalOnlyNoPnl') }}</span>
+            </template>
+
+            <template slot="runtimeInfo" slot-scope="text, record">
+              <div class="runtime-cell">
+                <span><a-icon type="pie-chart" /> {{ $t('systemOverview.positionsShort') }} {{ record.position_count || 0 }}</span>
+                <span><a-icon type="swap" /> {{ $t('systemOverview.tradesShort') }} {{ record.trade_count || 0 }}</span>
+              </div>
+            </template>
+
+            <template slot="activityInfo" slot-scope="text, record">
+              <div class="activity-cell">
+                <span>{{ formatTime(record.updated_at) }}</span>
+                <small v-if="record.schedule_count"><a-icon type="clock-circle" /> {{ $t('systemOverview.schedules') }} {{ record.schedule_count }}</small>
+                <small v-else>{{ $t('systemOverview.eventDriven') }}</small>
               </div>
             </template>
 
@@ -1177,7 +1264,10 @@ export default {
       activeTab: 'users',
       loading: false,
       exportingUsers: false,
+      batchBanLoading: false,
       users: [],
+      selectedUserRowKeys: [],
+      selectedUserRows: [],
       roles: [],
       searchKeyword: '',
       userIdSearch: '',
@@ -1224,6 +1314,7 @@ export default {
       strategySummary: null,
       strategyStatusFilter: 'all',
       strategyExecutionFilter: 'all',
+      strategyClassFilter: 'all',
       strategySortBy: '',
       strategySortOrder: 'desc',
       strategySearchKeyword: '',
@@ -1325,13 +1416,41 @@ export default {
     hasUserFilters () {
       return !!(this.normalizePositiveInt(this.userIdSearch) || String(this.searchKeyword || '').trim())
     },
+    selectedCountText () {
+      const template = this.$t('userManage.selectedCount') || '{count} selected'
+      return String(template).replace('{count}', this.selectedUserRowKeys.length)
+    },
+    batchBanConfirmText () {
+      const template = this.$t('userManage.batchBanConfirm') || 'Ban {count} selected users? They will not be able to log in.'
+      return String(template).replace('{count}', this.batchBannableUsers.length)
+    },
+    batchBannableUsers () {
+      return this.selectedUserRows.filter(user => {
+        return user &&
+          user.id !== this.currentUserId &&
+          String(user.status || '').toLowerCase() !== 'disabled'
+      })
+    },
+    userRowSelection () {
+      return {
+        selectedRowKeys: this.selectedUserRowKeys,
+        onChange: this.handleUserSelectionChange,
+        getCheckboxProps: record => ({
+          props: {
+            disabled: record.id === this.currentUserId || String(record.status || '').toLowerCase() === 'disabled',
+            name: String(record.id)
+          }
+        })
+      }
+    },
     hasStrategyFilters () {
       return !!(
         this.normalizePositiveInt(this.strategyIdSearch) ||
         this.normalizePositiveInt(this.strategyUserIdSearch) ||
         String(this.strategySearchKeyword || '').trim() ||
         this.strategyStatusFilter !== 'all' ||
-        this.strategyExecutionFilter !== 'all'
+        this.strategyExecutionFilter !== 'all' ||
+        this.strategyClassFilter !== 'all'
       )
     },
     columns () {
@@ -1409,7 +1528,7 @@ export default {
           title: 'ID',
           dataIndex: 'id',
           key: 'id',
-          width: 96,
+          width: 88,
           fixed: 'left',
           scopedSlots: { customRender: 'strategyId' },
           sorter: true,
@@ -1419,7 +1538,7 @@ export default {
           title: this.$t('systemOverview.colUserId') || 'User ID',
           dataIndex: 'user_id',
           key: 'user_id',
-          width: 88,
+          width: 82,
           fixed: 'left',
           scopedSlots: { customRender: 'ownerUserId' }
         },
@@ -1427,24 +1546,32 @@ export default {
           title: this.$t('systemOverview.colUser') || 'User',
           dataIndex: 'username',
           key: 'username',
-          width: 118,
+          width: 116,
           fixed: 'left',
           scopedSlots: { customRender: 'userInfo' }
         },
         {
-          title: this.$t('systemOverview.colStrategy') || 'Strategy',
+          title: this.$t('systemOverview.colSource'),
           dataIndex: 'strategy_name',
           key: 'strategy_name',
-          width: 160,
-          ellipsis: true,
+          width: 240,
+          scopedSlots: { customRender: 'strategySourceInfo' },
           sorter: true,
           sortOrder: so('strategy_name')
+        },
+        {
+          title: this.$t('systemOverview.colStrategyClass'),
+          dataIndex: 'strategy_class',
+          key: 'strategy_class',
+          width: 100,
+          align: 'center',
+          scopedSlots: { customRender: 'strategyClassInfo' }
         },
         {
           title: this.$t('systemOverview.colStatus') || 'Status',
           dataIndex: 'status',
           key: 'status',
-          width: 108,
+          width: 104,
           scopedSlots: { customRender: 'strategyStatus' },
           sorter: true,
           sortOrder: so('status')
@@ -1453,17 +1580,17 @@ export default {
           title: this.$t('systemOverview.colExecutionMode') || 'Mode',
           dataIndex: 'execution_mode',
           key: 'execution_mode',
-          width: 96,
+          width: 92,
           align: 'center',
           scopedSlots: { customRender: 'executionModeInfo' },
           sorter: true,
           sortOrder: so('execution_mode')
         },
         {
-          title: this.$t('systemOverview.colSymbol') || 'Symbol',
+          title: this.$t('systemOverview.colUniverse'),
           dataIndex: 'symbol',
           key: 'symbol',
-          width: 140,
+          width: 220,
           scopedSlots: { customRender: 'symbolInfo' },
           sorter: true,
           sortOrder: so('symbol')
@@ -1478,16 +1605,6 @@ export default {
           sortOrder: so('initial_capital')
         },
         {
-          title: this.$t('systemOverview.colPositionEquity') || 'Pos. equity',
-          dataIndex: 'total_equity',
-          key: 'total_equity',
-          width: 120,
-          align: 'right',
-          scopedSlots: { customRender: 'equityInfo' },
-          sorter: true,
-          sortOrder: so('total_equity')
-        },
-        {
           title: this.$t('systemOverview.colPnl') || 'PnL / ROI',
           dataIndex: 'total_pnl',
           key: 'total_pnl',
@@ -1497,31 +1614,11 @@ export default {
           sortOrder: so('total_pnl')
         },
         {
-          title: this.$t('systemOverview.colPositions') || 'Pos',
-          dataIndex: 'position_count',
-          key: 'position_count',
-          width: 76,
-          align: 'center',
-          scopedSlots: { customRender: 'positionInfo' },
-          sorter: true,
-          sortOrder: so('position_count')
-        },
-        {
-          title: this.$t('systemOverview.colTrades') || 'Trades',
+          title: this.$t('systemOverview.colRuntime'),
           dataIndex: 'trade_count',
-          key: 'trade_count',
-          width: 88,
-          align: 'center',
-          scopedSlots: { customRender: 'tradeInfo' },
-          sorter: true,
-          sortOrder: so('trade_count')
-        },
-        {
-          title: this.$t('systemOverview.colIndicator') || 'Indicator',
-          dataIndex: 'indicator_name',
-          key: 'indicator_name',
-          width: 130,
-          scopedSlots: { customRender: 'indicatorInfo' }
+          key: 'runtime',
+          width: 158,
+          scopedSlots: { customRender: 'runtimeInfo' }
         },
         {
           title: this.$t('systemOverview.colExchange') || 'Exchange',
@@ -1529,14 +1626,6 @@ export default {
           key: 'exchange_name',
           width: 100,
           scopedSlots: { customRender: 'exchangeInfo' }
-        },
-        {
-          title: this.$t('systemOverview.colTimeframe') || 'TF',
-          dataIndex: 'timeframe',
-          key: 'timeframe',
-          width: 70,
-          align: 'center',
-          scopedSlots: { customRender: 'timeframeInfo' }
         },
         {
           title: this.$t('systemOverview.colLeverage') || 'Lev',
@@ -1549,27 +1638,18 @@ export default {
           sortOrder: so('leverage')
         },
         {
-          title: this.$t('systemOverview.colCreatedAt') || 'Created',
-          dataIndex: 'created_at',
-          key: 'created_at',
-          width: 150,
-          scopedSlots: { customRender: 'createdAtInfo' },
-          sorter: true,
-          sortOrder: so('created_at')
-        },
-        {
-          title: this.$t('systemOverview.colUpdatedAt') || 'Updated',
+          title: this.$t('systemOverview.colActivity'),
           dataIndex: 'updated_at',
           key: 'updated_at',
-          width: 150,
-          scopedSlots: { customRender: 'updatedAtInfo' },
+          width: 168,
+          scopedSlots: { customRender: 'activityInfo' },
           sorter: true,
           sortOrder: so('updated_at')
         },
         {
           title: this.$t('common.actions') || 'Actions',
           key: 'actions',
-          width: 150,
+          width: 140,
           fixed: 'right',
           scopedSlots: { customRender: 'strategyActions' }
         }
@@ -1788,6 +1868,7 @@ export default {
         page_size: this.strategyPagination.pageSize,
         status: this.strategyStatusFilter === 'all' ? '' : this.strategyStatusFilter,
         execution_mode: this.strategyExecutionFilter === 'all' ? '' : this.strategyExecutionFilter,
+        strategy_class: this.strategyClassFilter === 'all' ? '' : this.strategyClassFilter,
         search: String(this.strategySearchKeyword || '').trim()
       }
       const sid = this.normalizePositiveInt(this.strategyIdSearch)
@@ -1859,6 +1940,11 @@ export default {
       this.loadSystemStrategies()
     },
 
+    handleStrategyClassFilterChange () {
+      this.strategyPagination.current = 1
+      this.loadSystemStrategies()
+    },
+
     handleStrategyTableChange (pagination, filters, sorter) {
       if (pagination) {
         this.strategyPagination.current = pagination.current
@@ -1906,6 +1992,7 @@ export default {
       this.strategySearchKeyword = ''
       this.strategyStatusFilter = 'all'
       this.strategyExecutionFilter = 'all'
+      this.strategyClassFilter = 'all'
       this.strategyPagination.current = 1
       this.loadSystemStrategies()
     },
@@ -1936,6 +2023,12 @@ export default {
 
     clearStrategyExecutionFilter () {
       this.strategyExecutionFilter = 'all'
+      this.strategyPagination.current = 1
+      this.loadSystemStrategies()
+    },
+
+    clearStrategyClassFilter () {
+      this.strategyClassFilter = 'all'
       this.strategyPagination.current = 1
       this.loadSystemStrategies()
     },
@@ -2328,6 +2421,34 @@ export default {
       return prefix + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
     },
 
+    strategyClassColor (value) {
+      return { cta: 'blue', portfolio: 'purple', robot: 'cyan' }[value] || 'default'
+    },
+
+    formatStrategyUniverse (record) {
+      if (!record) return '-'
+      if (record.universe_reference) return record.universe_reference
+      const symbols = Array.isArray(record.universe_symbols) ? record.universe_symbols.filter(Boolean) : []
+      if (symbols.length === 1) {
+        const marketType = Array.isArray(record.market_types) ? record.market_types[0] : ''
+        const typeKey = marketType ? `marketContext.${marketType}` : ''
+        const typeLabel = typeKey && this.$te && this.$te(typeKey) ? this.$t(typeKey) : ''
+        return typeLabel ? `${symbols[0]} · ${typeLabel}` : symbols[0]
+      }
+      const count = Number(record.instrument_count || symbols.length || 0)
+      if (count > 1) return `${count} ${this.$t('systemOverview.symbols')}`
+      return record.symbol || '-'
+    },
+
+    formatStrategyMarket (record) {
+      const markets = Array.isArray(record && record.markets) ? record.markets.filter(Boolean) : []
+      const values = markets.length ? markets : [record && record.market_category].filter(Boolean)
+      return values.map(value => {
+        const key = `universeManager.market.${value}`
+        return this.$te && this.$te(key) ? this.$t(key) : value
+      }).join(' / ') || '-'
+    },
+
     /** Map exchange_id (binance / alpaca / ibkr …) to a human label. */
     formatExchangeName (exchangeId) {
       const id = String(exchangeId || '').trim().toLowerCase()
@@ -2364,6 +2485,7 @@ export default {
           }
           this.users = items
           this.pagination.total = total
+          this.pruneSelectedUsers(items)
         } else {
           this.$message.error(res.msg || 'Failed to load users')
         }
@@ -2397,6 +2519,7 @@ export default {
 
     handleSearch () {
       this.pagination.current = 1
+      this.clearSelectedUsers()
       this.loadUsers()
     },
 
@@ -2414,7 +2537,25 @@ export default {
     handleTableChange (pagination) {
       this.pagination.current = pagination.current
       this.pagination.pageSize = pagination.pageSize
+      this.clearSelectedUsers()
       this.loadUsers()
+    },
+
+    handleUserSelectionChange (selectedRowKeys, selectedRows) {
+      this.selectedUserRowKeys = selectedRowKeys
+      this.selectedUserRows = selectedRows
+    },
+
+    clearSelectedUsers () {
+      this.selectedUserRowKeys = []
+      this.selectedUserRows = []
+    },
+
+    pruneSelectedUsers (visibleRows) {
+      if (!this.selectedUserRowKeys.length) return
+      const rowMap = new Map((visibleRows || []).map(row => [row.id, row]))
+      this.selectedUserRowKeys = this.selectedUserRowKeys.filter(id => rowMap.has(id))
+      this.selectedUserRows = this.selectedUserRowKeys.map(id => rowMap.get(id)).filter(Boolean)
     },
 
     showCreateModal () {
@@ -2491,6 +2632,43 @@ export default {
         }
       } catch (error) {
         this.$message.error('Delete failed')
+      }
+    },
+
+    async handleBatchBanUsers () {
+      const targets = this.batchBannableUsers
+      if (!targets.length) {
+        this.$message.warning(this.$t('userManage.batchBanNoValid') || 'Please select users that can be banned')
+        return
+      }
+
+      this.batchBanLoading = true
+      try {
+        const results = await Promise.allSettled(
+          targets.map(user => updateUser(user.id, { status: 'disabled' }))
+        )
+        const successCount = results.filter(result => {
+          return result.status === 'fulfilled' && result.value && result.value.code === 1
+        }).length
+        const failedCount = targets.length - successCount
+
+        if (successCount && !failedCount) {
+          const template = this.$t('userManage.batchBanSuccess') || 'Banned {count} users'
+          this.$message.success(String(template).replace('{count}', successCount))
+        } else if (successCount) {
+          const template = this.$t('userManage.batchBanPartial') || 'Banned {success} users, {failed} failed'
+          this.$message.warning(String(template).replace('{success}', successCount).replace('{failed}', failedCount))
+        } else {
+          this.$message.error(this.$t('userManage.batchBanFailed') || 'Batch ban failed')
+        }
+
+        this.clearSelectedUsers()
+        this.loadUsers()
+        this.loadUserStats(true)
+      } catch (error) {
+        this.$message.error(this.$t('userManage.batchBanFailed') || 'Batch ban failed')
+      } finally {
+        this.batchBanLoading = false
       }
     },
 
@@ -2873,6 +3051,66 @@ export default {
     }
   }
 
+  .strategy-contract-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 16px;
+    padding: 16px 18px;
+    border: 1px solid rgba(82, 196, 26, 0.22);
+    border-radius: 12px;
+    background: #f8fff3;
+  }
+
+  .strategy-contract-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+
+    .strategy-contract-icon {
+      display: inline-flex;
+      width: 38px;
+      height: 38px;
+      flex: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: rgba(82, 196, 26, 0.12);
+      color: #52c41a;
+      font-size: 19px;
+    }
+
+    .strategy-contract-title {
+      color: #1e293b;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 3px 0 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+  }
+
+  .strategy-contract-status {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 12px;
+    color: #64748b;
+    font-size: 12px;
+
+    strong {
+      margin-left: 3px;
+      color: #1e293b;
+      font-size: 14px;
+    }
+  }
+
   // Summary Cards
   .summary-cards {
     display: grid;
@@ -2910,6 +3148,12 @@ export default {
         }
       }
 
+      .summary-icon-v2 { background: #6657d9; }
+      .summary-icon-running { background: #16a37a; }
+      .summary-icon-capital { background: #d84f91; }
+      .summary-icon-profit { background: #16a37a; }
+      .summary-icon-loss { background: #e5484d; }
+
       .summary-info {
         flex: 1;
         min-width: 0;
@@ -2939,6 +3183,17 @@ export default {
           text-overflow: ellipsis;
         }
 
+        .strategy-class-breakdown {
+          display: flex;
+          gap: 8px;
+
+          span + span::before {
+            margin-right: 8px;
+            color: #cbd5e1;
+            content: '·';
+          }
+        }
+
         .summary-label {
           font-size: 13px;
           color: #94a3b8;
@@ -2961,6 +3216,25 @@ export default {
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+
+      .toolbar-divider {
+        height: 24px;
+        margin: 0 4px;
+      }
+
+      .batch-selected-count {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid color-mix(in srgb, var(--primary-color, #1890ff) 24%, transparent);
+        border-radius: 4px;
+        color: var(--primary-color, #1890ff);
+        background: color-mix(in srgb, var(--primary-color, #1890ff) 8%, transparent);
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
     }
 
     .toolbar-right {
@@ -3197,6 +3471,88 @@ export default {
     text-transform: capitalize;
   }
 
+  .strategy-source-cell {
+    min-width: 0;
+
+    > strong {
+      display: block;
+      overflow: hidden;
+      color: #1e293b;
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .strategy-source-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+
+    ::v-deep .ant-tag {
+      margin-right: 0;
+      font-size: 10px;
+      line-height: 18px;
+    }
+  }
+
+  .source-id-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--primary-color, #1890ff);
+    cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+  }
+
+  .universe-cell {
+    display: grid;
+    gap: 3px;
+
+    strong {
+      overflow: hidden;
+      color: #1e293b;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      color: #64748b;
+      font-size: 11px;
+    }
+  }
+
+  .runtime-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      color: #64748b;
+      font-size: 10px;
+    }
+  }
+
+  .activity-cell {
+    display: grid;
+    gap: 3px;
+    font-size: 11px;
+
+    small {
+      color: #64748b;
+      font-size: 10px;
+    }
+  }
+
   // Order address & hash styles
   .address-text,
   .hash-text {
@@ -3221,7 +3577,23 @@ export default {
 
   // Dark theme
   &.theme-dark {
-    background: linear-gradient(180deg, #141414 0%, #1c1c1c 100%);
+    background: #080808;
+
+    .strategy-contract-banner {
+      border-color: rgba(82, 196, 26, 0.2);
+      background: #0d160b;
+    }
+
+    .strategy-contract-copy {
+      .strategy-contract-title { color: #f3f4f6; }
+      p { color: #7f8b9c; }
+    }
+
+    .strategy-contract-status {
+      color: #7f8b9c;
+
+      strong { color: #e5e7eb; }
+    }
 
     .page-header {
       .page-title {
@@ -3248,7 +3620,8 @@ export default {
     }
 
     .summary-cards .summary-card {
-      background: #1c1c1c;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #111;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 
       .summary-info {
@@ -3268,20 +3641,41 @@ export default {
       }
     }
 
+    .strategy-source-cell > strong,
+    .universe-cell strong {
+      color: #e5e7eb;
+    }
+
+    .universe-cell span,
+    .activity-cell small {
+      color: #7f8b9c;
+    }
+
+    .runtime-cell span {
+      border-color: rgba(255, 255, 255, 0.1);
+      background: #0d0d0d;
+      color: #aab4c2;
+    }
+
+    .source-id-link {
+      color: #52c41a;
+    }
+
     .user-table-card {
-      background: #1c1c1c;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #111;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
 
       ::v-deep .ant-card-body {
-        background: #1c1c1c;
+        background: #111;
       }
 
       ::v-deep .ant-table {
-        background: #1c1c1c;
+        background: #111;
         color: #c9d1d9;
 
         .ant-table-thead > tr > th {
-          background: #252525;
+          background: #0d0d0d;
           color: #e0e6ed;
           border-bottom-color: #2a2a2a;
         }
@@ -3291,7 +3685,7 @@ export default {
         }
 
         .ant-table-tbody > tr:hover > td {
-          background: #252525;
+          background: #171717;
         }
 
         .ant-table-fixed-left .ant-table-thead > tr > th,
@@ -3593,6 +3987,12 @@ export default {
   @media (max-width: 768px) {
     padding: 16px 12px;
     min-height: calc(100vh - 100px);
+
+    .strategy-contract-banner,
+    .strategy-contract-status {
+      align-items: flex-start;
+      flex-direction: column;
+    }
 
     .charts-grid {
       grid-template-columns: 1fr;

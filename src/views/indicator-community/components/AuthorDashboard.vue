@@ -1,20 +1,20 @@
 <template>
   <div class="author-dashboard" :class="{ 'theme-dark': isDarkTheme }">
-    <a-row :gutter="16" class="ad-stat-row">
+    <a-row :gutter="16" class="author-dashboard-stat-row">
       <a-col :xs="12" :sm="12" :md="6">
-        <a-card class="ad-stat-card" :loading="summaryLoading">
-          <div class="ad-stat-label">{{ $t('authorDashboard.stat.published') }}</div>
-          <div class="ad-stat-value">{{ summary.published_total }}</div>
-          <div class="ad-stat-sub">
-            <span class="ad-stat-sub-item">
+        <a-card class="author-dashboard-stat-card" :loading="summaryLoading">
+          <div class="author-dashboard-stat-label">{{ $t('authorDashboard.stat.published') }}</div>
+          <div class="author-dashboard-stat-value">{{ summary.published_total }}</div>
+          <div class="author-dashboard-stat-sub">
+            <span class="author-dashboard-stat-sub-item">
               <a-badge status="success" />
               {{ $t('authorDashboard.stat.approved') }} {{ summary.approved_count }}
             </span>
-            <span v-if="summary.pending_count > 0" class="ad-stat-sub-item">
+            <span v-if="summary.pending_count > 0" class="author-dashboard-stat-sub-item">
               <a-badge status="processing" />
               {{ $t('authorDashboard.stat.pending') }} {{ summary.pending_count }}
             </span>
-            <span v-if="summary.rejected_count > 0" class="ad-stat-sub-item">
+            <span v-if="summary.rejected_count > 0" class="author-dashboard-stat-sub-item">
               <a-badge status="error" />
               {{ $t('authorDashboard.stat.rejected') }} {{ summary.rejected_count }}
             </span>
@@ -22,44 +22,59 @@
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="12" :md="6">
-        <a-card class="ad-stat-card" :loading="summaryLoading">
-          <div class="ad-stat-label">{{ $t('authorDashboard.stat.totalSales') }}</div>
-          <div class="ad-stat-value">{{ summary.total_sales }}</div>
-          <div class="ad-stat-sub">{{ $t('authorDashboard.stat.totalSalesHint') }}</div>
+        <a-card class="author-dashboard-stat-card" :loading="summaryLoading">
+          <div class="author-dashboard-stat-label">{{ $t('authorDashboard.stat.totalSales') }}</div>
+          <div class="author-dashboard-stat-value">{{ summary.total_sales }}</div>
+          <div class="author-dashboard-stat-sub">{{ $t('authorDashboard.stat.totalSalesHint') }}</div>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="12" :md="6">
-        <a-card class="ad-stat-card" :loading="summaryLoading">
-          <div class="ad-stat-label">{{ $t('authorDashboard.stat.totalRevenue') }}</div>
-          <div class="ad-stat-value ad-stat-value-revenue">
-            {{ summary.total_revenue.toFixed(2) }}
-            <span class="ad-stat-unit">{{ $t('community.credits') }}</span>
+        <a-card class="author-dashboard-stat-card" :loading="summaryLoading">
+          <div class="author-dashboard-stat-label">{{ $t('authorDashboard.stat.totalRevenue') }}</div>
+          <div class="author-dashboard-stat-value author-dashboard-stat-value-revenue">
+            {{ formatNumber(summary.total_revenue) }}
+            <span class="author-dashboard-stat-unit">{{ $t('community.credits') }}</span>
           </div>
-          <div class="ad-stat-sub">{{ $t('authorDashboard.stat.totalRevenueHint') }}</div>
+          <div class="author-dashboard-stat-sub">{{ $t('authorDashboard.stat.totalRevenueHint') }}</div>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="12" :md="6">
-        <a-card class="ad-stat-card" :loading="summaryLoading">
-          <div class="ad-stat-label">{{ $t('authorDashboard.stat.avgRating') }}</div>
-          <div class="ad-stat-value">
+        <a-card class="author-dashboard-stat-card" :loading="summaryLoading">
+          <div class="author-dashboard-stat-label">{{ $t('authorDashboard.stat.avgRating') }}</div>
+          <div class="author-dashboard-stat-value">
             <span v-if="summary.rating_count > 0">
-              {{ summary.avg_rating.toFixed(2) }}
-              <a-icon type="star" theme="filled" class="ad-rating-star" />
+              {{ formatNumber(summary.avg_rating) }}
+              <a-icon type="star" theme="filled" class="author-dashboard-rating-star" />
             </span>
-            <span v-else class="ad-stat-empty">—</span>
+            <span v-else class="author-dashboard-stat-empty">—</span>
           </div>
-          <div class="ad-stat-sub">
+          <div class="author-dashboard-stat-sub">
             {{ $t('authorDashboard.stat.ratingCount', { count: summary.rating_count }) }}
           </div>
         </a-card>
       </a-col>
     </a-row>
 
-    <a-tabs v-model="subTab" class="ad-tabs" type="card" @change="onSubTabChange">
-      <a-tab-pane key="published">
-        <template #tab>
-          <span><a-icon type="appstore" /> {{ $t('authorDashboard.tab.published') }}</span>
-        </template>
+    <div class="author-dashboard-detail">
+      <div class="author-dashboard-detail-toolbar">
+        <a-radio-group v-model="subTab" button-style="solid" @change="onSubTabChange">
+          <a-radio-button value="published">
+            <a-icon type="appstore" /> {{ $t('authorDashboard.tab.published') }}
+          </a-radio-button>
+          <a-radio-button value="sales">
+            <a-icon type="dollar" /> {{ $t('authorDashboard.tab.sales') }}
+          </a-radio-button>
+        </a-radio-group>
+      </div>
+
+      <div v-show="subTab === 'published'">
+        <a-alert
+          v-if="publishedError"
+          class="author-dashboard-load-error"
+          type="error"
+          show-icon
+          :message="$t('authorDashboard.loadPublishedFailed')"
+        />
 
         <a-table
           :columns="publishedColumns"
@@ -69,14 +84,14 @@
           :row-key="row => row.id"
           :scroll="{ x: 820 }"
           size="middle"
-          class="ad-table"
+          class="author-dashboard-table"
           @change="onPublishedTableChange"
         >
           <template slot="nameCol" slot-scope="text, record">
-            <div class="ad-name-col">
-              <a class="ad-name" @click="viewSales(record)">{{ record.name }}</a>
-              <a-tag class="ad-asset-tag" color="blue">{{ getAssetTypeText(record.asset_type) }}</a-tag>
-              <div class="ad-desc">{{ record.description }}</div>
+            <div class="author-dashboard-name-col">
+              <a class="author-dashboard-name" @click="viewSales(record)">{{ record.name }}</a>
+              <a-tag class="author-dashboard-asset-tag" color="blue">{{ getAssetTypeText(record.asset_type) }}</a-tag>
+              <div class="author-dashboard-desc">{{ record.description }}</div>
             </div>
           </template>
 
@@ -91,35 +106,35 @@
               {{ $t('community.statusRejected') }}
             </a-tag>
             <a-tag v-else color="default">—</a-tag>
-            <div v-if="record.review_note" class="ad-review-note">
+            <div v-if="record.review_note" class="author-dashboard-review-note">
               <a-icon type="message" />
               {{ record.review_note }}
             </div>
           </template>
 
           <template slot="price" slot-scope="text, record">
-            <span v-if="record.pricing_type === 'free' || record.price <= 0" class="ad-free">
+            <span v-if="record.pricing_type === 'free' || record.price <= 0" class="author-dashboard-free">
               {{ $t('community.free') }}
             </span>
             <span v-else>
-              {{ record.price.toFixed(2) }} {{ $t('community.credits') }}
-              <a-tag v-if="record.vip_free" color="gold" class="ad-vip-tag">
+              {{ formatNumber(record.price) }} {{ $t('community.credits') }}
+              <a-tag v-if="record.vip_free" color="gold" class="author-dashboard-vip-tag">
                 {{ $t('community.vipFree') }}
               </a-tag>
             </span>
           </template>
 
           <template slot="revenue" slot-scope="text, record">
-            <span class="ad-revenue">{{ record.revenue.toFixed(2) }}</span>
+            <span class="author-dashboard-revenue">{{ formatNumber(record.revenue) }}</span>
           </template>
 
           <template slot="rating" slot-scope="text, record">
             <span v-if="record.rating_count > 0">
-              {{ record.avg_rating.toFixed(2) }}
-              <a-icon type="star" theme="filled" class="ad-rating-star" />
-              <span class="ad-rating-count">({{ record.rating_count }})</span>
+              {{ formatNumber(record.avg_rating) }}
+              <a-icon type="star" theme="filled" class="author-dashboard-rating-star" />
+              <span class="author-dashboard-rating-count">({{ record.rating_count }})</span>
             </span>
-            <span v-else class="ad-stat-empty">—</span>
+            <span v-else class="author-dashboard-stat-empty">—</span>
           </template>
 
           <template slot="actions" slot-scope="text, record">
@@ -129,16 +144,16 @@
             <a-button type="link" size="small" @click="$emit('view-in-market', record)">
               {{ $t('authorDashboard.viewInMarket') }}
             </a-button>
+            <a-button type="link" size="small" class="author-dashboard-danger-link" @click="confirmUnpublish(record)">
+              {{ $t('authorDashboard.unpublish') }}
+            </a-button>
           </template>
         </a-table>
-      </a-tab-pane>
+      </div>
 
-      <a-tab-pane key="sales">
-        <template #tab>
-          <span><a-icon type="dollar" /> {{ $t('authorDashboard.tab.sales') }}</span>
-        </template>
+      <div v-show="subTab === 'sales'">
 
-        <div v-if="salesIndicatorFilter" class="ad-filter-banner">
+        <div v-if="salesIndicatorFilter" class="author-dashboard-filter-banner">
           <a-icon type="filter" />
           {{ $t('authorDashboard.filteredBy') }}:
           <strong>{{ salesIndicatorFilter.name }}</strong>
@@ -155,27 +170,27 @@
           :row-key="row => row.purchase_id"
           :scroll="{ x: 720 }"
           size="middle"
-          class="ad-table"
+          class="author-dashboard-table"
           @change="onSalesTableChange"
         >
           <template slot="time" slot-scope="text, record">
             {{ formatTime(record.purchase_time) }}
           </template>
           <template slot="buyer" slot-scope="text, record">
-            <span class="ad-buyer">
+            <span class="author-dashboard-buyer">
               <a-avatar :size="22" :src="record.buyer.avatar" />
-              <span class="ad-buyer-name">{{ record.buyer.nickname || $t('authorDashboard.anonymousBuyer') }}</span>
+              <span class="author-dashboard-buyer-name">{{ record.buyer.nickname || $t('authorDashboard.anonymousBuyer') }}</span>
             </span>
           </template>
           <template slot="price" slot-scope="text, record">
-            <span v-if="record.price > 0" class="ad-revenue">
-              +{{ record.price.toFixed(2) }} {{ $t('community.credits') }}
+            <span v-if="record.price > 0" class="author-dashboard-revenue">
+              +{{ formatNumber(record.price) }} {{ $t('community.credits') }}
             </span>
-            <span v-else class="ad-free">{{ $t('community.free') }}</span>
+            <span v-else class="author-dashboard-free">{{ $t('community.free') }}</span>
           </template>
         </a-table>
-      </a-tab-pane>
-    </a-tabs>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -196,7 +211,7 @@ export default {
         { title: this.$t('authorDashboard.col.sales'), dataIndex: 'purchase_count', key: 'purchase_count', width: 80, align: 'right', sorter: (a, b) => a.purchase_count - b.purchase_count },
         { title: this.$t('authorDashboard.col.revenue'), dataIndex: 'revenue', key: 'revenue', width: 110, align: 'right', scopedSlots: { customRender: 'revenue' }, sorter: (a, b) => a.revenue - b.revenue },
         { title: this.$t('authorDashboard.col.rating'), dataIndex: 'avg_rating', key: 'avg_rating', width: 130, scopedSlots: { customRender: 'rating' } },
-        { title: this.$t('authorDashboard.col.actions'), key: 'actions', width: 180, scopedSlots: { customRender: 'actions' } }
+        { title: this.$t('authorDashboard.col.actions'), key: 'actions', width: 230, scopedSlots: { customRender: 'actions' } }
       ]
     },
     salesColumns () {
@@ -231,6 +246,7 @@ export default {
       subTab: 'published',
       summaryLoading: false,
       publishedLoading: false,
+      publishedError: false,
       salesLoading: false,
       summary: {
         published_total: 0,
@@ -256,8 +272,9 @@ export default {
       this.loadPublished()
       if (this.subTab === 'sales') this.loadSales()
     },
-    onSubTabChange (key) {
-      if (key === 'sales' && this.sales.items.length === 0) {
+    onSubTabChange (event) {
+      const selected = event && event.target ? event.target.value : this.subTab
+      if (selected === 'sales' && this.sales.items.length === 0) {
         this.loadSales()
       }
     },
@@ -276,6 +293,7 @@ export default {
     },
     async loadPublished (page = 1) {
       this.publishedLoading = true
+      this.publishedError = false
       try {
         const res = await request({
           url: '/api/community/author/published',
@@ -286,6 +304,7 @@ export default {
           this.published = res.data
         }
       } catch (e) {
+        this.publishedError = true
         console.error('loadPublished failed', e)
       } finally {
         this.publishedLoading = false
@@ -325,6 +344,39 @@ export default {
       this.salesIndicatorFilter = null
       this.loadSales(1)
     },
+    formatNumber (value, digits = 2) {
+      const numericValue = Number(value)
+      return Number.isFinite(numericValue) ? numericValue.toFixed(digits) : Number(0).toFixed(digits)
+    },
+    confirmUnpublish (record) {
+      if (!record || !record.id) return
+      this.$confirm({
+        title: this.$t('authorDashboard.unpublishConfirmTitle'),
+        content: this.$t('authorDashboard.unpublishConfirmContent'),
+        okText: this.$t('authorDashboard.unpublish'),
+        cancelText: this.$t('community.cancelEdit'),
+        okType: 'danger',
+        onOk: () => this.unpublishAsset(record)
+      })
+    },
+    async unpublishAsset (record) {
+      try {
+        const res = await request({
+          url: `/api/community/author/indicators/${record.id}/unpublish`,
+          method: 'post',
+          data: { note: '' }
+        })
+        if (res && res.code === 1) {
+          this.$message.success(this.$t('authorDashboard.unpublishSuccess'))
+          this.refreshAll()
+          return
+        }
+        this.$message.error((res && res.msg) || this.$t('authorDashboard.unpublishFailed'))
+      } catch (e) {
+        const msg = e && e.response && e.response.data && e.response.data.msg
+        this.$message.error(msg || this.$t('authorDashboard.unpublishFailed'))
+      }
+    },
     formatTime (iso) {
       if (!iso) return '—'
       try {
@@ -338,7 +390,6 @@ export default {
     getAssetTypeText (assetType) {
       const type = assetType || 'indicator'
       if (type === 'script_template') return this.$t('community.tabScriptTemplates')
-      if (type === 'bot_preset') return this.$t('community.tabBotPresets')
       return this.$t('community.tabIndicators')
     }
   }
@@ -350,11 +401,11 @@ export default {
   padding: 8px 0 0;
 }
 
-.ad-stat-row {
+.author-dashboard-stat-row {
   margin-bottom: 16px;
 }
 
-.ad-stat-card {
+.author-dashboard-stat-card {
   height: 100%;
   border-radius: 8px;
   transition: box-shadow 0.2s;
@@ -364,85 +415,93 @@ export default {
   }
 }
 
-.ad-stat-label {
+.author-dashboard-stat-label {
   font-size: 13px;
   color: rgba(0, 0, 0, 0.45);
   margin-bottom: 8px;
 }
 
-.ad-stat-value {
+.author-dashboard-stat-value {
   font-size: 26px;
   font-weight: 600;
   color: rgba(0, 0, 0, 0.85);
   line-height: 1.2;
 }
 
-.ad-stat-value-revenue {
+.author-dashboard-stat-value-revenue {
   color: #fa8c16;
 }
 
-.ad-stat-unit {
+.author-dashboard-stat-unit {
   font-size: 13px;
   font-weight: normal;
   color: rgba(0, 0, 0, 0.45);
   margin-left: 4px;
 }
 
-.ad-stat-sub {
+.author-dashboard-stat-sub {
   margin-top: 8px;
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
   min-height: 18px;
 }
 
-.ad-stat-sub-item {
+.author-dashboard-stat-sub-item {
   display: inline-flex;
   align-items: center;
   margin-right: 10px;
   gap: 2px;
 }
 
-.ad-stat-empty {
+.author-dashboard-stat-empty {
   color: rgba(0, 0, 0, 0.25);
 }
 
-.ad-rating-star {
+.author-dashboard-rating-star {
   color: #faad14;
   font-size: 14px;
   margin-left: 2px;
 }
 
-.ad-rating-count {
+.author-dashboard-rating-count {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
   margin-left: 2px;
 }
 
-.ad-tabs {
+.author-dashboard-detail {
   background: #fff;
   padding: 12px 16px 4px;
   border-radius: 8px;
 }
 
-.ad-table {
+.author-dashboard-detail-toolbar {
+  margin-bottom: 12px;
+}
+
+.author-dashboard-load-error {
+  margin-bottom: 12px;
+}
+
+.author-dashboard-table {
   margin-top: 4px;
 }
 
-.ad-name-col {
+.author-dashboard-name-col {
   min-width: 220px;
 }
 
-.ad-name {
+.author-dashboard-name {
   font-weight: 500;
   color: var(--primary-color, #1890ff);
   cursor: pointer;
 }
 
-.ad-asset-tag {
+.author-dashboard-asset-tag {
   margin-left: 6px;
 }
 
-.ad-review-note {
+.author-dashboard-review-note {
   margin-top: 6px;
   color: #cf1322;
   font-size: 12px;
@@ -454,7 +513,7 @@ export default {
   }
 }
 
-.ad-desc {
+.author-dashboard-desc {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
   margin-top: 2px;
@@ -465,31 +524,35 @@ export default {
   text-overflow: ellipsis;
 }
 
-.ad-free {
+.author-dashboard-free {
   color: #52c41a;
   font-weight: 500;
 }
 
-.ad-vip-tag {
+.author-dashboard-vip-tag {
   margin-left: 6px;
 }
 
-.ad-revenue {
+.author-dashboard-revenue {
   color: #fa8c16;
   font-weight: 600;
 }
 
-.ad-buyer {
+.author-dashboard-danger-link {
+  color: #ff4d4f;
+}
+
+.author-dashboard-buyer {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.ad-buyer-name {
+.author-dashboard-buyer-name {
   font-size: 13px;
 }
 
-.ad-filter-banner {
+.author-dashboard-filter-banner {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -504,15 +567,15 @@ export default {
 
 /* ============ Dark theme ============ */
 .theme-dark {
-  .ad-stat-label,
-  .ad-stat-sub,
-  .ad-desc,
-  .ad-rating-count { color: rgba(255, 255, 255, 0.55); }
-  .ad-stat-value { color: rgba(255, 255, 255, 0.92); }
-  .ad-stat-empty { color: rgba(255, 255, 255, 0.25); }
+  .author-dashboard-stat-label,
+  .author-dashboard-stat-sub,
+  .author-dashboard-desc,
+  .author-dashboard-rating-count { color: rgba(255, 255, 255, 0.55); }
+  .author-dashboard-stat-value { color: rgba(255, 255, 255, 0.92); }
+  .author-dashboard-stat-empty { color: rgba(255, 255, 255, 0.25); }
 
-  .ad-stat-card,
-  .ad-tabs {
+  .author-dashboard-stat-card,
+  .author-dashboard-detail {
     background: #1f1f1f !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
   }
@@ -555,7 +618,7 @@ export default {
   ::v-deep .ant-pagination-item-active { border-color: var(--primary-color-hover, #40a9ff) !important; }
   ::v-deep .ant-pagination-item-active a { color: var(--primary-color-hover, #40a9ff) !important; }
 
-  .ad-filter-banner { background: rgba(24, 144, 255, 0.15); color: rgba(255, 255, 255, 0.85); }
-  .ad-name { color: var(--primary-color-hover, #40a9ff); }
+  .author-dashboard-filter-banner { background: rgba(24, 144, 255, 0.15); color: rgba(255, 255, 255, 0.85); }
+  .author-dashboard-name { color: var(--primary-color-hover, #40a9ff); }
 }
 </style>

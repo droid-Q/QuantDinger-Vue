@@ -3,7 +3,7 @@
     :visible="visible"
     :title="null"
     :footer="null"
-    :width="720"
+    :width="modalWidth"
     :body-style="{ padding: 0 }"
     :wrap-class-name="modalWrapClass"
     @cancel="$emit('close')"
@@ -19,7 +19,12 @@
             <span class="cover-initials">{{ indicatorInitials }}</span>
           </div>
           <div class="header-info">
-            <h2 class="indicator-name">{{ detail.name }}</h2>
+            <div class="strategy-title-row">
+              <h2 class="indicator-name">{{ detail.name }}</h2>
+              <a-tag v-if="isStrategyAsset" class="strategy-api-badge">
+                {{ $t('community.strategyApiV2') }}
+              </a-tag>
+            </div>
             <div class="indicator-meta">
               <div class="author-info">
                 <a-avatar :src="detail.author.avatar" :size="32" />
@@ -37,7 +42,12 @@
               </a-statistic>
               <a-statistic :title="$t('community.rating')">
                 <template #formatter>
-                  <a-rate :value="detail.avg_rating" disabled allow-half :style="{ fontSize: '14px' }" />
+                  <span
+                    role="img"
+                    :aria-label="`${$t('community.rating')}: ${Number(detail.avg_rating || 0).toFixed(1)}`"
+                  >
+                    <a-rate aria-hidden="true" :value="detail.avg_rating" disabled allow-half :style="{ fontSize: '14px' }" />
+                  </span>
                   <span class="rating-text">({{ detail.rating_count || 0 }})</span>
                 </template>
               </a-statistic>
@@ -52,141 +62,175 @@
 
         <div class="detail-body">
           <div class="section">
-            <h3>{{ $t('community.description') }}</h3>
+            <h3>{{ isStrategyAsset ? $t('community.strategyOverview') : $t('community.description') }}</h3>
             <p class="description">{{ detail.description || $t('community.noDescription') }}</p>
           </div>
 
-          <div class="section" v-if="isBotPreset">
-            <h3>{{ $t('community.botPresetInfo') }}</h3>
-            <p class="description">{{ $t('community.botPresetUseHint') }}</p>
+          <div v-if="isStrategyAsset && strategyContract" class="section strategy-contract-section">
+            <div class="section-heading-row">
+              <div>
+                <h3>{{ $t('community.strategyContract') }}</h3>
+                <p>{{ $t('community.strategyContractHint') }}</p>
+              </div>
+              <span class="source-controlled-badge">
+                <a-icon type="safety-certificate" />
+                {{ $t('community.sourceControlled') }}
+              </span>
+            </div>
+
+            <div class="contract-grid">
+              <div v-for="item in strategyContractItems" :key="item.key" class="contract-card">
+                <div class="contract-card__icon"><a-icon :type="item.icon" /></div>
+                <div class="contract-card__body">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                  <small v-if="item.hint">{{ item.hint }}</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="contract-logic-grid">
+              <div class="contract-logic-card">
+                <span class="contract-logic-card__label">{{ $t('community.contractSignals') }}</span>
+                <div class="contract-tags">
+                  <a-tag v-for="name in strategyDependencies" :key="`dep-${name}`">{{ name }}</a-tag>
+                  <span v-if="!strategyDependencies.length" class="contract-empty">—</span>
+                </div>
+              </div>
+              <div class="contract-logic-card">
+                <span class="contract-logic-card__label">{{ $t('community.contractData') }}</span>
+                <div class="contract-tags">
+                  <a-tag v-for="name in (strategyContract.data_fields || [])" :key="`field-${name}`">{{ name.toUpperCase() }}</a-tag>
+                  <span v-if="!(strategyContract.data_fields || []).length" class="contract-empty">—</span>
+                </div>
+              </div>
+              <div class="contract-logic-card contract-logic-card--warmup">
+                <span class="contract-logic-card__label">{{ $t('community.contractWarmup') }}</span>
+                <strong>{{ $t('community.contractWarmupBars', { count: strategyContract.warmup_bars || 0 }) }}</strong>
+              </div>
+            </div>
+
+            <div v-if="strategyParameters.length" class="parameter-panel">
+              <div class="parameter-panel__head">
+                <div>
+                  <strong>{{ $t('community.contractParameters') }}</strong>
+                  <span>{{ $t('community.contractParametersHint') }}</span>
+                </div>
+                <span class="parameter-count">{{ strategyParameters.length }}</span>
+              </div>
+              <div class="parameter-grid">
+                <div v-for="param in visibleStrategyParameters" :key="param.name" class="parameter-item">
+                  <div class="parameter-item__name">
+                    <strong>{{ parameterName(param) }}</strong>
+                    <code>{{ param.name }}</code>
+                  </div>
+                  <div class="parameter-item__value">
+                    <span>{{ $t('community.parameterDefault') }}</span>
+                    <strong>{{ formatContractValue(param.default, param.type) }}</strong>
+                  </div>
+                  <div class="parameter-item__range">
+                    <span>{{ $t('community.parameterRange') }}</span>
+                    <strong>{{ formatParameterRange(param) }}</strong>
+                  </div>
+                </div>
+              </div>
+              <a-button
+                v-if="strategyParameters.length > parameterPreviewLimit"
+                type="link"
+                class="parameter-toggle"
+                @click="showAllParameters = !showAllParameters">
+                {{ showAllParameters ? $t('community.showFewerParameters') : $t('community.showAllParameters', { count: strategyParameters.length }) }}
+                <a-icon :type="showAllParameters ? 'up' : 'down'" />
+              </a-button>
+            </div>
           </div>
 
-          <!--
-            Performance panel. Headline KPIs are kept visually quiet; source
-            context lives in the chart meta and applicable range rows.
-          -->
-          <div class="section" v-if="performance && !isBotPreset">
-            <h3>{{ $t('community.performance') }}</h3>
-
-            <div class="performance-grid">
-              <div class="perf-item perf-item--score">
-                <div class="perf-label">
-                  {{ $t('community.compositeScore') }}
-                  <a-tooltip :title="$t('community.scoreTooltipBase')">
-                    <a-icon type="info-circle" />
-                  </a-tooltip>
-                </div>
-                <div class="perf-value">
-                  {{ formatScore(performance.score) }}
-                  <span class="perf-unit">/ 100</span>
-                </div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.totalReturn') }}
-                </div>
-                <div class="perf-value" :class="toneClass(performance.total_return)">
-                  {{ formatPercent(performance.total_return) }}
-                </div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.sharpe') }}
-                </div>
-                <div class="perf-value" :class="toneClass(performance.sharpe, 1)">
-                  {{ formatNumber(performance.sharpe, 2) }}
-                </div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.maxDrawdown') }}
-                </div>
-                <div class="perf-value negative">
-                  {{ formatPercent(performance.max_drawdown) }}
-                </div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.profitFactor') }}
-                </div>
-                <div class="perf-value" :class="toneClass(performance.profit_factor - 1)">
-                  {{ formatNumber(performance.profit_factor, 2) }}
-                </div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.winRate') }}
-                </div>
-                <div class="perf-value" :class="performance.win_rate >= 50 ? 'positive' : 'negative'">
-                  {{ formatNumber(performance.win_rate, 2) }}%
-                </div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.liveStrategies') }}
-                </div>
-                <div class="perf-value">{{ performance.live_strategy_count || 0 }}</div>
-              </div>
-              <div class="perf-item">
-                <div class="perf-label">
-                  {{ $t('community.liveTrades') }}
-                </div>
-                <div class="perf-value">{{ performance.live_trade_count || 0 }}</div>
+          <div class="section strategy-performance-section" v-if="isStrategyAsset">
+            <div class="section-heading-row evidence-heading">
+              <div>
+                <h3>{{ $t('community.backtestEvidence') }}</h3>
+                <p>{{ $t('community.backtestEvidenceHint') }}</p>
               </div>
             </div>
-
-            <div v-if="hasApplicable" class="applicable-row">
-              <div class="applicable-row__label">{{ $t('community.applicableSymbols') }}</div>
-              <div class="applicable-row__tags">
-                <a-tag
-                  v-for="sym in performance.applicable_symbols"
-                  :key="`sym-${sym}`"
-                  class="tag-symbol"
-                >{{ sym }}</a-tag>
-                <span v-if="!(performance.applicable_symbols || []).length" class="applicable-row__empty">—</span>
+            <div v-if="performance && Number(performance.sample_size || 0) > 0">
+              <div v-if="performance.best_run_meta" class="evidence-context">
+                <span class="evidence-context__label">{{ $t('community.representativeRun') }}</span>
+                <div class="evidence-context__tags">
+                  <a-tag v-if="performance.best_run_meta.symbol" class="tag-symbol">{{ performance.best_run_meta.symbol }}</a-tag>
+                  <a-tag v-if="performance.best_run_meta.timeframe" class="tag-tf">{{ performance.best_run_meta.timeframe }}</a-tag>
+                  <a-tag v-if="performance.best_run_meta.market_type" class="tag-market">
+                    {{ formatMarketType(performance.best_run_meta.market_type) }}
+                  </a-tag>
+                  <a-tag v-if="performance.best_run_meta.leverage" class="tag-leverage">{{ formatLeverage(performance.best_run_meta.leverage) }}</a-tag>
+                  <a-tag v-if="performance.best_run_meta.duration_days" class="tag-duration">{{ formatBacktestDuration(performance.best_run_meta.duration_days) }}</a-tag>
+                </div>
+                <div class="evidence-context__quality">
+                  <span>{{ $t('community.backtestSamplesCount', { count: performance.sample_size || 0 }) }}</span>
+                  <span :class="Number(performance.live_trade_count || 0) > 0 ? 'has-live' : 'no-live'">
+                    <a-icon :type="Number(performance.live_trade_count || 0) > 0 ? 'check-circle' : 'info-circle'" />
+                    {{ Number(performance.live_trade_count || 0) > 0 ? $t('community.liveEvidenceCount', { count: performance.live_trade_count }) : $t('community.noLiveEvidence') }}
+                  </span>
+                </div>
+              </div>
+              <div class="performance-grid">
+                <div class="perf-item perf-item--score">
+                  <div class="perf-label">
+                    {{ $t('community.compositeScore') }}
+                    <a-tooltip :title="$t('community.scoreTooltipBase')">
+                      <a-icon type="info-circle" />
+                    </a-tooltip>
+                  </div>
+                  <div class="perf-value">
+                    {{ formatScore(performance.score) }}
+                    <span class="perf-unit">/ 100</span>
+                  </div>
+                </div>
+                <div class="perf-item">
+                  <div class="perf-label">{{ $t('community.totalReturn') }}</div>
+                  <div class="perf-value" :class="toneClass(performance.total_return)">
+                    {{ formatPercent(performance.total_return) }}
+                  </div>
+                </div>
+                <div class="perf-item">
+                  <div class="perf-label">{{ $t('community.sharpe') }}</div>
+                  <div class="perf-value" :class="toneClass(performance.sharpe, 1)">
+                    {{ formatNumber(performance.sharpe, 2) }}
+                  </div>
+                </div>
+                <div class="perf-item">
+                  <div class="perf-label">{{ $t('community.maxDrawdown') }}</div>
+                  <div class="perf-value negative">
+                    {{ formatPercent(performance.max_drawdown) }}
+                  </div>
+                </div>
+                <div class="perf-item">
+                  <div class="perf-label">{{ $t('community.profitFactor') }}</div>
+                  <div class="perf-value" :class="toneClass((performance.profit_factor || 0) - 1)">
+                    {{ formatNumber(performance.profit_factor, 2) }}
+                  </div>
+                </div>
+                <div class="perf-item">
+                  <div class="perf-label">{{ $t('community.winRate') }}</div>
+                  <div class="perf-value" :class="Number(performance.win_rate || 0) >= 50 ? 'positive' : 'negative'">
+                    {{ formatNumber(performance.win_rate, 2) }}%
+                  </div>
+                </div>
               </div>
             </div>
-            <div v-if="hasApplicable" class="applicable-row">
-              <div class="applicable-row__label">{{ $t('community.applicableTimeframes') }}</div>
-              <div class="applicable-row__tags">
-                <a-tag
-                  v-for="tf in performance.applicable_timeframes"
-                  :key="`tf-${tf}`"
-                  class="tag-tf"
-                >{{ tf }}</a-tag>
-                <span v-if="!(performance.applicable_timeframes || []).length" class="applicable-row__empty">—</span>
-              </div>
-            </div>
-
+            <a-alert
+              v-else
+              type="warning"
+              show-icon
+              :message="$t('community.admin.noBacktestData')"
+            />
             <div v-if="hasEquityCurve" class="equity-card">
               <div class="equity-card__head">
                 <div class="equity-card__title">{{ $t('community.equityCurveTitle') }}</div>
                 <div v-if="performance.best_run_meta" class="equity-card__meta">
-                  <a-tag class="tag-symbol">{{ performance.best_run_meta.symbol }}</a-tag>
-                  <a-tag class="tag-tf">{{ performance.best_run_meta.timeframe }}</a-tag>
-                  <a-tag
-                    v-if="performance.best_run_meta.market_type"
-                    :class="performance.best_run_meta.market_type === 'swap' ? 'tag-market tag-market--swap' : 'tag-market tag-market--spot'"
-                  >
-                    {{ formatMarketType(performance.best_run_meta.market_type) }}
-                  </a-tag>
-                  <a-tag
-                    v-if="performance.best_run_meta.leverage"
-                    class="tag-leverage"
-                  >
-                    {{ formatLeverage(performance.best_run_meta.leverage) }}
-                  </a-tag>
-                  <a-tag
-                    v-if="performance.best_run_meta.duration_days"
-                    class="tag-duration"
-                  >
-                    {{ formatBacktestDuration(performance.best_run_meta.duration_days) }}
-                  </a-tag>
-                  <span class="equity-card__meta-sep">/</span>
                   <span :class="toneClass(performance.best_run_meta.total_return)">
                     {{ formatPercent(performance.best_run_meta.total_return) }}
                   </span>
-                  <span class="equity-card__meta-sep">/</span>
+                  <span class="equity-card__meta-sep">·</span>
                   <span class="negative">
                     {{ $t('community.maxDrawdown') }}
                     {{ formatPercent(performance.best_run_meta.max_drawdown) }}
@@ -199,12 +243,44 @@
               </div>
             </div>
             <a-alert
-              v-else-if="performance.sample_size > 0"
+              v-else-if="performance && Number(performance.sample_size || 0) > 0"
               type="info"
               show-icon
               :message="$t('community.equityCurveMissing')"
               style="margin-top: 16px;"
             />
+          </div>
+
+          <div class="section indicator-profile-section" v-if="isIndicatorAsset">
+            <h3>{{ $t('community.indicatorProfile') }}</h3>
+            <div class="indicator-profile-grid">
+              <div
+                v-for="item in indicatorProfileItems"
+                :key="item.key"
+                class="profile-item"
+              >
+                <div class="profile-item__icon" :class="item.tone ? 'profile-item__icon--' + item.tone : ''">
+                  <a-icon :type="item.icon" />
+                </div>
+                <div class="profile-item__body">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
+              </div>
+            </div>
+            <div class="visual-showcase">
+              <div class="visual-showcase__copy">
+                <strong>{{ $t('community.chartOnlyIndicator') }}</strong>
+                <span>{{ $t('community.chartOnlyIndicatorHint') }}</span>
+              </div>
+              <div class="visual-showcase__bars" aria-hidden="true">
+                <span class="visual-line visual-line--fast"></span>
+                <span class="visual-line visual-line--slow"></span>
+                <span class="visual-zone"></span>
+                <span class="visual-dot visual-dot--buy"></span>
+                <span class="visual-dot visual-dot--sell"></span>
+              </div>
+            </div>
           </div>
 
           <div class="section">
@@ -262,7 +338,7 @@
           </div>
           <div class="action-buttons">
             <a-button v-if="detail.is_own" disabled>
-              {{ $t('community.myIndicator') }}
+              {{ isStrategyAsset ? $t('community.myStrategy') : $t('community.myIndicator') }}
             </a-button>
             <template v-else-if="detail.is_purchased">
               <a-tooltip :title="syncActionTooltip" placement="top">
@@ -283,7 +359,7 @@
                 </a-badge>
               </a-tooltip>
               <a-button v-if="!localCopyMissing" type="primary" @click="goToUse">
-                <a-icon :type="isBotPreset ? 'robot' : (isScriptTemplate ? 'code-sandbox' : 'code')" />
+                <a-icon :type="isScriptTemplate ? 'code-sandbox' : 'code'" />
                 {{ useNowLabel }}
               </a-button>
             </template>
@@ -294,7 +370,7 @@
               @click="handlePurchase"
             >
               <a-icon type="shopping-cart" />
-              {{ detail.pricing_type === 'free' || detail.price <= 0 ? $t('community.getFree') : $t('community.buyNow') }}
+              {{ purchaseActionLabel }}
             </a-button>
           </div>
         </div>
@@ -342,14 +418,10 @@ export default {
       },
       myComment: null,
       imageError: false,
-      // Equity-curve echarts instance. Lazy-loaded on first render
-      // (see ``renderEquityChart``) so we don't pull echarts into the
-      // initial bundle if the user never opens the indicator detail.
-      // NB: vue/no-reserved-keys forbids leading underscores in data;
-      // these are private-by-convention only; ``equityChart`` (no Inst
-      // suffix) would collide with the template ref name.
       equityChartInst: null,
-      equityResizeHandler: null
+      equityResizeHandler: null,
+      showAllParameters: false,
+      parameterPreviewLimit: 4
     }
   },
   computed: {
@@ -376,10 +448,158 @@ export default {
         Number(this.detail.your_purchase_price || 0) > 0)
     },
     isScriptTemplate () {
-      return (this.detail && this.detail.asset_type) === 'script_template'
+      const assetType = this.detail && this.detail.asset_type
+      return assetType === 'script_template'
     },
-    isBotPreset () {
-      return (this.detail && this.detail.asset_type) === 'bot_preset'
+    isStrategyAsset () {
+      const assetType = String((this.detail && this.detail.asset_type) || '').toLowerCase()
+      return assetType === 'script_template' || assetType === 'script' || assetType === 'strategy'
+    },
+    isIndicatorAsset () {
+      return !this.isStrategyAsset
+    },
+    modalWidth () {
+      return this.isStrategyAsset ? 860 : 720
+    },
+    strategyContract () {
+      const contract = this.performance && this.performance.strategy_contract
+      return contract && typeof contract === 'object' ? contract : null
+    },
+    strategyParameters () {
+      return this.strategyContract && Array.isArray(this.strategyContract.parameters)
+        ? this.strategyContract.parameters
+        : []
+    },
+    visibleStrategyParameters () {
+      return this.showAllParameters
+        ? this.strategyParameters
+        : this.strategyParameters.slice(0, this.parameterPreviewLimit)
+    },
+    strategyDependencies () {
+      if (!this.strategyContract) return []
+      return [...new Set([
+        ...(this.strategyContract.factor_dependencies || []),
+        ...(this.strategyContract.fundamental_dependencies || [])
+      ].filter(Boolean))]
+    },
+    strategyContractItems () {
+      if (!this.strategyContract) return []
+      const contract = this.strategyContract
+      const instruments = contract.instruments || []
+      const instrumentValue = instruments.length
+        ? instruments.map(item => item.symbol || item.instrument_id).filter(Boolean).join(' · ')
+        : (contract.universe_reference || this.$t('community.dynamicUniverse'))
+      const markets = [...new Set(instruments.map(item => item.market).filter(Boolean))]
+      const marketTypes = [...new Set(instruments.map(item => item.market_type).filter(Boolean))]
+      const strategyTypeKey = contract.strategy_type === 'portfolio' ? 'portfolio' : 'cta'
+      return [
+        {
+          key: 'instrument',
+          icon: 'global',
+          label: this.$t('community.contractInstrument'),
+          value: instrumentValue,
+          hint: markets.join(' · ') || this.$t(`community.strategyType.${strategyTypeKey}`)
+        },
+        {
+          key: 'marketType',
+          icon: 'bank',
+          label: this.$t('community.contractMarketType'),
+          value: marketTypes.length
+            ? marketTypes.map(value => this.formatMarketType(value)).join(' · ')
+            : this.$t('community.marketTypeUnspecified'),
+          hint: this.$t(`community.strategyType.${strategyTypeKey}`)
+        },
+        {
+          key: 'frequency',
+          icon: 'clock-circle',
+          label: this.$t('community.contractFrequency'),
+          value: contract.primary_frequency || '—',
+          hint: this.$t('community.sourceControlled')
+        },
+        {
+          key: 'leverage',
+          icon: 'dashboard',
+          label: this.$t('community.contractLeverage'),
+          value: contract.leverage_allowed
+            ? this.$t('community.contractMaxLeverage', { value: this.formatLeverage(contract.max_leverage) })
+            : this.$t('community.contractNoLeverage'),
+          hint: contract.leverage_allowed
+            ? this.$t('community.leverageDeclared')
+            : this.$t('community.spotRiskBoundary')
+        }
+      ]
+    },
+    purchaseActionLabel () {
+      const isFree = this.detail && (this.detail.pricing_type === 'free' || this.detail.price <= 0)
+      if (!this.isStrategyAsset) {
+        return isFree ? this.$t('community.getFree') : this.$t('community.buyNow')
+      }
+      return isFree ? this.$t('community.getStrategy') : this.$t('community.buyStrategy')
+    },
+    codeHidden () {
+      const d = this.detail || {}
+      return !!(d.code_hidden || d.codeHidden || d.hide_code || d.hideCode || d.is_encrypted)
+    },
+    parameterCount () {
+      const raw = (this.detail && (this.detail.param_count || this.detail.parameter_count || this.detail.params_count)) || 0
+      const n = Number(raw)
+      return Number.isFinite(n) && n > 0 ? n : 0
+    },
+    parameterLabel () {
+      return this.parameterCount > 0
+        ? this.$t('community.paramCount', { n: this.parameterCount })
+        : this.$t('community.adjustableParams')
+    },
+    ratingLabel () {
+      const rating = Number((this.detail && this.detail.avg_rating) || 0)
+      const count = Number((this.detail && this.detail.rating_count) || 0)
+      return rating > 0 ? `${rating.toFixed(1)} / ${count}` : this.$t('community.noRatings')
+    },
+    indicatorProfileItems () {
+      const d = this.detail || {}
+      return [
+        {
+          key: 'source',
+          icon: this.codeHidden ? 'lock' : 'unlock',
+          tone: this.codeHidden ? 'warning' : 'success',
+          label: this.$t('community.codeVisibility'),
+          value: this.codeHidden ? this.$t('community.codeHidden') : this.$t('community.codeVisible')
+        },
+        {
+          key: 'params',
+          icon: 'sliders',
+          tone: 'primary',
+          label: this.$t('community.parameters'),
+          value: this.parameterLabel
+        },
+        {
+          key: 'markers',
+          icon: 'environment',
+          tone: 'success',
+          label: this.$t('community.chartMarkers'),
+          value: this.$t('community.visualSignals')
+        },
+        {
+          key: 'layers',
+          icon: 'block',
+          tone: 'gold',
+          label: this.$t('community.overlayLayers'),
+          value: this.$t('community.chartAnnotations')
+        },
+        {
+          key: 'downloads',
+          icon: 'download',
+          label: this.$t('community.downloads'),
+          value: String(d.purchase_count || 0)
+        },
+        {
+          key: 'rating',
+          icon: 'star',
+          tone: 'gold',
+          label: this.$t('community.rating'),
+          value: this.ratingLabel
+        }
+      ]
     },
     localCopyMissing () {
       return !!(this.detail && this.detail.is_purchased && this.detail.local_copy_missing)
@@ -395,21 +615,13 @@ export default {
     },
     useNowLabel () {
       if (this.isScriptTemplate) {
-        return this.$t('community.useScriptStrategy')
-      }
-      if (this.isBotPreset) {
-        return this.$t('community.useBotPreset')
+        return this.$t('community.useStrategyV2')
       }
       return this.$t('community.useNow')
     },
     hasEquityCurve () {
       return this.performance && Array.isArray(this.performance.equity_curve) &&
         this.performance.equity_curve.length > 1
-    },
-    hasApplicable () {
-      if (!this.performance) return false
-      return (this.performance.applicable_symbols || []).length > 0 ||
-        (this.performance.applicable_timeframes || []).length > 0
     },
     headerStyle () {
       if (!this.detail) return {}
@@ -441,7 +653,6 @@ export default {
     visible (val) {
       if (val && this.indicatorId) {
         this.loadDetail()
-        this.loadPerformance()
         this.loadComments(1)
         this.loadMyComment()
       } else {
@@ -463,6 +674,7 @@ export default {
       this.performance = null
       this.comments = { items: [], total: 0, page: 1 }
       this.myComment = null
+      this.showAllParameters = false
       this.disposeEquityChart()
     },
 
@@ -475,6 +687,11 @@ export default {
         })
         if (res.code === 1) {
           this.detail = res.data
+          if (this.isStrategyAsset) {
+            this.loadPerformance()
+          } else {
+            this.performance = null
+          }
         } else {
           this.$message.error(res.msg || this.$t('community.loadFailed'))
         }
@@ -492,32 +709,25 @@ export default {
           method: 'get'
         })
         if (res.code === 1) {
-          this.performance = res.data
-          // Equity curve has to render *after* the DOM cell exists, and
-          // echarts is dynamically imported to keep the indicator-market
-          // entry chunk small. We don't await the import here; fire and
-          // forget; if the user closes the modal before it finishes,
-          // ``disposeEquityChart`` is a no-op on a missing instance.
+          this.performance = res.data || null
           this.$nextTick(() => {
             if (this.hasEquityCurve) this.renderEquityChart()
           })
         }
       } catch (e) {
         console.error('Load performance failed:', e)
+        this.performance = null
       }
     },
 
     async renderEquityChart () {
       const el = this.$refs.equityChart
-      if (!el) return
+      if (!el || !this.performance) return
       try {
         const echarts = await import('echarts')
         this.disposeEquityChart()
         const inst = echarts.init(el)
         const points = this.performance.equity_curve || []
-        // Backend currently emits ``equity`` as a normalized series. We
-        // accept both raw numbers and {timestamp, equity} dicts so that
-        // backend schema can evolve without breaking this view.
         const xs = points.map((p, i) => {
           if (typeof p === 'object' && p !== null) {
             return p.time || p.date || p.timestamp || String(i)
@@ -530,9 +740,6 @@ export default {
           }
           return parseFloat(p) || 0
         })
-        // Start the area-fill at the baseline value (typically 1 for
-        // normalized equity, or initial capital) so a flat-line series
-        // doesn't look like it shot to infinity.
         const baseline = ys.length ? ys[0] : 0
         const dark = this.isDarkTheme
         const axisLabelColor = dark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'
@@ -588,8 +795,6 @@ export default {
           }]
         })
         this.equityChartInst = inst
-        // Modal width is fixed-ish but the chart still needs to resize
-        // when the page chrome reflows (e.g. zooming, dev tools).
         this.equityResizeHandler = () => inst.resize()
         window.addEventListener('resize', this.equityResizeHandler)
       } catch (e) {
@@ -603,7 +808,7 @@ export default {
         this.equityResizeHandler = null
       }
       if (this.equityChartInst) {
-        try { this.equityChartInst.dispose() } catch (e) { /* noop */ }
+        try { this.equityChartInst.dispose() } catch (e) {}
         this.equityChartInst = null
       }
     },
@@ -710,8 +915,6 @@ export default {
           let successKey = 'community.purchaseSuccess'
           if (assetType === 'script_template') {
             successKey = 'community.scriptTemplatePurchased'
-          } else if (assetType === 'bot_preset') {
-            successKey = 'community.botPresetPurchased'
           }
           this.$message.success(this.$t(successKey))
           this.loadDetail()
@@ -753,26 +956,23 @@ export default {
         if (sid) {
           this.$router.push({
             path: '/strategy-ide',
-            query: { tab: 'script', source_id: String(sid) }
+            query: { sourceId: String(sid) }
           })
         } else {
-          this.$router.push({ path: '/strategy-ide', query: { tab: 'script' } })
+          this.$router.push({ path: '/strategy-ide' })
         }
         return
       }
-      if (assetType === 'bot_preset') {
-        const sid = this.detail && this.detail.purchased_strategy_id
-        if (sid) {
-          this.$router.push({
-            path: '/trading-bot',
-            query: { strategy_id: String(sid), action: 'edit' }
-          })
-        } else {
-          this.$router.push('/trading-bot')
-        }
-        return
-      }
-      this.$router.push('/indicator-ide')
+      const localId = this.detail && (
+        this.detail.local_copy_id ||
+        this.detail.purchased_indicator_id ||
+        this.detail.indicator_id ||
+        this.detail.id
+      )
+      this.$router.push({
+        path: '/indicator-ide',
+        query: localId ? { indicator_id: String(localId) } : {}
+      })
     },
 
     handleSyncCode () {
@@ -799,6 +999,9 @@ export default {
             this.$message.info(this.$t('community.already_latest'))
           } else if (res.msg === 'restored') {
             this.$message.success(this.$t('community.restoreCopySuccess'))
+          } else if (res.msg === 'listing_unpublished_no_update' || res.msg === 'listing_deleted_no_update') {
+            const msgKey = `community.${res.msg}`
+            this.$message.info(this.$te(msgKey) ? this.$t(msgKey) : this.$t('community.already_latest'))
           } else {
             this.$message.success(this.$t('community.syncCodeSuccess'))
           }
@@ -867,6 +1070,32 @@ export default {
       if (!days || days <= 0) return ''
       return this.$t('community.backtestDurationDays', { days })
     },
+    parameterName (param) {
+      if (param.label_key && this.$te(param.label_key)) return this.$t(param.label_key)
+      return param.label || param.name
+    },
+    formatContractValue (value, type) {
+      if (value === null || value === undefined || value === '') return '—'
+      if (type === 'boolean') {
+        return value ? this.$t('community.parameterEnabled') : this.$t('community.parameterDisabled')
+      }
+      const number = Number(value)
+      if (type === 'percent' && Number.isFinite(number)) {
+        return `${(number * 100).toFixed(Number.isInteger(number * 100) ? 0 : 2)}%`
+      }
+      if (Number.isFinite(number)) {
+        return Number.isInteger(number) ? String(number) : String(Number(number.toFixed(6)))
+      }
+      return String(value)
+    },
+    formatParameterRange (param) {
+      const hasMin = param.min !== null && param.min !== undefined
+      const hasMax = param.max !== null && param.max !== undefined
+      if (!hasMin && !hasMax) return this.$t('community.parameterNoRange')
+      const min = hasMin ? this.formatContractValue(param.min, param.type) : '—'
+      const max = hasMax ? this.formatContractValue(param.max, param.type) : '—'
+      return `${min} – ${max}`
+    },
     // Generic tone class. ``positiveThreshold`` lets callers say "Sharpe
     // is only good if >= 1" without re-implementing the rule.
     toneClass (val, positiveThreshold = 0) {
@@ -927,6 +1156,25 @@ export default {
 
     .header-info {
       flex: 1;
+
+      .strategy-title-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+
+        .indicator-name {
+          margin-bottom: 0;
+        }
+
+        .strategy-api-badge {
+          margin: 0;
+          border-color: rgba(255, 255, 255, 0.32);
+          background: rgba(255, 255, 255, 0.14);
+          color: #fff;
+        }
+      }
 
       .indicator-name {
         font-size: 20px;
@@ -1006,9 +1254,451 @@ export default {
       }
     }
 
+    .indicator-profile-section {
+      h3 {
+        margin-bottom: 14px;
+      }
+    }
+
+    .indicator-profile-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .profile-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.025));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+      &__icon {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        background: rgba(24, 144, 255, 0.1);
+        color: var(--primary-color, #1890ff);
+
+        &--success {
+          background: rgba(82, 196, 26, 0.12);
+          color: #389e0d;
+        }
+
+        &--warning,
+        &--gold {
+          background: rgba(250, 173, 20, 0.14);
+          color: #d48806;
+        }
+      }
+
+      &__body {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        span {
+          font-size: 12px;
+          color: rgba(0, 0, 0, 0.45);
+        }
+
+        strong {
+          font-size: 14px;
+          color: rgba(0, 0, 0, 0.82);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .visual-showcase {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(24, 144, 255, 0.12);
+      background: linear-gradient(135deg, rgba(24, 144, 255, 0.06), rgba(82, 196, 26, 0.06));
+
+      &__copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        strong {
+          color: rgba(0, 0, 0, 0.82);
+        }
+
+        span {
+          color: rgba(0, 0, 0, 0.52);
+          font-size: 12px;
+          line-height: 1.6;
+        }
+      }
+
+      &__bars {
+        flex: 0 0 180px;
+        position: relative;
+        height: 58px;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 1px solid rgba(24, 144, 255, 0.14);
+        background:
+          linear-gradient(rgba(24, 144, 255, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(24, 144, 255, 0.08) 1px, transparent 1px),
+          rgba(0, 0, 0, 0.025);
+        background-size: 100% 18px, 36px 100%, auto;
+
+        .visual-line,
+        .visual-zone {
+          position: absolute;
+          left: 16px;
+          right: 16px;
+          height: 2px;
+          border-radius: 999px;
+          transform-origin: left center;
+        }
+
+        .visual-line--fast {
+          top: 20px;
+          background: linear-gradient(90deg, #1890ff, #52c41a);
+          transform: rotate(-8deg);
+        }
+
+        .visual-line--slow {
+          top: 38px;
+          background: rgba(250, 173, 20, 0.9);
+          transform: rotate(5deg);
+        }
+
+        .visual-zone {
+          top: 28px;
+          height: 14px;
+          background: linear-gradient(90deg, rgba(24, 144, 255, 0.18), rgba(82, 196, 26, 0.14));
+        }
+
+        .visual-dot {
+          position: absolute;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+
+          &--buy {
+            left: 46px;
+            top: 18px;
+            background: #52c41a;
+          }
+
+          &--sell {
+            right: 42px;
+            top: 36px;
+            background: #faad14;
+          }
+        }
+      }
+    }
+
+    .section-heading-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+
+      h3 {
+        margin-bottom: 4px;
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      p {
+        margin: 0;
+        color: rgba(0, 0, 0, 0.52);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+    }
+
+    .strategy-contract-section {
+      padding: 16px;
+      border: 1px solid rgba(24, 144, 255, 0.16);
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(24, 144, 255, 0.055), rgba(82, 196, 26, 0.025));
+    }
+
+    .source-controlled-badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(82, 196, 26, 0.1);
+      color: #389e0d;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .contract-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .contract-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.78);
+
+      &__icon {
+        flex: 0 0 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: rgba(24, 144, 255, 0.1);
+        color: var(--primary-color, #1890ff);
+      }
+
+      &__body {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        span,
+        small {
+          color: rgba(0, 0, 0, 0.45);
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
+        strong {
+          overflow: hidden;
+          color: rgba(0, 0, 0, 0.85);
+          font-size: 14px;
+          line-height: 1.45;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+
+    .contract-logic-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 160px;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .contract-logic-card {
+      min-width: 0;
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.025);
+
+      &__label {
+        display: block;
+        margin-bottom: 7px;
+        color: rgba(0, 0, 0, 0.48);
+        font-size: 11px;
+      }
+
+      &--warmup strong {
+        color: rgba(0, 0, 0, 0.82);
+        font-size: 14px;
+      }
+    }
+
+    .contract-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+
+      .ant-tag {
+        margin: 0;
+        border: 0;
+        background: rgba(24, 144, 255, 0.09);
+        color: #096dd9;
+        font-size: 11px;
+      }
+    }
+
+    .contract-empty {
+      color: rgba(0, 0, 0, 0.3);
+    }
+
+    .parameter-panel {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(24, 144, 255, 0.12);
+
+      &__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+
+        > div {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        strong {
+          color: rgba(0, 0, 0, 0.85);
+          font-size: 13px;
+        }
+
+        span {
+          color: rgba(0, 0, 0, 0.46);
+          font-size: 11px;
+        }
+
+        .parameter-count {
+          min-width: 26px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(24, 144, 255, 0.1);
+          color: var(--primary-color, #1890ff);
+          text-align: center;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .parameter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .parameter-item {
+      display: grid;
+      grid-template-columns: minmax(120px, 1.35fr) minmax(70px, 0.65fr) minmax(100px, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 10px 11px;
+      border: 1px solid rgba(0, 0, 0, 0.055);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.58);
+
+      &__name,
+      &__value,
+      &__range {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      &__name strong,
+      &__value strong,
+      &__range strong {
+        overflow: hidden;
+        color: rgba(0, 0, 0, 0.8);
+        font-size: 12px;
+        line-height: 1.4;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      &__name code,
+      &__value span,
+      &__range span {
+        overflow: hidden;
+        color: rgba(0, 0, 0, 0.4);
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .parameter-toggle {
+      display: block;
+      height: auto;
+      margin: 8px auto 0;
+      padding: 2px 8px;
+      font-size: 12px;
+    }
+
+    .evidence-heading {
+      margin-bottom: 10px;
+    }
+
+    .evidence-context {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.025);
+
+      &__label {
+        color: rgba(0, 0, 0, 0.62);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      &__tags,
+      &__quality {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      &__tags .ant-tag {
+        margin: 0;
+        border: 0;
+        font-size: 11px;
+      }
+
+      &__quality {
+        justify-content: flex-end;
+        color: rgba(0, 0, 0, 0.48);
+        font-size: 11px;
+
+        .has-live { color: #389e0d; }
+        .no-live { color: #d48806; }
+      }
+
+      .tag-symbol { background: rgba(24, 144, 255, 0.08); color: #096dd9; }
+      .tag-tf { background: rgba(82, 196, 26, 0.09); color: #389e0d; }
+      .tag-market { background: rgba(19, 194, 194, 0.1); color: #08979c; }
+      .tag-leverage { background: rgba(250, 140, 22, 0.11); color: #d46b08; }
+      .tag-duration { background: rgba(47, 84, 235, 0.09); color: #2f54eb; }
+    }
+
     .performance-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
 
       .perf-item {
@@ -1027,17 +1717,9 @@ export default {
           gap: 4px;
           flex-wrap: wrap;
 
-          .anticon { font-size: 12px; color: rgba(0, 0, 0, 0.35); }
-
-          .src-tag {
-            margin: 0;
-            font-size: 10px;
-            line-height: 14px;
-            padding: 0 4px;
-            border: none;
-
-            &--bt { background: rgba(24, 144, 255, 0.08); color: var(--primary-color, #1890ff); }
-            &--live { background: rgba(82, 196, 26, 0.08); color: #389e0d; }
+          .anticon {
+            font-size: 12px;
+            color: rgba(0, 0, 0, 0.35);
           }
         }
 
@@ -1059,7 +1741,10 @@ export default {
 
         &--score {
           background: linear-gradient(135deg, rgba(245, 175, 25, 0.12) 0%, rgba(241, 39, 17, 0.08) 100%);
-          .perf-value { color: #d4380d; }
+
+          .perf-value {
+            color: #d4380d;
+          }
         }
       }
     }
@@ -1076,6 +1761,7 @@ export default {
         color: rgba(0, 0, 0, 0.5);
         width: 80px;
       }
+
       &__tags {
         display: flex;
         flex-wrap: wrap;
@@ -1086,9 +1772,18 @@ export default {
           font-size: 11px;
           border: none;
         }
-        .tag-symbol { background: rgba(24, 144, 255, 0.08); color: var(--primary-color, #1890ff); }
-        .tag-tf { background: rgba(82, 196, 26, 0.08); color: #389e0d; }
+
+        .tag-symbol {
+          background: rgba(24, 144, 255, 0.08);
+          color: var(--primary-color, #1890ff);
+        }
+
+        .tag-tf {
+          background: rgba(82, 196, 26, 0.08);
+          color: #389e0d;
+        }
       }
+
       &__empty {
         color: rgba(0, 0, 0, 0.3);
       }
@@ -1109,11 +1804,13 @@ export default {
         flex-wrap: wrap;
         gap: 8px;
       }
+
       &__title {
         font-size: 14px;
         font-weight: 600;
         color: rgba(0, 0, 0, 0.85);
       }
+
       &__meta {
         display: flex;
         align-items: center;
@@ -1126,6 +1823,7 @@ export default {
           font-size: 11px;
           border: none;
         }
+
         .tag-symbol { background: rgba(24, 144, 255, 0.08); color: var(--primary-color, #1890ff); }
         .tag-tf { background: rgba(82, 196, 26, 0.08); color: #389e0d; }
         .tag-market--spot { background: rgba(19, 194, 194, 0.1); color: #08979c; }
@@ -1135,11 +1833,16 @@ export default {
         .positive { color: #52c41a; font-weight: 600; }
         .negative { color: #f5222d; font-weight: 600; }
       }
-      &__meta-sep { color: rgba(0, 0, 0, 0.25); }
+
+      &__meta-sep {
+        color: rgba(0, 0, 0, 0.25);
+      }
+
       &__chart {
         width: 100%;
         height: 220px;
       }
+
       &__hint {
         margin-top: 4px;
         font-size: 11px;
@@ -1147,6 +1850,7 @@ export default {
         line-height: 1.6;
       }
     }
+
   }
 
   .detail-footer {
@@ -1243,6 +1947,140 @@ export default {
       color: rgba(255, 255, 255, 0.72);
     }
 
+    .section-heading-row p {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .strategy-contract-section {
+      border-color: #373d37;
+      background: linear-gradient(145deg, #202320, #202020);
+    }
+
+    .source-controlled-badge {
+      background: rgba(82, 196, 26, 0.16);
+      color: #95de64;
+    }
+
+    .contract-card,
+    .parameter-item {
+      border-color: #383838;
+      background: #292929;
+    }
+
+    .contract-card__body {
+      span,
+      small { color: rgba(255, 255, 255, 0.45); }
+      strong { color: rgba(255, 255, 255, 0.88); }
+    }
+
+    .contract-card__icon {
+      background: rgba(82, 196, 26, 0.12);
+      color: #8fd96a;
+    }
+
+    .contract-logic-card,
+    .evidence-context {
+      border-color: #363636;
+      background: #262626;
+    }
+
+    .contract-logic-card {
+      &__label { color: rgba(255, 255, 255, 0.48); }
+      &--warmup strong { color: rgba(255, 255, 255, 0.86); }
+    }
+
+    .contract-tags .ant-tag {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .parameter-panel {
+      border-color: rgba(255, 255, 255, 0.09);
+
+      &__head {
+        strong { color: rgba(255, 255, 255, 0.88); }
+        span { color: rgba(255, 255, 255, 0.46); }
+        .parameter-count { background: rgba(82, 196, 26, 0.14); color: #95de64; }
+      }
+    }
+
+    .parameter-item {
+      &__name strong,
+      &__value strong,
+      &__range strong { color: rgba(255, 255, 255, 0.82); }
+
+      &__name code,
+      &__value span,
+      &__range span { color: rgba(255, 255, 255, 0.4); }
+    }
+
+    .evidence-context {
+      &__label { color: rgba(255, 255, 255, 0.7); }
+      &__quality { color: rgba(255, 255, 255, 0.46); }
+      .tag-symbol { background: rgba(24, 144, 255, 0.16); color: #69c0ff; }
+      .tag-tf { background: rgba(82, 196, 26, 0.16); color: #95de64; }
+      .tag-market { background: rgba(19, 194, 194, 0.18); color: #5cdbd3; }
+      .tag-leverage { background: rgba(250, 140, 22, 0.18); color: #ffc069; }
+      .tag-duration { background: rgba(47, 84, 235, 0.2); color: #85a5ff; }
+      .has-live { color: #95de64; }
+      .no-live { color: #ffd666; }
+    }
+
+    .indicator-profile-grid .profile-item {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: #303030;
+
+      &__body {
+        span {
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        strong {
+          color: rgba(255, 255, 255, 0.86);
+        }
+      }
+    }
+
+    .profile-item__icon {
+      background: rgba(24, 144, 255, 0.16);
+      color: #69c0ff;
+
+      &--success {
+        background: rgba(82, 196, 26, 0.16);
+        color: #95de64;
+      }
+
+      &--warning,
+      &--gold {
+        background: rgba(250, 173, 20, 0.18);
+        color: #ffd666;
+      }
+    }
+
+    .visual-showcase {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: linear-gradient(135deg, rgba(24, 144, 255, 0.12), rgba(82, 196, 26, 0.08));
+
+      &__copy {
+        strong {
+          color: rgba(255, 255, 255, 0.88);
+        }
+
+        span {
+          color: rgba(255, 255, 255, 0.56);
+        }
+      }
+
+      &__bars {
+        border-color: rgba(255, 255, 255, 0.1);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          rgba(0, 0, 0, 0.18);
+        background-size: 100% 18px, 36px 100%, auto;
+      }
+    }
+
     .performance-grid .perf-item {
       background: #262626;
 
@@ -1252,18 +2090,6 @@ export default {
         .anticon {
           color: rgba(255, 255, 255, 0.35);
         }
-
-        .src-tag {
-          &--bt {
-            background: rgba(24, 144, 255, 0.16);
-            color: #69c0ff;
-          }
-
-          &--live {
-            background: rgba(82, 196, 26, 0.16);
-            color: #95de64;
-          }
-        }
       }
 
       .perf-value {
@@ -1272,6 +2098,9 @@ export default {
         .perf-unit {
           color: rgba(255, 255, 255, 0.45);
         }
+
+        &.positive { color: #95de64; }
+        &.negative { color: #ff7875; }
       }
 
       &--score {
@@ -1324,13 +2153,12 @@ export default {
           color: #95de64;
         }
 
-        .positive {
-          color: #95de64;
-        }
-
-        .negative {
-          color: #ff7875;
-        }
+        .tag-market--spot { background: rgba(19, 194, 194, 0.18); color: #5cdbd3; }
+        .tag-market--swap { background: rgba(114, 46, 209, 0.22); color: #b37feb; }
+        .tag-leverage { background: rgba(250, 140, 22, 0.18); color: #ffc069; }
+        .tag-duration { background: rgba(47, 84, 235, 0.2); color: #85a5ff; }
+        .positive { color: #95de64; }
+        .negative { color: #ff7875; }
       }
 
       &__meta-sep {
@@ -1341,6 +2169,7 @@ export default {
         color: rgba(255, 255, 255, 0.45);
       }
     }
+
   }
 
   .detail-footer {
@@ -1354,6 +2183,42 @@ export default {
 
       .price-line--secondary .price-current-aside {
         color: rgba(255, 255, 255, 0.35);
+      }
+    }
+  }
+}
+
+@media (max-width: 760px) {
+  .indicator-detail-modal {
+    .detail-header {
+      .header-cover {
+        width: 112px;
+        height: 96px;
+      }
+
+      .indicator-meta,
+      .indicator-stats {
+        flex-wrap: wrap;
+      }
+    }
+
+    .detail-body {
+      .contract-grid,
+      .performance-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .contract-logic-grid,
+      .parameter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .evidence-context {
+        grid-template-columns: 1fr;
+
+        &__quality {
+          justify-content: flex-start;
+        }
       }
     }
   }
@@ -1420,21 +2285,64 @@ export default {
       color: rgba(255, 255, 255, 0.65);
     }
 
+    .indicator-profile-grid .profile-item {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: #303030;
+
+      &__body {
+        span { color: rgba(255, 255, 255, 0.5); }
+        strong { color: rgba(255, 255, 255, 0.86); }
+      }
+    }
+
+    .profile-item__icon {
+      background: rgba(24, 144, 255, 0.16);
+      color: #69c0ff;
+
+      &--success {
+        background: rgba(82, 196, 26, 0.16);
+        color: #95de64;
+      }
+
+      &--warning,
+      &--gold {
+        background: rgba(250, 173, 20, 0.18);
+        color: #ffd666;
+      }
+    }
+
+    .visual-showcase {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: linear-gradient(135deg, rgba(24, 144, 255, 0.12), rgba(82, 196, 26, 0.08));
+
+      &__copy {
+        strong { color: rgba(255, 255, 255, 0.88); }
+        span { color: rgba(255, 255, 255, 0.56); }
+      }
+
+      &__bars {
+        border-color: rgba(255, 255, 255, 0.1);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          rgba(0, 0, 0, 0.18);
+        background-size: 100% 18px, 36px 100%, auto;
+      }
+    }
+
     .performance-grid .perf-item {
       background: #262626 !important;
 
       .perf-label {
         color: rgba(255, 255, 255, 0.55);
         .anticon { color: rgba(255, 255, 255, 0.35); }
-        .src-tag {
-          &--bt { background: rgba(24, 144, 255, 0.16); color: #69c0ff; }
-          &--live { background: rgba(82, 196, 26, 0.16); color: #95de64; }
-        }
       }
 
       .perf-value {
         color: rgba(255, 255, 255, 0.88);
         .perf-unit { color: rgba(255, 255, 255, 0.45); }
+        &.positive { color: #95de64; }
+        &.negative { color: #ff7875; }
       }
 
       &--score {

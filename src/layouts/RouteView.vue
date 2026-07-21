@@ -11,19 +11,9 @@ export default {
     return {}
   },
   render () {
-    const { $route: { meta }, $store: { getters } } = this
-    const inKeep = (
-      <keep-alive>
-        <router-view />
-      </keep-alive>
-    )
-    const notKeep = (
-      <router-view />
-    )
-    if (!getters.multiTab && !meta.keepAlive) {
-      return notKeep
-    }
-    return this.keepAlive || getters.multiTab || meta.keepAlive ? inKeep : notKeep
+    const { $route } = this
+    const routeKey = $route.fullPath || $route.path
+    return <router-view key={routeKey} />
   }
 }
 </script>

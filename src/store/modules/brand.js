@@ -28,11 +28,11 @@ const DEFAULT_BRAND = {
   contact: {
     email: 'support@quantdinger.com',
     support_url: 'https://t.me/quantdinger',
-    feature_request_url: 'https://github.com/brokermr810/QuantDinger/issues',
+    feature_request_url: 'https://github.com/OpenByteInc/QuantDinger/issues',
     live_chat_url: 'https://t.me/quantdinger'
   },
   social_accounts: [
-    { name: 'GitHub', icon: 'github', url: 'https://github.com/brokermr810/QuantDinger' },
+    { name: 'GitHub', icon: 'github', url: 'https://github.com/OpenByteInc/QuantDinger' },
     { name: 'X', icon: 'x', url: 'https://x.com/quantdinger_en' },
     { name: 'Discord', icon: 'discord', url: 'https://discord.com/invite/tyx5B6TChr' },
     { name: 'Telegram', icon: 'telegram', url: 'https://t.me/quantdinger' },

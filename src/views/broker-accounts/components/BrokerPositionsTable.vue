@@ -127,7 +127,7 @@ export default {
   }
 
   ::v-deep .ant-table-thead > tr > th {
-    background: #111214;
+    background: #0d0d0d;
     color: rgba(255, 255, 255, 0.78);
     border-bottom-color: #303030;
   }
@@ -139,7 +139,7 @@ export default {
   }
 
   ::v-deep .ant-table-tbody > tr:hover > td {
-    background: #1f2630 !important;
+    background: #202020 !important;
   }
 
   ::v-deep .ant-table-placeholder {
