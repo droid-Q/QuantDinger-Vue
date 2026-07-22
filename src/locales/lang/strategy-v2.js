@@ -1,4 +1,5 @@
 const locale = {
+  'strategyV2.sourceRequired': 'This strategy has no source code attached. Edit it and select a Strategy API V2 source before starting.',
   'strategyV2.backtest.mode.portfolio': 'Portfolio Backtest',
   'strategyV2.backtest.mode.factor': 'Factor Research',
   'strategyV2.backtest.portfolioDashboard': 'Portfolio performance and risk',
@@ -319,6 +320,7 @@ const zhCN = {
   'strategyV2.backtest.entryMarker': '\u5f00\u4ed3',
   'strategyV2.backtest.exitMarker': '\u5e73\u4ed3',
   ...enUSFallback,
+  'strategyV2.sourceRequired': '当前策略未关联源码，请编辑策略并选择 Strategy API V2 源码后再启动。',
   'strategyV2.backtest.historyLoading': '\u6b63\u5728\u52a0\u8f7d\u56de\u6d4b\u8bb0\u5f55 #{id}\uff0c\u6570\u636e\u8f83\u591a\u65f6\u9700\u8981\u7b49\u5f85\u7247\u523b\u3002',
   'strategyV2.backtest.historyLoadFailed': '\u56de\u6d4b\u5386\u53f2\u8be6\u60c5\u52a0\u8f7d\u5931\u8d25\u3002',
   'strategyV2.factorResearch.historyLoading': '\u6b63\u5728\u52a0\u8f7d\u56e0\u5b50\u7814\u7a76 FR-{id}\uff0c\u6570\u636e\u8f83\u591a\u65f6\u9700\u8981\u7b49\u5f85\u7247\u523b\u3002',

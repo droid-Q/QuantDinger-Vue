@@ -124,10 +124,12 @@ export default {
           }
           await this.loadStrategies()
         } else {
-          this.$message.error((res && res.msg) || this.$t('trading-assistant.messages.startFailed'))
+          const key = String((res && res.msg) || '')
+          this.$message.error(key && this.$te(key) ? this.$t(key) : (key || this.$t('trading-assistant.messages.startFailed')))
         }
       } catch (error) {
-        this.$message.error(error.backendMessage || error.message || this.$t('trading-assistant.messages.startFailed'))
+        const key = String(error.backendMessage || error.message || '')
+        this.$message.error(key && this.$te(key) ? this.$t(key) : (key || this.$t('trading-assistant.messages.startFailed')))
       } finally {
         this.controlLoadingId = null
       }
