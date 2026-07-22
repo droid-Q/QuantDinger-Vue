@@ -43,6 +43,7 @@ test('generated robot metadata is preserved for save, backtest and live deployme
   assert.match(strategyIdeSource, /generated\.trading_config && generated\.trading_config\.executor_config/)
   assert.match(strategyIdeSource, /delete generatedTradingConfig\.initial_capital/)
   assert.match(strategyIdeSource, /delete generatedTradingConfig\.leverage/)
+  assert.match(strategyIdeSource, /marketType === 'spot' && !isForex/)
 })
 
 test('template configuration excludes run capital and leverage', () => {

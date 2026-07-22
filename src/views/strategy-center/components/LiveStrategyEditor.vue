@@ -374,6 +374,7 @@ export default {
       return ['Crypto', 'USStock', 'Forex'].includes(this.marketCategory)
     },
     requiresDirectionMode () {
+      if (this.marketCategory === 'Forex') return true
       if (this.marketCategory !== 'Crypto') return false
       const universe = this.parseObject(this.strategyManifest.universe)
       const instruments = Array.isArray(universe.instruments) ? universe.instruments : []

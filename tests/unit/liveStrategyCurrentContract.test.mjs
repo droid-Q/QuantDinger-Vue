@@ -23,3 +23,7 @@ test('live strategy direction is contract-driven with a legacy fallback', () => 
   assert.match(source, /directionMode: this\.requiresDirectionMode \? this\.effectiveDirectionMode/)
   assert.doesNotMatch(source, /v-model="model\.positionSide"/)
 })
+
+test('Forex live strategies request an explicit direction mode', () => {
+  assert.match(source, /if \(this\.marketCategory === 'Forex'\) return true/)
+})

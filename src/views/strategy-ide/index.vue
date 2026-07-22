@@ -1184,7 +1184,8 @@ export default {
       const cfg = this.runConfig || {}
       const marketCategory = cfg.market_category || cfg.marketCategory || 'Crypto'
       const marketType = marketCategory === 'Crypto' && cfg.market_type === 'swap' ? 'swap' : 'spot'
-      const tradeDirection = marketType === 'spot' ? 'long' : (cfg.trade_direction || 'long')
+      const isForex = ['Forex', 'MT5'].includes(String(marketCategory))
+      const tradeDirection = marketType === 'spot' && !isForex ? 'long' : (cfg.trade_direction || 'long')
       const investmentAmount = Number(cfg.initial_capital || cfg.investment_amount || 10000)
       const codeTimeframe = this.extractScriptTimeframeFromCode(this.getCurrentScriptCode())
       const out = {
