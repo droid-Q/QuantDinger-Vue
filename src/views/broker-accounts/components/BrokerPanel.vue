@@ -11,11 +11,13 @@
             {{ $t('brokerAccounts.' + broker.id + '.name') }}
           </div>
           <div class="bp-status-line">
-            <a-badge :status="status && status.connected ? 'success' : 'default'" />
+            <a-badge :status="mt5TradingBlocked ? 'error' : (status && status.connected ? 'success' : 'default')" />
             <span class="bp-status-text">
-              {{ status && status.connected
-                ? $t('brokerAccounts.connected')
-                : $t('brokerAccounts.notConnected') }}
+              {{ mt5TradingBlocked
+                ? $t('brokerAccounts.mt5.tradingDisabled')
+                : status && status.connected
+                  ? $t('brokerAccounts.connected')
+                  : $t('brokerAccounts.notConnected') }}
             </span>
             <span v-if="status && status.connected && (status.accountId || status.host || status.server)" class="bp-status-account">
               · {{ status.accountId || status.server || (status.host + ':' + status.port) }}
@@ -45,6 +47,15 @@
       show-icon
       class="bp-cloud-alert"
       :message="$t('brokerAccounts.cloudBlockedAlert', { broker: $t('brokerAccounts.' + broker.id + '.name') })"
+    />
+
+    <a-alert
+      v-if="mt5TradingBlocked"
+      type="error"
+      show-icon
+      class="bp-cloud-alert"
+      :message="$t('brokerAccounts.mt5.tradingDisabled')"
+      :description="$t('brokerAccounts.mt5.tradingDisabledHint', { path: mt5TerminalPath })"
     />
 
     <a-tabs v-model="innerTab" class="bp-inner-tabs">
@@ -136,8 +147,14 @@ export default {
     isConnected () {
       return !!(this.status && this.status.connected)
     },
+    mt5TradingBlocked () {
+      return this.broker.id === 'mt5' && this.isConnected && this.status.tradingReady === false
+    },
+    mt5TerminalPath () {
+      return (this.status && this.status.terminal && this.status.terminal.path) || '--'
+    },
     connectionStateClass () {
-      return this.isConnected ? 'is-connected' : 'is-disconnected'
+      return this.mt5TradingBlocked ? 'is-disconnected' : (this.isConnected ? 'is-connected' : 'is-disconnected')
     },
     docsLink () {
       return DOCS[this.broker.id] || '#'

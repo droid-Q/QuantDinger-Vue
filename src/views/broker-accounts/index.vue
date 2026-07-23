@@ -324,6 +324,8 @@ export default {
         host: payload.host || '',
         port: payload.port || null,
         server: payload.server || '',
+        tradingReady: payload.tradingReady,
+        terminal: payload.terminal || {},
         raw: payload
       }
     },

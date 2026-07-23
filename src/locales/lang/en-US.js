@@ -6510,6 +6510,8 @@ const locale = {
   "brokerAccounts.ibkr.helpText": "IBKR requires a running TWS or IB Gateway with API access enabled. {docs}",
   "brokerAccounts.ibkr.docsLabel": "Download TWS →",
   "brokerAccounts.mt5.name": "MT5 / CPT Markets",
+  "brokerAccounts.mt5.tradingDisabled": "The MT5 terminal is connected, but automated trading is unavailable",
+  "brokerAccounts.mt5.tradingDisabledHint": "Backend terminal: {path}. Run QuantDingerBackend under the same Windows account as the configured MT5 terminal, enable AutoTrading, and keep external Python API trading enabled.",
   "brokerAccounts.mt5.docsLabel": "Download MetaTrader 5 →",
   "brokerAccounts.mt5.helpText": "MT5 requires a running local MetaTrader 5 terminal on Windows. {docs}",
   "brokerAccounts.mt5.localTitle": "Run on the MT5 Windows host",

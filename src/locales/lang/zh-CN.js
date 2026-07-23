@@ -6294,6 +6294,8 @@ const locale = {
   "brokerAccounts.ibkr.helpText": "IBKR 需要在本机或可达网络运行 TWS / IB Gateway。请确保已在 TWS 中启用 API 访问。{docs}",
   "brokerAccounts.ibkr.docsLabel": "IBKR TWS 下载与配置 →",
   "brokerAccounts.mt5.name": "MT5 / CPT Markets",
+  "brokerAccounts.mt5.tradingDisabled": "MT5 终端已连接，但自动交易不可用",
+  "brokerAccounts.mt5.tradingDisabledHint": "后端连接的终端：{path}。请确认 QuantDingerBackend 与已配置的 MT5 使用同一 Windows 账户，并启用算法交易及外部 Python API 交易。",
   "brokerAccounts.mt5.docsLabel": "下载 MetaTrader 5 →",
   "brokerAccounts.mt5.helpText": "MT5 需要 Windows 上正在运行的本地 MetaTrader 5 终端。{docs}",
   "brokerAccounts.mt5.localTitle": "请在 MT5 所在 Windows 主机运行",
